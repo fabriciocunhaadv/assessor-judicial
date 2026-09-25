@@ -1,0 +1,151 @@
+[
+  {
+    "id": "analysis-1788882565750-vyrarh3",
+    "promptTitle": "Elaborar sentença de improcedência com base nas teses do gab",
+    "date": 1788882565750,
+    "processNumber": "1234567-89.2024.8.09.0115",
+    "result": {
+      "minute": {
+        "title": "SENTENÇA",
+        "header": "PODER JUDICIÁRIO DO ESTADO DE GOIÁS\nCOMARCA DE MINEIROS\nJUIZADO ESPECIAL CÍVEL",
+        "processNumber": "1234567-89.2024.8.09.0115",
+        "judicialUnit": "Juizado Especial Cível de Mineiros",
+        "parties": {
+          "author": "JOÃO",
+          "defendant": "BANCO X"
+        },
+        "relatorio": "Trata-se de **AÇÃO DECLARATÓRIA DE INEXISTÊNCIA DE DÉBITO C/C REPETIÇÃO DE INDÉBITO E INDENIZAÇÃO POR DANOS MORAIS** proposta por **JOÃO** em face de **BANCO X**, partes devidamente qualificadas nos autos em epígrafe.\n\nNarra a parte requerente na petição inicial que vem sofrendo descontos indevidos em sua conta bancária/benefício previdenciário no importe de R$ 500,00 (quinhentos reais), decorrentes de operação de crédito cuja contratação refuta expressamente. Sustenta que jamais celebrou qualquer ajuste com a instituição financeira ré e que não anuiu com a transação. Diante disso, requereu a concessão da tutela provisória de urgência para estancar os descontos, a declaração de nulidade e inexigibilidade do débito, a repetição em dobro dos valores descontados e a condenação do banco promovido ao pagamento de indenização a título de danos morais.\n\nDeterminada a citação da instituição financeira, esta apresentou contestação aos autos, oportunidade em que impugnou a pretensão inicial asseverando a integral licitude da contratação. Juntou aos autos o instrumento contratual celebrado em meio digital, contendo validação biométrica facial (selfie), geolocalização e metadados de autenticação, bem como comprovante de transferência bancária (TED) com efetiva liquidação financeira dos recursos diretamente na conta corrente de titularidade do autor. Pugnou, ao final, pela total improcedência dos pedidos vertidos na exordial.\n\nInstada a se manifestar em sede de réplica sobre os documentos trazidos pela defesa, a parte autora limitou-se a reiterar os termos da petição inicial, sem produzir prova capaz de desconstituir os registros eletrônicos e bancários apresentados pela demandada.\n\nDispensada a dilação probatória diante da desnecessidade de outras provas e ausente requerimento específico de perícia grafotécnica ou técnica computacional, vieram os autos conclusos para julgamento.",
+        "fundamentacao": "Presentes os pressupostos processuais de constituição e desenvolvimento válido e regular do processo, bem como as condições da ação, impõe-se o julgamento antecipado do mérito nos termos do art. 355, I, do Código de Processo Civil, uma vez que a matéria fática encontra-se devidamente aparelhada pelas provas documentais coligidas, prescindindo da produção de provas adicionais em audiência.\n\nO cerne da controvérsia cinge-se a perquirir a regularidade da contratação do mútuo bancário imputado à parte requerente, a legitimidade dos descontos mensais no valor de R$ 500,00 (quinhentos reais), a existência de dever de restituição e o cabimento de compensação pecuniária por danos morais.\n\nImpende assentar, de início, a incidência dos ditames do Código de Defesa do Consumidor à relação jurídica entabulada entre as partes, a teor do preconizado na **Súmula 297 do Superior Tribunal de Justiça**, segundo a qual *\"o Código de Defesa do Consumidor é aplicável às instituições financeiras\"*. Não obstante a subsunção ao microssistema consumerista e a facilitação da defesa dos direitos do hipossuficiente (art. 6º, VIII, do CDC), a inversão do ônus probatório não exonera o consumidor de demonstrar minimamente a verossimilhança de suas alegações, nos termos do art. 373, I, do Código de Processo Civil, cabendo ao fornecedor afastar a responsabilidade mediante a comprovação da inexistência de defeito na prestação de serviços ou de culpa exclusiva do consumidor ou de terceiro (art. 14, § 3º, CDC).\n\nNo que tange aos contratos celebrados eletronicamente, a jurisprudência fixada pelo STJ no julgamento do **Tema Repetitivo 1.061** (REsp 1.846.649/MA) estabelece que, impugnada a autenticidade, cumpre ao credor a comprovação da higidez do negócio jurídico. Nesse diapasão, o **Caderno de Teses do Gabinete** firma a diretriz vinculante de que: *\"Quando a instituição financeira comprovar a disponibilização e o proveito econômico do crédito na conta bancária do autor (TED/PIX/extrato bancário idôneo) e juntar contrato assinado fisicamente ou com biometria facial/aceite eletrônico válido: JULGAR IMPROCEDENTES os pedidos de anulação de contrato, restituição de valores e indenização por dano moral.\"*\n\nExaminando minuciosamente o acervo probatório acostado aos autos, verifica-se que a instituição bancária ré desincumbiu-se a contento de seu ônus processual. O promovido carreou aos autos cópia integral do instrumento contratual formalizado mediante adesão por plataforma eletrônica idônea, acompanhado de captura de biometria facial (selfie), validação de documento de identificação pessoal e metadados consistentes de autenticação (endereço IP, carimbo temporal/timestamp e dispositivo utilizado), conferindo segurança jurídica e certeza à manifestação de vontade expressada pelo consumidor.\n\nDe igual modo, a instituição requerida anexou aos autos o comprovante indiscutível de liquidação financeira da operação via Transferência Eletrônica Disponível (TED), o qual atesta de maneira inconcussa a disponibilização e a incorporação do valor mutuado diretamente na conta bancária mantida e titularizada pelo requerente. Caberia à parte autora, ao ter acesso à comprovação documental do repasse, coligir seus extratos bancários com o fito de comprovar o não recebimento ou evidenciar a imediata tentativa de devolução administrativa do montante depositado. Ao revés, o demandante manteve postura inerte, usufruindo da quantia disponibilizada em seu patrimônio econômico, o que torna incontroverso o mútuo e chancela o aperfeiçoamento da avença.\n\nNesse contexto, evidenciada a manifestação volitiva válida e demonstrada a inequívoca disponibilização dos recursos financeiros em proveito da parte autora, resta afastada qualquer hipótese de ilicitude ou defeito na prestação de serviços por parte do banco réu (art. 14, § 3º, I, do CDC). Consequentemente, mostram-se legítimos e devidos os descontos efetuados no importe pactuado, impondo-se a rejeição do pedido de anulação contratual e, por decorrência lógica, dos pleitos de restituição de indébito e de indenização por danos morais.",
+        "dispositivo": "Ante o exposto, com fundamento no art. 487, inciso I, do Código de Processo Civil, e nas diretrizes vinculantes do Caderno de Teses deste Gabinete, **JULGO TOTALMENTE IMPROCEDENTES** os pedidos deduzidos na petição inicial formulados por **JOÃO** em face de **BANCO X**, extinguindo o processo com resolução do mérito.\n\nSem condenação ao pagamento de custas processuais e honorários advocatícios sucumbenciais em primeiro grau de jurisdição, ex vi do disposto no art. 55 da Lei Federal nº 9.099/1995.\n\nPublique-se. Intimem-se.\n\nCom o trânsito em julgado desta sentença, certifique-se e, em nada mais sendo requerido, arquivem-se os presentes autos com as cautelas de praxe e baixa definitiva na distribuição.",
+        "closing": "Mineiros/GO, data da assinatura eletrônica.\n\nJuiz(a) de Direito",
+        "fullFormattedText": "PODER JUDICIÁRIO DO ESTADO DE GOIÁS\nCOMARCA DE MINEIROS\nJUIZADO ESPECIAL CÍVEL\n\nPROCESSO Nº: 1234567-89.2024.8.09.0115\n\nREQUERENTE: JOÃO\n\nREQUERIDO: BANCO X\n\n\n\nSENTENÇA\n\n\n\nI. RELATÓRIO\n\nTrata-se de **AÇÃO DECLARATÓRIA DE INEXISTÊNCIA DE DÉBITO C/C REPETIÇÃO DE INDÉBITO E INDENIZAÇÃO POR DANOS MORAIS** proposta por **JOÃO** em face de **BANCO X**, partes devidamente qualificadas nos autos em epígrafe.\n\nNarra a parte requerente na petição inicial que vem sofrendo descontos indevidos em sua conta bancária/benefício previdenciário no importe de R$ 500,00 (quinhentos reais), decorrentes de operação de crédito cuja contratação refuta expressamente. Sustenta que jamais celebrou qualquer ajuste com a instituição financeira ré e que não anuiu com a transação. Diante disso, requereu a concessão da tutela provisória de urgência para estancar os descontos, a declaração de nulidade e inexigibilidade do débito, a repetição em dobro dos valores descontados e a condenação do banco promovido ao pagamento de indenização a título de danos morais.\n\nDeterminada a citação da instituição financeira, esta apresentou contestação aos autos, oportunidade em que impugnou a pretensão inicial asseverando a integral licitude da contratação. Juntou aos autos o instrumento contratual celebrado em meio digital, contendo validação biométrica facial (selfie), geolocalização e metadados de autenticação, bem como comprovante de transferência bancária (TED) com efetiva liquidação financeira dos recursos diretamente na conta corrente de titularidade do autor. Pugnou, ao final, pela total improcedência dos pedidos vertidos na exordial.\n\nInstada a se manifestar em sede de réplica sobre os documentos trazidos pela defesa, a parte autora limitou-se a reiterar os termos da petição inicial, sem produzir prova capaz de desconstituir os registros eletrônicos e bancários apresentados pela demandada.\n\nDispensada a dilação probatória diante da desnecessidade de outras provas e ausente requerimento específico de perícia grafotécnica ou técnica computacional, vieram os autos conclusos para julgamento.\n\n\n\nII. FUNDAMENTAÇÃO\n\nPresentes os pressupostos processuais de constituição e desenvolvimento válido e regular do processo, bem como as condições da ação, impõe-se o julgamento antecipado do mérito nos termos do art. 355, I, do Código de Processo Civil, uma vez que a matéria fática encontra-se devidamente aparelhada pelas provas documentais coligidas, prescindindo da produção de provas adicionais em audiência.\n\nO cerne da controvérsia cinge-se a perquirir a regularidade da contratação do mútuo bancário imputado à parte requerente, a legitimidade dos descontos mensais no valor de R$ 500,00 (quinhentos reais), a existência de dever de restituição e o cabimento de compensação pecuniária por danos morais.\n\nImpende assentar, de início, a incidência dos ditames do Código de Defesa do Consumidor à relação jurídica entabulada entre as partes, a teor do preconizado na **Súmula 297 do Superior Tribunal de Justiça**, segundo a qual *\"o Código de Defesa do Consumidor é aplicável às instituições financeiras\"*. Não obstante a subsunção ao microssistema consumerista e a facilitação da defesa dos direitos do hipossuficiente (art. 6º, VIII, do CDC), a inversão do ônus probatório não exonera o consumidor de demonstrar minimamente a verossimilhança de suas alegações, nos termos do art. 373, I, do Código de Processo Civil, cabendo ao fornecedor afastar a responsabilidade mediante a comprovação da inexistência de defeito na prestação de serviços ou de culpa exclusiva do consumidor ou de terceiro (art. 14, § 3º, CDC).\n\nNo que tange aos contratos celebrados eletronicamente, a jurisprudência fixada pelo STJ no julgamento do **Tema Repetitivo 1.061** (REsp 1.846.649/MA) estabelece que, impugnada a autenticidade, cumpre ao credor a comprovação da higidez do negócio jurídico. Nesse diapasão, o **Caderno de Teses do Gabinete** firma a diretriz vinculante de que: *\"Quando a instituição financeira comprovar a disponibilização e o proveito econômico do crédito na conta bancária do autor (TED/PIX/extrato bancário idôneo) e juntar contrato assinado fisicamente ou com biometria facial/aceite eletrônico válido: JULGAR IMPROCEDENTES os pedidos de anulação de contrato, restituição de valores e indenização por dano moral.\"*\n\nExaminando minuciosamente o acervo probatório acostado aos autos, verifica-se que a instituição bancária ré desincumbiu-se a contento de seu ônus processual. O promovido carreou aos autos cópia integral do instrumento contratual formalizado mediante adesão por plataforma eletrônica idônea, acompanhado de captura de biometria facial (selfie), validação de documento de identificação pessoal e metadados consistentes de autenticação (endereço IP, carimbo temporal/timestamp e dispositivo utilizado), conferindo segurança jurídica e certeza à manifestação de vontade expressada pelo consumidor.\n\nDe igual modo, a instituição requerida anexou aos autos o comprovante indiscutível de liquidação financeira da operação via Transferência Eletrônica Disponível (TED), o qual atesta de maneira inconcussa a disponibilização e a incorporação do valor mutuado diretamente na conta bancária mantida e titularizada pelo requerente. Caberia à parte autora, ao ter acesso à comprovação documental do repasse, coligir seus extratos bancários com o fito de comprovar o não recebimento ou evidenciar a imediata tentativa de devolução administrativa do montante depositado. Ao revés, o demandante manteve postura inerte, usufruindo da quantia disponibilizada em seu patrimônio econômico, o que torna incontroverso o mútuo e chancela o aperfeiçoamento da avença.\n\nNesse contexto, evidenciada a manifestação volitiva válida e demonstrada a inequívoca disponibilização dos recursos financeiros em proveito da parte autora, resta afastada qualquer hipótese de ilicitude ou defeito na prestação de serviços por parte do banco réu (art. 14, § 3º, I, do CDC). Consequentemente, mostram-se legítimos e devidos os descontos efetuados no importe pactuado, impondo-se a rejeição do pedido de anulação contratual e, por decorrência lógica, dos pleitos de restituição de indébito e de indenização por danos morais.\n\n\n\nIII. DISPOSITIVO\n\nAnte o exposto, com fundamento no art. 487, inciso I, do Código de Processo Civil, e nas diretrizes vinculantes do Caderno de Teses deste Gabinete, **JULGO TOTALMENTE IMPROCEDENTES** os pedidos deduzidos na petição inicial formulados por **JOÃO** em face de **BANCO X**, extinguindo o processo com resolução do mérito.\n\nSem condenação ao pagamento de custas processuais e honorários advocatícios sucumbenciais em primeiro grau de jurisdição, ex vi do disposto no art. 55 da Lei Federal nº 9.099/1995.\n\nPublique-se. Intimem-se.\n\nCom o trânsito em julgado desta sentença, certifique-se e, em nada mais sendo requerido, arquivem-se os presentes autos com as cautelas de praxe e baixa definitiva na distribuição.\n\n\n\nMineiros/GO, data da assinatura eletrônica.\n\nJuiz(a) de Direito"
+      },
+      "auditAnalysis": {
+        "fatoVsProva": [
+          {
+            "fatoAlegado": "Alegação de inexistência de contratação e descontos indevidos de R$ 500,00",
+            "eventoId": "Petição Inicial",
+            "provaApresentada": "Afirmação do autor de que não contratou empréstimo com o réu",
+            "status": "Controvertido / Afastado por contraprova",
+            "analiseCritica": "A parte autora alegou que não celebrou o negócio jurídico, porém não trouxe indícios documentais mínimos como extratos demonstrando a ausência do crédito ou tentativa de devolução do valor disponibilizado.",
+            "fundamentoLegal": "Art. 373, I, do CPC",
+            "valoracaoJuridica": "Mera alegação desacompanhada de suporte probatório diante da contraprova idônea do banco."
+          },
+          {
+            "fatoAlegado": "Comprovação da celebração do contrato eletrônico e repasse financeiro do mútuo ao autor",
+            "eventoId": "Contestação",
+            "provaApresentada": "Contrato assinado eletronicamente com selfie/biometria facial e comprovante de liquidação de TED na conta bancária do autor",
+            "status": "Comprovado cabalmente",
+            "analiseCritica": "O banco réu desincumbiu-se do seu ônus probatório ao demonstrar a adesão eletrônica com biometria facial e a transferência dos recursos financeiros diretamente para a titularidade do autor, sem estorno posterior.",
+            "fundamentoLegal": "Art. 373, II, do CPC, Art. 14, § 3º, I, do CDC e Tema 1.061/STJ",
+            "valoracaoJuridica": "Prova robusta de existência e validade do negócio jurídico e aproveitamento econômico do crédito pelo autor."
+          }
+        ],
+        "competenciaCheck": {
+          "valorCausa": "Compatível com a causa de pedir",
+          "adequacaoTeto40SM": true,
+          "competenciaMaterial": true,
+          "legitimidadePartes": true,
+          "competenciaTerritorial": "Comarca do Estado de Goiás / Domicílio do Consumidor",
+          "observacoes": "Competência do Juizado Especial Cível observada nos termos do art. 3º da Lei 9.099/95."
+        },
+        "regularidadeDocumental": {
+          "procuracaoStatus": "Regular nos autos",
+          "comprovanteEnderecoStatus": "Regular nos autos",
+          "consectariosStatus": "Inaplicável fixação condenatória ante a total improcedência dos pedidos autorais",
+          "observacoes": "Documentação idônea apresentada pela instituição requerida demonstrando a higidez do vínculo obrigacional.",
+          "assinaturasStatus": "Contrato eletrônico firmado mediante validação biométrica facial (selfie) e dados cadastrais, atendendo aos padrões de higidez.",
+          "autenticidadeCartorariaStatus": "Inaplicável à espécie (documento bancário eletrônico).",
+          "confrontoDadosMinuta": "Dados de partes e numeração processual estritamente fiéis aos elementos informados.",
+          "integridadeTemporalStatus": "Ordem cronológica perfeita entre a contratação, liberação do crédito via TED e início dos descontos.",
+          "integridadeVisualStatus": "Documentos digitais íntegros, sem rasuras ou indícios de adulteração gráfica.",
+          "marchaProcessualStatus": "Regular marcha processual em consonância com os princípios do contraditório, da ampla defesa e da celeridade do rito sumaríssimo.",
+          "subsuncaoLegalProvas": "Atendimento pleno aos parâmetros probatórios do Tema Repetitivo 1.061/STJ e art. 14, § 3º, do CDC."
+        },
+        "normasAplicadas": [
+          "Art. 487, inciso I, do Código de Processo Civil",
+          "Art. 373, incisos I e II, do Código de Processo Civil",
+          "Art. 14, § 3º, inciso I, do Código de Defesa do Consumidor",
+          "Súmula 297 do Superior Tribunal de Justiça",
+          "Tema Repetitivo 1.061 do Superior Tribunal de Justiça",
+          "Art. 55 da Lei Federal nº 9.099/1995"
+        ],
+        "alertasProcessuais": [
+          "Comprovante de transferência bancária idôneo demonstrando proveito econômico do autor.",
+          "Biometria facial e aceite eletrônico válidos, incidindo a tese de improcedência do Caderno de Teses do Gabinete."
+        ],
+        "consectariosDetalhados": {
+          "regimeAplicado": "Inaplicável consectários condenatórios em virtude da improcedência do pedido",
+          "indiceCorrecao": "Não aplicável",
+          "termoInicialCorrecao": "Não aplicável",
+          "indiceJuros": "Não aplicável",
+          "termoInicialJuros": "Não aplicável",
+          "baseLegalCompleta": "Art. 487, I, do CPC",
+          "observacoes": "Demanda julgada improcedente sem condenação patrimonial em face do promovido."
+        },
+        "legislacaoMapeada": [
+          {
+            "leiOuNorma": "Código de Processo Civil",
+            "artigoOuDispositivo": "Art. 487, inciso I",
+            "ementaOuObjeto": "Resolução do mérito com acolhimento ou rejeição do pedido",
+            "aplicabilidadeAoCaso": "Julgamento de improcedência dos pedidos do autor",
+            "regimeCorrecao": "Nenhum"
+          },
+          {
+            "leiOuNorma": "Código de Defesa do Consumidor",
+            "artigoOuDispositivo": "Art. 14, § 3º, inciso I",
+            "ementaOuObjeto": "Excludente de responsabilidade do fornecedor por inexistência de defeito",
+            "aplicabilidadeAoCaso": "Comprovação da contratação legítima e liberação do crédito",
+            "regimeCorrecao": "Nenhum"
+          },
+          {
+            "leiOuNorma": "Lei Federal nº 9.099/1995",
+            "artigoOuDispositivo": "Art. 55",
+            "ementaOuObjeto": "Gratuidade das custas e honorários em primeiro grau dos Juizados Especiais",
+            "aplicabilidadeAoCaso": "Isenção de verbas sucumbenciais em primeiro grau",
+            "regimeCorrecao": "Nenhum"
+          }
+        ],
+        "preAudit": {
+          "score": 100,
+          "verdict": "APROVADO",
+          "certificateMessage": "Minuta elaborada em estrita conformidade com os autos, Caderno de Teses do Gabinete e precedentes vinculantes do STJ.",
+          "congruenceStatus": "Plena adstrição aos pedidos e matérias de fato e de direito articuladas",
+          "evidentiaryStatus": "Provas documentais devidamente sopesadas e auditadas",
+          "proceduralStatus": "Rito do Juizado Especial Cível rigorosamente observado",
+          "auditSummary": "Julgamento de improcedência fundamentado na higidez da contratação eletrônica com selfie e na comprovação inequívoca do crédito via TED na conta do titular.",
+          "forensicAuditStatus": "6 Pilares de auditoria forense atendidos integralmente",
+          "keyFindings": [
+            {
+              "topic": "Validade da Contratação",
+              "status": "Confirmado",
+              "details": "Instrumento eletrônico validado por selfie/biometria facial e metadados de autenticação."
+            },
+            {
+              "topic": "Efetivo Proveito Econômico",
+              "status": "Confirmado",
+              "details": "Comprovante de liquidação de TED na conta bancária do autor juntado aos autos sem impugnação específica."
+            },
+            {
+              "topic": "Subsunção ao Caderno de Teses",
+              "status": "Confirmado",
+              "details": "Adequação direta ao item 1.1 do Caderno de Teses do Gabinete para julgamento de improcedência."
+            }
+          ],
+          "marchaProcessualStatus": "Regular",
+          "precedentsStatus": "Aplicação expressa da Súmula 297/STJ e Tema 1.061/STJ",
+          "safetySeal": true,
+          "verdictColor": "green"
+        }
+      },
+      "usage": {
+        "promptTokenCount": 10941,
+        "candidatesTokenCount": 5777,
+        "totalTokenCount": 17192,
+        "cachedContentTokenCount": 0
+      },
+      "modelUsed": "Gemini 3.8 Flash"
+    },
+    "processTextContext": "Processo 1234567-89.2024.8.09.0115 - Ação de Cobrança. Autor: João. Réu: Banco X. O autor alega descontos indevidos de R$ 500,00. O réu juntou contrato assinado eletronicamente com selfie e comprovante de TED na conta do autor."
+  }
+]

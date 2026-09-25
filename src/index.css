@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .markdown-body p {
+    @apply mb-3 leading-relaxed break-words;
+  }
+  .markdown-body ul {
+    @apply list-disc list-outside ml-5 mb-3 space-y-1;
+  }
+  .markdown-body ol {
+    @apply list-decimal list-outside ml-5 mb-3 space-y-1;
+  }
+  .markdown-body strong {
+    @apply font-bold text-slate-900;
+  }
+}

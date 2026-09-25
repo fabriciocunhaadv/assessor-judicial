@@ -1,0 +1,19 @@
+{
+  "id": "snapshot_pre_bancada_tripla_conferencia",
+  "timestamp": 1772439400000,
+  "dateIso": "2026-03-02T13:36:40.000Z",
+  "reason": "Ponto de Restauração Pré-Implantação da Bancada de Tripla Conferência do Magistrado & Auditoria Ouro com Leitor de PDF",
+  "triggeredBy": "manual",
+  "authorName": "Super Admin / Magistrado",
+  "authorEmail": "superadmin@tjgo.jus.br",
+  "status": "SAVED_AND_PROTECTED",
+  "scope": "GLOBAL_DATABASE_SNAPSHOT",
+  "summary": {
+    "promptsCount": 15,
+    "paradigmsCount": 8,
+    "cadernoCount": 1,
+    "projudiGuidesCount": 1,
+    "auditsCount": 5,
+    "usersCount": 3
+  }
+}

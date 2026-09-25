@@ -1,0 +1,6 @@
+{
+  "name": "Assessor Judicial",
+  "description": "Sistema privado do Assessor Fabrício para análise fático-probatória e elaboração automatizada de minutas judiciais (despachos, decisões e sentenças).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

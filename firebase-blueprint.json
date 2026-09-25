@@ -1,0 +1,208 @@
+{
+  "entities": {
+    "Prompt": {
+      "title": "Prompt",
+      "description": "A saved prompt configuration",
+      "type": "object",
+      "properties": {
+        "tenant": { "type": "string", "maxLength": 50 },
+        "title": { "type": "string", "maxLength": 200 },
+        "promptText": { "type": "string", "maxLength": 20000 },
+        "category": { "type": "string", "maxLength": 50 },
+        "privacy": { "type": "string", "maxLength": 50 },
+        "scope": { "type": "string", "maxLength": 50 },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "creatorName": { "type": "string", "maxLength": 128 },
+        "creatorEmail": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["tenant", "title", "promptText"]
+    },
+    "History": {
+      "title": "History",
+      "description": "A historical record of an AI analysis and minute execution",
+      "type": "object",
+      "properties": {
+        "tenant": { "type": "string", "maxLength": 50 },
+        "processNumber": { "type": "string", "maxLength": 100 },
+        "promptTitle": { "type": "string", "maxLength": 200 },
+        "promptId": { "type": "string", "maxLength": 128 },
+        "processTextContext": { "type": "string", "maxLength": 200000 },
+        "date": { "type": "number" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "creatorName": { "type": "string", "maxLength": 128 },
+        "creatorEmail": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["tenant", "date"]
+    },
+    "Knowledge": {
+      "title": "Knowledge",
+      "description": "A base document or reference for the AI",
+      "type": "object",
+      "properties": {
+        "tenant": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 300 },
+        "type": { "type": "string", "enum": ["pdf", "reference"] },
+        "size": { "type": "number" },
+        "addedAt": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "url": { "type": "string", "maxLength": 1000 },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "creatorName": { "type": "string", "maxLength": 128 },
+        "creatorEmail": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["tenant", "name", "type", "addedAt", "isActive"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global settings like cabinet teses and api usage settings",
+      "type": "object",
+      "properties": {
+        "tenant": { "type": "string", "maxLength": 50 },
+        "text": { "type": "string", "maxLength": 100000 },
+        "isEnabled": { "type": "boolean" },
+        "updatedAt": { "type": "string", "maxLength": 100 },
+        "updatedBy": { "type": "string", "maxLength": 128 },
+        "updatedByName": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["tenant"]
+    },
+    "UsageLog": {
+      "title": "UsageLog",
+      "description": "Token and cost consumption log per execution",
+      "type": "object",
+      "properties": {
+        "tenant": { "type": "string", "maxLength": 50 },
+        "timestamp": { "type": "number" },
+        "label": { "type": "string", "maxLength": 200 },
+        "processNumber": { "type": "string", "maxLength": 100 },
+        "model": { "type": "string", "maxLength": 100 },
+        "promptTokens": { "type": "number" },
+        "outputTokens": { "type": "number" },
+        "totalTokens": { "type": "number" },
+        "costBrl": { "type": "number" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["tenant", "timestamp", "totalTokens", "costBrl"]
+    },
+    "AuditedMinute": {
+      "title": "AuditedMinute",
+      "description": "A judicial minute audited by the judge against process records and evidence",
+      "type": "object",
+      "properties": {
+        "tenant": { "type": "string", "maxLength": 50 },
+        "unitId": { "type": "string", "maxLength": 50 },
+        "processNumber": { "type": "string", "maxLength": 100 },
+        "assessorName": { "type": "string", "maxLength": 128 },
+        "date": { "type": "number" },
+        "score": { "type": "number" },
+        "verdict": { "type": "string", "maxLength": 100 },
+        "verdictColor": { "type": "string", "maxLength": 20 },
+        "processText": { "type": "string", "maxLength": 200000 },
+        "assessorDraft": { "type": "string", "maxLength": 200000 },
+        "specificDirectives": { "type": "string", "maxLength": 5000 },
+        "judgeNotes": { "type": "string", "maxLength": 10000 },
+        "status": { "type": "string", "maxLength": 50 },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "creatorName": { "type": "string", "maxLength": 128 },
+        "creatorEmail": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["tenant", "date", "score", "verdict"]
+    },
+    "CabinetBackupSnapshot": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "dateIso": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "triggeredBy": { "type": "string" },
+        "broadcastMessage": { "type": "string" },
+        "broadcastType": { "type": "string" },
+        "authorEmail": { "type": "string" },
+        "authorName": { "type": "string" },
+        "data": { "type": "object" },
+        "summary": { "type": "object" }
+      },
+      "required": ["id", "timestamp", "tenantId", "triggeredBy", "authorEmail"]
+    },
+    "GlobalDatabaseSnapshot": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "dateIso": { "type": "string" },
+        "reason": { "type": "string" },
+        "triggeredBy": { "type": "string" },
+        "authorEmail": { "type": "string" },
+        "authorName": { "type": "string" },
+        "data": { "type": "object" },
+        "summary": { "type": "object" }
+      },
+      "required": ["id", "timestamp", "reason", "authorEmail"]
+    },
+    "SupportTicket": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "tenantName": { "type": "string" },
+        "unitId": { "type": "string" },
+        "unitName": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string" },
+        "priority": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "createdByUid": { "type": "string" },
+        "createdByName": { "type": "string" },
+        "createdByEmail": { "type": "string" },
+        "createdByRole": { "type": "string" },
+        "messages": { "type": "array" }
+      },
+      "required": ["id", "tenantId", "title", "description", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "tickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "Central de chamados, melhorias, reportes e sugestões dos administradores e usuários"
+    },
+    "system_snapshots/{snapshotId}": {
+      "schema": "GlobalDatabaseSnapshot",
+      "description": "Snapshots globais e pontos de restauração do banco de dados antes de alterações críticas"
+    },
+    "gabinetes/{tenantId}/backups/{backupId}": {
+      "schema": "CabinetBackupSnapshot",
+      "description": "Snapshots automáticos e manuais de segurança do gabinete"
+    },
+    "prompts/{promptId}": {
+      "schema": "Prompt",
+      "description": "Global prompts collection"
+    },
+    "history/{historyId}": {
+      "schema": "History",
+      "description": "Global history collection"
+    },
+    "knowledge/{knowledgeId}": {
+      "schema": "Knowledge",
+      "description": "Global knowledge base docs"
+    },
+    "settings/{settingId}": {
+      "schema": "Settings",
+      "description": "Global settings like teses"
+    },
+    "usageLogs/{logId}": {
+      "schema": "UsageLog",
+      "description": "API usage consumption logs"
+    },
+    "audits/{auditId}": {
+      "schema": "AuditedMinute",
+      "description": "Judge audited minutes collection"
+    }
+  }
+}
