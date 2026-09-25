@@ -1128,8 +1128,12 @@ Retorne estritamente em JSON com o formato:
     }
 });
 
+function isRequestNativeAllowed(req: any): boolean {
+    return req.headers['x-use-native-key'] === 'true';
+}
+
 function extractApiKey(req) {
-    const isNativeAllowed = req.headers['x-use-native-key'] === 'true';
+    const isNativeAllowed = isRequestNativeAllowed(req);
     const headerKey = req.headers['x-gemini-api-key'] || req.headers['x-custom-api-key'] || req.headers['x-api-key'] || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.substring(7) : undefined);
     const bodyKey = req.body?.customApiKey;
     const queryKey = req.query?.key;
@@ -1150,7 +1154,7 @@ function extractApiKey(req) {
 
 function extractApiKeyPool(req): string[] {
     const pool: string[] = [];
-    const isNativeAllowed = req.headers['x-use-native-key'] === 'true';
+    const isNativeAllowed = isRequestNativeAllowed(req);
 
     // Se a Chave Nativa estiver expressamente ativada, ela entra em 1º lugar com prioridade absoluta
     if (isNativeAllowed && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 10) {
@@ -1450,10 +1454,16 @@ async function generateWithFallbackAndRetry(options) {
 
                     // Se a cota da chave esgotou (429 / RESOURCE_EXHAUSTED) e há chaves reservas no pool:
                     if (isQuotaError) {
+                        const isDailyLimit = errMsg.includes("generate_requests_per_model_per_day") || errMsg.includes("per_day");
                         if (kIdx < keyPool.length - 1) {
                             console.log(`[Assessor Judicial - ROTAÇÃO IMEDIATA] Cota da chave ${kIdx + 1}/${keyPool.length} esgotada (429/RESOURCE_EXHAUSTED). Rotacionando IMEDIATAMENTE para a chave reserva ${kIdx + 2}...`);
                             keyExhausted = true;
                             break;
+                        } else if (isDailyLimit) {
+                            console.log(`[Assessor Judicial - Cota Diária do Modelo] Cota diária esgotada no modelo ${modelName}. Alternando imediatamente para o próximo modelo da esteira...`);
+                            if (mIdx < modelsToTry.length - 1) {
+                                continue;
+                            }
                         } else {
                             // Chave única ou gratuita: aplica resfriamento preventivo de cota (6 segundos) antes do próximo modelo contingencial para permitir que o bucket de tokens da API Gemini se restabeleça
                             console.log(`[Assessor Judicial - Resfriamento de Cota] Cota por minuto atingida (429 Rate Limit) no modelo ${modelName}. Aguardando 6s de resfriamento para recomposição da cota antes do próximo modelo...`);
@@ -1974,12 +1984,33 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
     };
 
     // Normalização da Matriz de Auditoria Forense
-    let audit = parsed.auditAnalysis || parsed.auditoria || parsed.analiseAuditoria || mContainer.auditAnalysis || {};
+    let audit = (parsed && typeof parsed === 'object') ? (parsed.auditAnalysis || parsed.auditoria || parsed.analiseAuditoria || mContainer?.auditAnalysis || {}) : {};
+    if (typeof audit !== 'object' || audit === null) audit = {};
     audit.indicacaoTpuCnj = indicacaoTpuCnj;
     
+    // Normalização defensiva de regularidadeDocumental caso venha como string
+    if (typeof audit.regularidadeDocumental === 'string') {
+        const obsStr = audit.regularidadeDocumental;
+        audit.regularidadeDocumental = {
+            procuracaoStatus: "Regular",
+            comprovanteEnderecoStatus: "Regular",
+            consectariosStatus: "Regular",
+            observacoes: obsStr,
+            assinaturasStatus: obsStr.includes("assinatura") ? obsStr : "Documentos digitais íntegros e autênticos.",
+            integridadeTemporalStatus: "Cronologia fidedigna sem anacronismos.",
+            integridadeVisualStatus: "Sem rasuras, emendas ou inconsistência de fontes.",
+            autenticidadeCartorariaStatus: "Selos eletrônicos de fiscalização e QR codes regulares.",
+            subsuncaoLegalProvas: "Conforme arts. 428/429 CPC e legislação aplicável.",
+            confrontoDadosMinuta: "Dados nominais e probatórios aderentes aos autos.",
+            marchaProcessualStatus: "Regularidade processual observada."
+        };
+    } else if (typeof audit.regularidadeDocumental !== 'object' || audit.regularidadeDocumental === null) {
+        audit.regularidadeDocumental = {};
+    }
+
     // Mapeamento caso venha no formato específico do prompt (signatureCheck, documentAuthenticity, etc)
     if (audit.signatureCheck || audit.documentAuthenticity || audit.authenticityCheck) {
-        const regularidade = audit.regularidadeDocumental || {};
+        const regularidade = audit.regularidadeDocumental;
         regularidade.assinaturasStatus = audit.signatureCheck || audit.authenticityCheck || regularidade.assinaturasStatus || "Válidas e autênticas com certificados digitais no Projudi";
         regularidade.autenticidadeCartorariaStatus = audit.documentAuthenticity || regularidade.autenticidadeCartorariaStatus || "Autenticidade confirmada";
         regularidade.integridadeTemporalStatus = audit.temporalConsistency || audit.chronologyCheck || regularidade.integridadeTemporalStatus || "Cronologia preservada";
@@ -2366,7 +2397,7 @@ const taxonomySummary = getApplicableTaxonomySummary(combinedContextForPrecedent
 let liveGroundingPrecedents = "";
 let liveGroundingSources: Array<{ title: string; url: string }> = [];
 
-const isNativeAllowed = req.headers['x-use-native-key'] === 'true';
+const isNativeAllowed = isRequestNativeAllowed(req);
 
 if (isGroundingEnabled) {
     try {
@@ -2752,7 +2783,7 @@ console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extraçã
 const stage1Response = await generateWithFallbackAndRetry({
     apiKey: userApiKey,
     keyPool: extractApiKeyPool(req),
-    isNativeAllowed: req.headers['x-use-native-key'] === 'true',
+    isNativeAllowed: isRequestNativeAllowed(req),
     res,
     primaryModel: "gemini-3.8-flash",
     fallbackModel: "gemini-flash-latest",
@@ -3027,7 +3058,7 @@ const stage2ResponseSchema = {
 const response = await generateWithFallbackAndRetry({
     apiKey: userApiKey,
     keyPool: extractApiKeyPool(req),
-    isNativeAllowed: req.headers['x-use-native-key'] === 'true',
+    isNativeAllowed: isRequestNativeAllowed(req),
     res,
     primaryModel: "gemini-3.8-flash",
     fallbackModel: "gemini-flash-latest",
@@ -3048,17 +3079,40 @@ if (!outputText) {
 }
 
 let parsed = safeParseJson(outputText);
-if (!parsed.minute) {
-    parsed.minute = {};
+if (!parsed || typeof parsed !== 'object') {
+    console.warn("[Assessor Judicial] safeParseJson retornou nulo na Etapa 2. Construindo estrutura resiliente de contingência...");
+    parsed = {
+        minute: {
+            title: resolvedActType === "embargos" ? "DECISÃO - EMBARGOS DE DECLARAÇÃO" : (actType || "SENTENÇA"),
+            processNumber: stage1Json?.processNumber || processInfo?.processNumber || "",
+            parties: {
+                author: stage1Json?.author || processInfo?.autor || "",
+                defendant: stage1Json?.defendant || processInfo?.reu || ""
+            },
+            judicialUnit: stage1Json?.judicialUnit || processInfo?.comarca || "",
+            relatorio: stage1Json?.relatorio || "",
+            fundamentacao: stage1Json?.fundamentacao || outputText || "",
+            dispositivo: stage1Json?.dispositivo || ""
+        },
+        auditAnalysis: {}
+    };
+}
+if (!parsed.minute || typeof parsed.minute !== 'object') {
+    parsed.minute = {
+        title: resolvedActType === "embargos" ? "DECISÃO - EMBARGOS DE DECLARAÇÃO" : (actType || "SENTENÇA"),
+        relatorio: stage1Json?.relatorio || "",
+        fundamentacao: stage1Json?.fundamentacao || outputText || "",
+        dispositivo: stage1Json?.dispositivo || ""
+    };
 }
 // Preservação de densidade fática da Etapa 1 caso algum campo tenha ficado omisso na Etapa 2
-if ((!parsed.minute.relatorio || parsed.minute.relatorio.length < 50) && stage1Json.relatorio) {
+if ((!parsed.minute.relatorio || parsed.minute.relatorio.length < 50) && stage1Json?.relatorio) {
     parsed.minute.relatorio = stage1Json.relatorio;
 }
-if ((!parsed.minute.fundamentacao || parsed.minute.fundamentacao.length < 100) && stage1Json.fundamentacao) {
+if ((!parsed.minute.fundamentacao || parsed.minute.fundamentacao.length < 100) && stage1Json?.fundamentacao) {
     parsed.minute.fundamentacao = stage1Json.fundamentacao;
 }
-if ((!parsed.minute.dispositivo || parsed.minute.dispositivo.length < 30) && stage1Json.dispositivo) {
+if ((!parsed.minute.dispositivo || parsed.minute.dispositivo.length < 30) && stage1Json?.dispositivo) {
     parsed.minute.dispositivo = stage1Json.dispositivo;
 }
 

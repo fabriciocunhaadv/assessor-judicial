@@ -1048,17 +1048,33 @@ export const saveApiUsageStatsToDb = async (stats: ApiUsageStats): Promise<void>
   }
 };
 
-export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  const d = await getDoc(doc(db, 'users', uid));
-  if (d.exists()) {
-    return d.data() as UserProfile;
+export const getUserProfile = async (uid: string, email?: string): Promise<UserProfile | null> => {
+  if (uid) {
+    const d = await getDoc(doc(db, 'users', uid));
+    if (d.exists()) {
+      return d.data() as UserProfile;
+    }
+  }
+  const targetEmail = (email || (uid && uid.includes('@') ? uid : '')).trim().toLowerCase();
+  if (targetEmail) {
+    const dEmail = await getDoc(doc(db, 'users', targetEmail));
+    if (dEmail.exists()) {
+      return dEmail.data() as UserProfile;
+    }
+    try {
+      const q = query(collection(db, 'users'), where('email', '==', targetEmail));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return snap.docs[0].data() as UserProfile;
+      }
+    } catch (_) {}
   }
   return null;
 };
 
 export const syncUserProfile = async (user: any): Promise<UserProfile> => {
-  let profile = await getUserProfile(user.uid);
   const userEmail = (user.email || '').toLowerCase().trim();
+  let profile = await getUserProfile(user.uid, userEmail);
   
   // Master admin and titular judge default flags
   const isFirstAdmin = userEmail === 'fabriciocunha.adv@gmail.com';
@@ -1149,7 +1165,11 @@ export const syncUserProfile = async (user: any): Promise<UserProfile> => {
     };
     await setDoc(doc(db, 'users', user.uid), cleanForFirestore(profile));
   } else {
-    // If profile already exists, preserve all custom fields and tenantId assigned
+    // If profile already exists, STRICTLY preserve all custom fields, tenantId, and Super Admin permissions
+    if (profile.uid !== user.uid) {
+      profile.uid = user.uid;
+      shouldUpdate = true;
+    }
     if (profile.isActive === undefined) {
       profile.isActive = true;
       shouldUpdate = true;
@@ -1167,9 +1187,7 @@ export const syncUserProfile = async (user: any): Promise<UserProfile> => {
       profile.tenantId = targetTenantId;
       shouldUpdate = true;
     }
-    if (shouldUpdate && targetTenantId) {
-      profile.tenantId = profile.tenantId || targetTenantId;
-      profile.role = profile.role || (isFirstAdmin ? 'admin' : targetRole);
+    if (shouldUpdate) {
       await setDoc(doc(db, 'users', user.uid), cleanForFirestore(profile), { merge: true });
     }
   }

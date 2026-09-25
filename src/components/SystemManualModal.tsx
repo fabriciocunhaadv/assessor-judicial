@@ -1563,6 +1563,27 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Respeito Estrito à Liberação da Chave Nativa pelo Super Admin (Multi-Tenant) */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Sincronização Fiel da Chave Nativa Ativada pelo Super Admin & Preservação Estrita de Gabinetes</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">GOVERNANÇA & PERMISSÕES</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Respeito Integral à Permissão Definida pelo Super Admin:</strong> Corrigida a leitura de perfis de usuários no Firestore por e-mail e UID. Quando o Super Admin ativa o acesso à Chave Nativa para um usuário no Painel Super Admin (como feito para o assessor Mayk), o sistema agora preserva estritamente a autorização concedida sem sobrescrever permissões.<br />
+                        • <strong>Preservação Absoluta da Lotação do Gabinete:</strong> A lotação de cada usuário em seu respectivo gabinete (ex.: Dra. Júlia Vianna ou outro gabinete contratante) é rigorosamente mantida e respeitada, sem transferências indevidas entre gabinetes.<br />
+                        • <strong>Failover Ágil na Esteira de Modelos:</strong> Implementada transição imediata para modelos contingenciais da esteira (Gemini Flash Lite e Gemini Flash Latest) em caso de limite diário por modelo, mantendo a geração de minutas fluida e contínua.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Auto-Extração e Cadastro de Partes & Julgamento de Embargos de Declaração */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
