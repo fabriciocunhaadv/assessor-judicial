@@ -305,7 +305,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Assistente do Gabinete (Chat Interativo) 💬</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Solicite refinos imediatos (ex: <em>"fixe o dano moral em R$ 4.000,00"</em> ou <em>"acrescente tópico sobre a preliminar de ilegitimidade"</em>). A minuta é atualizada em tempo real sem sobrescrever o 1º modelo!
+            Solicite refinos imediatos (ex: <em>"converter para decisão liminar deferindo a tutela de urgência"</em>, <em>"fixe o dano moral em R$ 4.000,00"</em> ou <em>"acrescente tópico sobre preliminar"</em>). A minuta é atualizada com fundamentação exaustiva em tempo real sem sobrescrever o 1º modelo!
           </p>
         </div>
       ),

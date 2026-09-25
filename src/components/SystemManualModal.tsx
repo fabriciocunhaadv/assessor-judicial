@@ -1562,6 +1562,27 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Detecção Mandatória de Petição Inicial, Rigor em Decisões Liminares e Blindagem no Chat */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-blue-300 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <span>Detecção Mandatória de Petição Inicial Isolada, Rigor em Liminares & Blindagem no Chat</span>
+                          <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">INTELIGÊNCIA JURÍDICA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-blue-800 dark:text-blue-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Detecção Automática Mandatória de Fase Inicial (Petição Inicial Isolada):</strong> Quando os autos contêm apenas a petição inicial sem contestação apresentada ou audiência realizada (diferenciando os pedidos de estilo da exordial de peças defensivas reais), o sistema proíbe automaticamente a prolação de sentença de mérito, enquadrando compulsoriamente o ato como <em>Decisão Interlocutória</em> (se houver pedido de tutela provisória/urgência/liminar) ou <em>Despacho Inicial</em>.<br />
+                        • <strong>Injeção de Rigor Exaustivo nas Decisões Interlocutórias:</strong> As decisões interlocutórias de tutela de urgência passam a contar com diretrizes obrigatórias de exaustividade nos termos do art. 300 do CPC (probabilidade do direito com exame probatório, perigo de dano concreto, reversibilidade, gratuidade da justiça, fixação de astreintes e ordem de citação/audiência do art. 334 do CPC), eliminando decisões curtas ou genéricas.<br />
+                        • <strong>Blindagem no Chat (/api/chat-agaia):</strong> Ao solicitar ajustes ou conversão de atos judiciais pelo chat, o assistente agora opera sob proibição absoluta de respostas monoparágrafo ou sucintas, gerando fundamentações magistrais e dispositivos completos e recompilando a íntegra da minuta.
+                      </p>
+                    </div>
+                  </div>
+                  
                   {/* Item: Blindagem de Minutas Densas, Auto-Reparo Estrutural e Transparência do Caderno de Teses */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">

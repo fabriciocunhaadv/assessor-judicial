@@ -331,37 +331,54 @@ app.post("/api/chat-agaia", async (req, res) => {
         // RESUMO EXECUTIVO: consome ~85% menos tokens que despejar dezenas de milhares de caracteres dos autos
         const processExecutiveSummary = executiveSummary || (originalProcessText ? originalProcessText.substring(0, 1500) + '...' : 'Autos do processo judicial');
 
-        const systemPrompt = `Você é o Assessor Judicial de Gabinete, focado no refinamento e revisão ágil da minuta judicial. 
-Responda com precisão, concisão e linguagem técnica jurídica escorreita.
+        const systemPrompt = `Você é o Assessor Especialista de Gabinete do Magistrado, responsável pelo refinamento técnico, correções e redação de minutas judiciais oficiais.
+Sua redação deve ser culta, formal, profunda e tecnicamente impecável, em estrita conformidade com o CPC, as leis vigentes e a jurisprudência aplicável.
 
 # RESUMO EXECUTIVO DOS AUTOS:
 ${processExecutiveSummary}
 
 # MINUTA ATUAL EM REVISÃO:
-- Título: ${currentMinute?.title || 'Minuta'}
+- Título Atual: ${currentMinute?.title || 'Minuta'}
 - Processo: ${currentMinute?.processNumber || 'Autos'}
-- Relatório Sintético: ${currentMinute?.relatorio ? currentMinute.relatorio.substring(0, 1200) : 'Conforme autos'}
-- Fundamentação:
+- Relatório Atual:
+${currentMinute?.relatorio ? currentMinute.relatorio.substring(0, 1500) : 'Conforme autos'}
+- Fundamentação Atual:
 ${currentMinute?.fundamentacao || 'Não informada'}
-- Dispositivo:
+- Dispositivo Atual:
 ${currentMinute?.dispositivo || 'Não informado'}
-${cabinetTesesText ? `\n# DIRETRIZES DO GABINETE:\n${cabinetTesesText.substring(0, 600)}` : ''}
+${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetTesesText.substring(0, 1200)}` : ''}
 
-Instrução: Analise a solicitação do usuário e responda de forma direta e técnica. 
-Se o usuário pedir para reescrever, alterar, resumir ou ajustar fundamentação, dispositivo, prazos, juros ou teses da minuta, forneça a nova versão do texto da minuta no formato especificado.
-Você DEVE retornar a resposta estritamente em formato JSON com a seguinte estrutura:
-{
-  "reply": "Sua resposta amigável e explicativa para o usuário no chat",
-  "hasMinuteUpdate": true ou false,
-  "updatedMinute": {
-     // Se hasMinuteUpdate for true, inclua os campos modificados
-     "title": "...",
-     "fundamentacao": "...",
-     "dispositivo": "..."
-  },
-  "suggestedActions": ["Ação 1", "Ação 2"]
-}
-IMPORTANTE: Retorne APENAS um bloco de código contendo o JSON, sem markdown ou texto fora do JSON.`;
+# DIRETRIZES MANDATÓRIAS DE RIGOR E EXAUSTIVIDADE JURÍDICA:
+1. PROIBIÇÃO ABSOLUTA DE RESPOSTAS SUCINTAS OU DE UM PARÁGRAFO:
+   - Se o usuário solicitar alteração do ato judicial (ex.: converter sentença em decisão interlocutória/liminar, apreciar pedido de tutela de urgência, reescrever fundamentação, acolher preliminar ou sanear o feito), você DEVE redigir uma FUNDAMENTAÇÃO EXAUSTIVA, DENSA E PROFUNDA.
+   - É terminantemente proibido fornecer apenas um parágrafo genérico de 4 ou 5 linhas. Cada tese, fato e documento deve ser enfrentado de modo exaustivo.
+2. CONVERSÃO PARA DECISÃO INTERLOCUTÓRIA / TUTELA DE URGÊNCIA (ART. 300 DO CPC):
+   - Se o usuário informar que o caso não é de sentença de mérito e requer decisão interlocutória / liminar / tutela de urgência:
+     * Atualize 'title' para "DECISÃO INTERLOCUTÓRIA".
+     * Redija 'relatorio' narrando pormenorizadamente a petição inicial, os fatos alegados e o pedido de tutela provisória deduzido.
+     * Na 'fundamentacao', examine detidamente e com fundamentação jurídica completa:
+       a) O juízo de admissibilidade e o pedido de gratuidade da justiça (arts. 98 e 99 do CPC).
+       b) A probabilidade do direito (fumus boni iuris) com exame do acervo probatório anexado.
+       c) O perigo de dano ou risco ao resultado útil do processo (periculum in mora).
+       d) A reversibilidade da medida (§ 3º do art. 300 do CPC).
+       e) As diretrizes do Caderno de Teses do Gabinete aplicáveis.
+     * No 'dispositivo', ordene os comandos claros:
+       a) Deferimento, deferimento parcial ou indeferimento da tutela, com prazo para cumprimento e astreintes/multa diária se for obrigação de fazer/não fazer.
+       b) Deferimento/indeferimento da gratuidade da justiça.
+       c) Ordem de citação da parte demandada para cumprimento e intimação para audiência de conciliação (art. 334 do CPC), com prazo de contestação (art. 335 do CPC).
+3. ESTRUTURAÇÃO DO JSON DE RESPOSTA:
+   Retorne estritamente o JSON no seguinte formato:
+   {
+     "reply": "Explicação técnica clara e cortês sobre as modificações realizadas na decisão para o assessor/juiz.",
+     "hasMinuteUpdate": true,
+     "updatedMinute": {
+       "title": "TÍTULO DO ATO",
+       "relatorio": "Texto completo e detalhado do relatório...",
+       "fundamentacao": "Texto completo, denso e exaustivo da fundamentação judicial...",
+       "dispositivo": "Texto completo do dispositivo com todos os comandos judiciais..."
+     },
+     "suggestedActions": ["Ação sugerida 1", "Ação sugerida 2"]
+   }`;
 
         let historyPrompt = "Histórico da conversa:\n";
         if (conversationHistory && conversationHistory.length > 0) {
@@ -376,14 +393,15 @@ IMPORTANTE: Retorne APENAS um bloco de código contendo o JSON, sem markdown ou 
             apiKey: apiKey,
             keyPool: extractApiKeyPool(req),
             res,
-            primaryModel: "gemini-3.1-flash-lite",
+            primaryModel: "gemini-3.8-flash",
             fallbackModel: "gemini-flash-latest",
             contents: [
                 { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
             ],
             config: {
-                systemInstruction: "Você é um AI que responde apenas com objetos JSON estritos de acordo com o esquema solicitado.",
+                systemInstruction: "Você é um AI judiciário que responde apenas com objetos JSON estritos de acordo com o esquema solicitado.",
                 responseMimeType: "application/json",
+                maxOutputTokens: 16384
             }
         };
 
@@ -397,16 +415,31 @@ IMPORTANTE: Retorne APENAS um bloco de código contendo o JSON, sem markdown ou 
         
         let data;
         try {
-            data = JSON.parse(cleanJson.trim());
+            data = safeParseJson(cleanJson.trim()) || JSON.parse(cleanJson.trim());
         } catch(e) {
             console.error("Failed to parse JSON:", cleanJson);
             return res.json({ reply: "A resposta gerada não pôde ser lida adequadamente. Tente novamente.", hasMinuteUpdate: false });
         }
         
+        let finalUpdatedMinute = undefined;
+        if (data.updatedMinute && typeof data.updatedMinute === 'object') {
+            finalUpdatedMinute = { ...currentMinute, ...data.updatedMinute };
+            const h = finalUpdatedMinute.header || currentMinute?.header || 'PODER JUDICIÁRIO DO ESTADO DE GOIÁS';
+            const proc = finalUpdatedMinute.processNumber || currentMinute?.processNumber || 'Autos do Processo';
+            const aut = finalUpdatedMinute.parties?.author || currentMinute?.parties?.author || 'Parte Autora';
+            const reu = finalUpdatedMinute.parties?.defendant || currentMinute?.parties?.defendant || 'Parte Ré';
+            const t = finalUpdatedMinute.title || currentMinute?.title || 'DECISÃO INTERLOCUTÓRIA';
+            const rel = finalUpdatedMinute.relatorio || currentMinute?.relatorio || '';
+            const fund = finalUpdatedMinute.fundamentacao || currentMinute?.fundamentacao || '';
+            const disp = finalUpdatedMinute.dispositivo || currentMinute?.dispositivo || '';
+            const clos = finalUpdatedMinute.closing || currentMinute?.closing || 'Juiz(a) de Direito';
+            finalUpdatedMinute.fullFormattedText = `${h}\nProcesso nº: ${proc}\nPromovente: ${aut}\nPromovido: ${reu}\n\n${t}\n\nI - RELATÓRIO\n\n${rel}\n\nII - FUNDAMENTAÇÃO\n\n${fund}\n\nIII - DISPOSITIVO\n\n${disp}\n\n${clos}`;
+        }
+
         res.json({
             reply: data.reply || "Resposta processada com base nos autos.",
             hasMinuteUpdate: data.hasMinuteUpdate || false,
-            updatedMinute: data.updatedMinute ? { ...currentMinute, ...data.updatedMinute } : undefined,
+            updatedMinute: finalUpdatedMinute,
             suggestedActions: data.suggestedActions || [],
             usage: {
                 promptTokenCount: response.usageMetadata?.promptTokenCount || 0,
@@ -2322,32 +2355,90 @@ DIRETRIZ MANDATÓRIA DE CONTINUIDADE E HARMONIA DECISÓRIA:
 - Mantenha estrita congruência com as análises, decisões liminares, despachos ou deliberações anteriores já tomadas neste mesmo processo pelo gabinete.
 - Não entre em contradição com o que já foi decidido previamente nos autos, salvo se houver fato superveniente ou julgamento definitivo de mérito que justifique alteração (devidamente fundamentada).`}
 
-// Detecção Inteligente da Peça e Fase Processual dos Autos:
+// Detecção Inteligente e Fidedigna da Peça e Fase Processual dos Autos:
 const combinedTextLower = ((safeProcessText || "") + "\n" + (accumulatedPdfText || "")).toLowerCase();
-const hasInitialPetition = combinedTextLower.includes("petição inicial") || combinedTextLower.includes("exordial") || combinedTextLower.includes("ação de") || combinedTextLower.includes("vem respeitosamente");
-const hasContestacao = combinedTextLower.includes("contestação") || combinedTextLower.includes("em contestação") || combinedTextLower.includes("impugnação ao pedido") || (combinedTextLower.includes("preliminarmente") && combinedTextLower.includes("defesa"));
-const hasAudiencia = combinedTextLower.includes("termo de audiência") || combinedTextLower.includes("audiência de conciliação") || combinedTextLower.includes("audiência de instrução");
-const hasReplica = combinedTextLower.includes("réplica") || combinedTextLower.includes("impugnação à contestação");
+
+// Filtra menções preliminares que aparecem no rol de pedidos da petição inicial (para não confundir com a peça de contestação ou audiência realizada)
+const textWithoutPetitionFormulas = combinedTextLower
+    .replace(/(?:citação|intimação)\s+d[eao]s?\s+(?:requerid|promovid|ré|demandad)[^\.\n]*?(?:contestar|contestação)/gi, "")
+    .replace(/(?:sob\s+pena\s+de\s+revelia|para\s+apresentar\s+contestação)/gi, "")
+    .replace(/(?:desinteresse|interesse|dispensa|manifesta|designação)\s+n?a?\s+audiência\s+de\s+conciliação/gi, "")
+    .replace(/(?:art(?:igo)?\.?\s*334|art(?:igo)?\.?\s*335)[^\.\n]*/gi, "");
+
+const hasContestacao = (
+    /(?:^|\n|\b)(?:peça\s+de\s+|da\s+)?contestação(?:\s+apresentada|\s+d[eao]\s+ré|\s+d[eao]\s+requerid|\s*[-–:]|\s+ao\s+pedido|\s+à\s+ação)/i.test(textWithoutPetitionFormulas) ||
+    /(?:mov(?:imentação)?|evento|arq(?:uivo)?)\s*[\d\.\s-]*[-–:]?\s*(?:contestação|defesa\s+apresentada)/i.test(textWithoutPetitionFormulas) ||
+    /(?:vem|vêm)\s+(?:respeitosamente\s+)?(?:apresentar|oferecer|juntar|protocolar)\s+(?:sua\s+)?contestação/i.test(textWithoutPetitionFormulas) ||
+    /(?:da\s+tempestividade\s+da\s+contestação|das\s+preliminares\s+da\s+contestação|do\s+mérito\s+da\s+defesa|impugnação\s+ao\s+mérito)/i.test(textWithoutPetitionFormulas)
+);
+
+const hasAudiencia = (
+    /(?:termo|ata)\s+de\s+audiência(?:\s+de\s+conciliação|\s+de\s+instrução|\s+realizada)?/i.test(textWithoutPetitionFormulas) ||
+    /(?:aberta\s+a\s+audiência|instalada\s+a\s+audiência|presentes\s+as\s+partes|conciliação\s+restou\s+infrutífera|proposta\s+a\s+conciliação)/i.test(textWithoutPetitionFormulas)
+);
+
+const hasReplica = (
+    /(?:mov(?:imentação)?|evento|arq(?:uivo)?)\s*[\d\.\s-]*[-–:]?\s*(?:réplica|impugnação\s+à\s+contestação)/i.test(textWithoutPetitionFormulas) ||
+    /(?:vem|vêm)\s+(?:respeitosamente\s+)?apresentar\s+(?:sua\s+)?réplica/i.test(textWithoutPetitionFormulas)
+);
+
+const hasInitialPetition = (
+    combinedTextLower.includes("petição inicial") ||
+    combinedTextLower.includes("exordial") ||
+    combinedTextLower.includes("ação de") ||
+    combinedTextLower.includes("vem respeitosamente") ||
+    combinedTextLower.includes("dos fatos") ||
+    combinedTextLower.includes("do direito") ||
+    combinedTextLower.includes("dos pedidos")
+);
+
+const hasUrgentRequest = (
+    combinedTextLower.includes("tutela de urgência") ||
+    combinedTextLower.includes("liminar") ||
+    combinedTextLower.includes("tutela provisória") ||
+    combinedTextLower.includes("tutela antecipada") ||
+    combinedTextLower.includes("pedido de liminar") ||
+    combinedTextLower.includes("inaudita altera parte") ||
+    combinedTextLower.includes("tutela de evidência") ||
+    combinedTextLower.includes("medida liminar") ||
+    combinedTextLower.includes("urgência contemporânea")
+);
 
 const isOnlyInitialPetitionPresent = (hasInitialPetition || combinedTextLower.length > 50) && !hasContestacao && !hasAudiencia && !hasReplica;
 
 let resolvedActType = (actType || "").toLowerCase().trim();
-if (!resolvedActType || resolvedActType === "auto" || resolvedActType === "definir conforme os autos" || resolvedActType.includes("definir")) {
-    if (isOnlyInitialPetitionPresent) {
-        const hasUrgentRequest = combinedTextLower.includes("tutela de urgência") || combinedTextLower.includes("liminar") || combinedTextLower.includes("tutela provisória") || combinedTextLower.includes("tutela antecipada") || combinedTextLower.includes("pedido de liminar");
+
+// REGRA MANDATÓRIA DE BLINDAGEM DE FASE PROCESSUAL:
+// Se o processo está exclusivamente na fase postulatória inicial (Petição Inicial sem Contestação nos autos),
+// é ESTRITAMENTE PROIBIDO proferir Sentença de Mérito (princípio do contraditório, art. 5º, LV, CF/88 e arts. 9º/10 do CPC).
+// O ato judicial mandatório é DECISÃO INTERLOCUTÓRIA (se houver pedido liminar/tutela provisória) ou DESPACHO (recebimento/citação).
+if (isOnlyInitialPetitionPresent) {
+    if (!resolvedActType || resolvedActType === "auto" || resolvedActType.includes("definir") || resolvedActType === "sentenca") {
         resolvedActType = hasUrgentRequest ? "decisao" : "despacho";
-    } else {
-        resolvedActType = "sentenca";
+        console.log(`[Assessor Judicial] Fase Inicial Isolada Detectada. Enquadramento obrigatório para: ${resolvedActType.toUpperCase()} (Tutela/Liminar: ${hasUrgentRequest})`);
     }
+} else if (!resolvedActType || resolvedActType === "auto" || resolvedActType.includes("definir")) {
+    resolvedActType = "sentenca";
 }
 
 const actTypeGuidance = resolvedActType === "decisao"
-  ? `DIRETRIZ MANDATÓRIA PARA DECISÃO INTERLOCUTÓRIA:
-- O ato a ser proferido é uma DECISÃO INTERLOCUTÓRIA (não é Sentença).
-- Se os autos contiverem apenas a petição inicial:
-  1. Aprecie detidamente o pedido de TUTELA DE URGÊNCIA / EVIDÊNCIA / LIMINAR à luz do art. 300 ou 311 do CPC (probabilidade do direito, perigo de dano e perigo de irreversibilidade).
-  2. Aprecie o pedido de GRATUIDADE DA JUSTIÇA (arts. 98 e 99 do CPC).
-  3. Verifique eventuais emendas necessárias à inicial (art. 321 do CPC) ou determine a citação e intimação da parte ré para audiência de conciliação (art. 334 do CPC).
+  ? `DIRETRIZ MANDATÓRIA PARA DECISÃO INTERLOCUTÓRIA COMPLETA, PROFUNDA E EXAUSTIVA (ART. 300 E ART. 489 DO CPC):
+- O ato a ser proferido é uma DECISÃO INTERLOCUTÓRIA (NÃO É SENTENÇA E NÃO É DESPACHO).
+- PROIBIÇÃO ABSOLUTA DE DECISÃO SUCINTA, DE 1 PARÁGRAFO OU GENÉRICA: A decisão deve ser densa, robusta e articulada, enfrentando minuciosamente cada documento, fato e pedido.
+- ESTRUTURAÇÃO OBRIGATÓRIA DA DECISÃO INTERLOCUTÓRIA:
+  1. I - RELATÓRIO: Narrar detalhadamente a qualificação das partes, o objeto da ação, a causa de pedir e a especificação exata do pedido de tutela provisória de urgência / liminar deduzido pela parte autora, citando eventos e documentos anexos.
+  2. II - FUNDAMENTAÇÃO MAGISTRAL (ART. 300 E ART. 489 DO CPC):
+     * JUÍZO DE ADMISSIBILIDADE E GRATUIDADE DA JUSTIÇA: Apreciação expressa e fundamentada do pedido de gratuidade da justiça (arts. 98 e 99 do CPC) ou recolhimento/diferimento de custas, indicando os documentos acostados.
+     * MÉRITO DA TUTELA DE URGÊNCIA (ART. 300 DO CPC):
+       a) PROBABILIDADE DO DIREITO (FUMUS BONI IURIS): Demonstração pormenorizada da plausibilidade jurídica da tese autoral em face da legislação, precedentes e do acervo documental probatório (contratos, laudos, extratos, notificações, citando os eventos/folhas).
+       b) PERIGO DE DANO OU RISCO AO RESULTADO ÚTIL DO PROCESSO (PERICULUM IN MORA): Demonstração concreta e fundamentada da urgência, identificando o prejuízo irreparável ou de difícil reparação caso o provimento não seja concedido de plano.
+       c) REVERSIBILIDADE DOS EFEITOS DA MEDIDA (ART. 300, § 3º, DO CPC): Exame da viabilidade fática e jurídica de reversão do provimento liminar.
+     * APLICAÇÃO DO CADERNO DE TESES E DIRETRIZES DO GABINETE: Aplicação expressa de quaisquer teses ou diretrizes vinculantes do magistrado pertinentes à matéria liminar.
+  3. III - DISPOSITIVO MANDAMENTAL CRISTALINO:
+     * COMANDO EXPRESSO SOBRE A TUTELA PROVISÓRIA: Deferimento, deferimento parcial ou indeferimento da liminar, com especificação exata da obrigação de dar, fazer ou não fazer imposta à parte contrária ou a terceiro.
+     * ASTREINTES E PRAZO DE CUMPRIMENTO: Fixação de prazo peremptório para cumprimento (em dias ou horas) e cominação de multa diária (astreintes) razoável e proporcional para hipótese de descumprimento injustificado.
+     * COMANDO SOBRE A GRATUIDADE: Deferimento ou indeferimento da gratuidade da justiça.
+     * CITAÇÃO E DESIGNAÇÃO DE AUDIÊNCIA DE CONCILIAÇÃO: Determinação de citação e intimação da parte demandada para cumprimento e para comparecimento à audiência de conciliação (art. 334 do CPC), com advertência de prazo para contestação (art. 335 do CPC).
 - No campo 'title', utilize "DECISÃO INTERLOCUTÓRIA".`
   : resolvedActType === "despacho"
   ? `DIRETRIZ MANDATÓRIA PARA DESPACHO:
