@@ -10,6 +10,7 @@ import {
   Terminal,
   MessageSquare,
   Users,
+  UserCheck,
   GitBranch,
   Rocket,
   ShieldCheck,
@@ -1562,6 +1563,112 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Auto-Extração e Cadastro de Partes & Julgamento de Embargos de Declaração */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Auto-Extração e Cadastro Automático de Partes & Julgamento de Questões Pendentes (Embargos de Declaração)</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">INTELIGÊNCIA PROCESSUAL</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Extração e Cadastro Automático sem Intervenção Manual:</strong> Ao carregar o PDF dos autos, o sistema extrai instantaneamente na camada do navegador e do servidor o número do processo (formato CNJ completo), o nome do Promovente (Autor/Embargante/Exequente) e do Promovido (Réu/Embargado/Executado), cadastrando-os automaticamente na tela e nos dados da minuta.<br />
+                        • <strong>Observância Fiel da Marcha Processual e Questões Pendentes:</strong> O motor de análise agora examina a ordem cronológica dos autos e proíbe a prolação de nova sentença se o processo já tiver sido sentenciado. Se houver Embargos de Declaração pendentes de apreciação (ex.: mov. 55) ou orientação específica do prompt, o sistema redige a <em>Decisão/Julgamento de Embargos de Declaração</em>, analisando a tempestividade (art. 1.023 do CPC) e enfrentando minuciosamente cada omissão, contradição, obscuridade ou erro material apontado.<br />
+                        • <strong>Card Informativo de Validação Imediata:</strong> Exibição de painel visual logo abaixo da área de upload confirmando os dados cadastrados automaticamente e a fase processual identificada.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Ajuste Direto de Partes & Blindagem de Cota e Extração */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <UserCheck className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Ajuste Direto de Dados do Autor/Partes & Blindagem de Cota por Minuto</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">DADOS & RESILIÊNCIA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Ajuste Direto das Partes (Promovente / Promovido / Autos):</strong> Botão de ação rápida <em>"Ajustar Dados do Autor / Partes"</em> integrado diretamente no cabeçalho de identificação dos autos e no Editor de Minutas, permitindo retificar o nome do autor, réu e número CNJ instantaneamente com salvamento persistente no histórico e no Firestore.<br />
+                        • <strong>Blindagem Semântica Anti-Captura de Predicados:</strong> Novo filtro léxico e regex estrita com pontuação obrigatória que impede que narrativas fáticas (ex.: <em>"manteve união afetiva com o requerido"</em>, <em>"aduz que contratou..."</em>) sejam indevidamente extraídas como nome de partes.<br />
+                        • <strong>Resfriamento de Cota & Backoff Inteligente para Chaves Gratuitas:</strong> Intervalo preventivo de resfriamento entre a Etapa 1 e Etapa 2 (2.5s) e pausa automática com retry progressivo (6s) em caso de erro 429 (Rate Limit / Quota Exceeded), evitando que requisições em processos pesados estourem o limite por minuto da camada gratuita do Google Gemini.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Reativação da Esteira em Duas Etapas (Two-Stage Pipeline) */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <span>Reativação Oficial da Esteira em Duas Etapas (Two-Stage Pipeline: Assessor Fático &rarr; Juiz Revisor)</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">DENSIDADE MÁXIMA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Etapa 1: O "Assessor Fático" (Extração e Confronto Bruto):</strong> O modelo atua estritamente como assessor fático-processual e analista probatório, sem tentar resumir. Extrai o Relatório cronológico minucioso de cada evento/movimentação (Mov. X, Arq. Y, Pág. Z) e estrutura a Fundamentação fática rigorosamente nos <strong>7 blocos obrigatórios</strong> em 5 a 8 parágrafos densos (regularidade processual, cerne da controvérsia, regime legal, confronto fático-probatório concreto documento a documento com transcrição literal de laudos/contratos entre aspas, subsunção motivada, julgamento individualizado de cada pedido e consectários da Lei 14.905/2024).<br />
+                        • <strong>Etapa 2: O "Juiz Revisor" (Teses, Súmulas & Matriz Forense):</strong> O modelo atua como Juiz Revisor Especialista. Lê a minuta preliminar fática e confronta-a com o <strong>Caderno de Teses do Gabinete</strong>, <strong>Súmulas Vinculantes (STF, STJ, TNU e TJGO)</strong>, <strong>Grounding oficial ao vivo</strong> e <strong>Minuta Paradigma</strong> (com clonagem de estilo e isolamento fático estrito), adensando a fundamentação magistral e gerando a <strong>Matriz de Auditoria Forense Completa</strong> (Fato vs Prova, Competência, 6 Pilares de Integridade Documental e Pré-Auditoria).<br />
+                        • <strong>Restauração dos Schemas Ricos com Descrições Mandatórias:</strong> Os schemas de saída do Gemini agora contêm descrições detalhadas e exaustivas para cada campo, eliminando respostas telegráficas ou resumos curtos.<br />
+                        • <strong>Blindagem Concorrente contra Timeouts e Telemetria Transparente:</strong> O pulso de batimento cardíaco (heartbeat streaming) permanece ativo durante ambas as etapas, e os tokens de entrada e saída das duas fases são somados de forma fidedigna nas métricas e custos de IA.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Blindagem Ativa contra Timeout em Autos Pesados (HTTP Heartbeat Streaming & Conexão Contínua) */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <span>Blindagem Ativa contra Timeout em Autos Pesados (Heartbeat Streaming)</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">INFRAESTRUTURA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Transmissão Contínua (HTTP Chunked Streaming):</strong> O endpoint de geração de minutas estabelece imediatamente conexão contínua com pulso de batimento cardíaco (heartbeat) a cada 3 segundos, mantendo a conexão ativa e impedindo que proxies de rede e o Cloud Run encerrem requisições durante a leitura de processos de 400+ páginas.<br />
+                        • <strong>Ampliação de Timeouts do Servidor (10 Minutos):</strong> Timeouts de conexão estendidos para suportar dossiês processuais massivos com centenas de documentos.<br />
+                        • <strong>Autocorreção e Reparo de Estrutura no Cliente:</strong> O navegador agora conta com recuperador resiliente de JSON capaz de reconstituir dados de resposta mesmo em caso de truncamento ou oscilação de pacotes.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Resgate Cirúrgico da Fundamentação Jurídica Raiz e Desacoplamento de Burocracias Secundárias */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <span>Resgate Cirúrgico da Fundamentação Jurídica Raiz & Desacoplamento Burocrático</span>
+                          <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">EXCELÊNCIA JUDICANTE</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Foco Neural Total na Minuta (CPC, Mérito e Provas):</strong> Eliminação da sobrecarga de contexto ("prompt bloat") que forçava a IA a preencher dezenas de campos secundários e burocráticos. A inteligência jurídica agora direciona 100% da sua capacidade e cota de saída exclusivamente para a redação densa, magistral e articulada do <em>I - Relatório</em>, <em>II - Fundamentação</em> e <em>III - Dispositivo</em>.<br />
+                        • <strong>Preservação e Fortalecimento do Caderno de Teses e Paradigma:</strong> O Caderno de Teses do Gabinete, as Súmulas do TJGO/STJ e os Modelos Paradigmas do magistrado foram purificados contra poluição de códigos brutos de secretaria, sendo aplicados com máxima profundidade e espaço no texto decisório.<br />
+                        • <strong>Desacoplamento Determinístico:</strong> Dados de auditoria, classificações TPU e checklists secundários passam a ser estruturados com perfeição pelo próprio servidor, sem concorrer com a capacidade de raciocínio da IA ou apequenar a fundamentação da sentença.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Detecção Mandatória de Petição Inicial, Rigor em Decisões Liminares e Blindagem no Chat */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">

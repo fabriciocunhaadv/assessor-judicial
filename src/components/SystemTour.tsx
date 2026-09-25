@@ -106,9 +106,9 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       target: "#tour-prompt-selector",
       content: (
         <div className="text-left font-sans space-y-1.5">
-          <h3 className="font-bold text-md text-emerald-800">Passo 5: Tipo de Ato & Prompt Especializado</h3>
+          <h3 className="font-bold text-md text-emerald-800">Passo 5: Tipo de Ato, Detecção Mandatória de Fase & Rigor Exaustivo ⚖️</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Escolha o modelo de comando ideal (Sentença de Procedência/Improcedência, Decisão de Tutela, Despacho Saneador, etc.).
+            Selecione o tipo de ato ou use <strong>Auto-Detectar</strong>. Caso os autos contenham apenas a <strong>Petição Inicial</strong> (sem contestação ou instrução), o sistema ativa a <strong>Detecção Mandatória de Fase Inicial</strong>, impedindo sentenças de mérito extemporâneas e gerando <strong>Decisão Interlocutória</strong> (com exame exaustivo da tutela de urgência, probabilidade, perigo de dano, astreintes e prazo) ou <strong>Despacho</strong>, com tríplice citação (Mov., Arq. e Pág.) e transcrição literal de dispositivos legais e precedentes.
           </p>
         </div>
       ),
@@ -275,9 +275,9 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       target: "#tour-execute-btn",
       content: (
         <div className="text-left font-sans space-y-1.5">
-          <h3 className="font-bold text-md text-emerald-800">Passo 6: Executar Minuta com Auditoria Forense Completa ⚖️</h3>
+          <h3 className="font-bold text-md text-emerald-800">Passo 6: Executar Minuta em Duas Etapas & Observância da Marcha ⚖️⚡</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Clique em <strong>Gerar Minuta Judicial</strong> para elaborar a peça com relatório fidedigno, fundamentação densa e dispositivo operacional em conformidade com as teses do gabinete e os 6 pilares forenses. O motor conta com <strong>Deduplicação Inteligente de Peças</strong> e <strong>Sinopse Holística dos Autos em 5 Pilares</strong> (economizando milhares de tokens em processos extensos sem perda fática ou probatória) e <strong>Reconciliação Estrutural Antifalhas</strong>.
+            Clique em <strong>Gerar Minuta Judicial</strong> para acionar a esteira em duas fases com inteligência de marcha processual: o sistema extrai e cadastra <strong>automaticamente o número do processo (CNJ) e os nomes das partes (Autor e Réu)</strong> diretamente do PDF. Além disso, <strong>observa rigorosamente as questões pendentes de julgamento</strong>: se o processo já tiver sido sentenciado e houver Embargos de Declaração pendentes (ex.: mov. 55), o sistema julga os aclaratórios (art. 1.022 do CPC) sem gerar sentença indevida! Na <strong>Etapa 1 (Assessor Fático)</strong>, extrai fidedignamente os fatos e provas com tríplice localização (Mov., Arq. e Pág.); na <strong>Etapa 2 (Juiz Revisor)</strong>, aplica o <strong>Caderno de Teses</strong>, <strong>Súmulas</strong> e <strong>Minuta Paradigma</strong>, gerando a minuta magistral final e a <strong>Matriz de Auditoria Forense Completa</strong>.
           </p>
         </div>
       ),
@@ -294,6 +294,18 @@ export const SystemTour: React.FC<SystemTourProps> = ({
           <h3 className="font-bold text-md text-emerald-800">Abas de Trabalho, Teses & Pré-Auditoria Automática 📄</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
             Navegue entre a <strong>Minuta do Ato</strong> (com fundamentação exaustiva no motor Gemini 3.8 Flash, auditoria explícita das diretrizes do <strong>Caderno de Teses Vinculantes</strong> e modelo paradigma do juiz), a <strong>Pré-Auditoria dos Autos</strong>, a aba <strong>Texto Projudi & TPU CNJ</strong> (com código TPU numérico oficial, movimentação, prazos e fila de secretaria), o <strong>1º Modelo Original</strong> (intocável), o <strong>Comparador Lado a Lado</strong>, a <strong>Matriz Fato vs Prova</strong> e a <strong>Calculadora de Consectários (Lei 14.905/2024)</strong>.
+          </p>
+        </div>
+      ),
+      placement: "bottom",
+    },
+    {
+      target: "#tour-meta-parties-box",
+      content: (
+        <div className="text-left font-sans space-y-1.5">
+          <h3 className="font-bold text-md text-emerald-800">Ajuste Direto de Dados do Autor & Partes ✏️</h3>
+          <p className="text-sm text-slate-700 leading-relaxed">
+            Precisa ajustar ou corrigir o nome do <strong>Promovente (Autor)</strong>, <strong>Promovido (Réu)</strong> ou o <strong>Número do Processo</strong>? Clique em <em>Ajustar Dados do Autor / Partes</em> para retificar os dados diretamente na minuta, salvando a alteração no histórico de versões e no banco de dados com total integridade.
           </p>
         </div>
       ),

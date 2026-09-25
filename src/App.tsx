@@ -65,6 +65,7 @@ import { DEFAULT_CABINET_TESES } from "./data/defaultTeses";
 import { DEFAULT_PROJUDI_GUIDE } from "./data/defaultProjudiGuide";
 import { isPrimaryCabinet, globalTenantId, subscribeToPrompts } from "./lib/firestoreUtils";
 import { SAMPLE_CASES } from "./data/sampleCases";
+import { extractJudicialMetadataFromText, JudicialExtractedMetadata } from "./utils/judicialMetadataExtractor";
 import {
   Sparkles,
   AlertTriangle,
@@ -210,6 +211,7 @@ export default function App() {
   // PDF & Text inputs
   const [inputMode, setInputMode] = useState<"pdf" | "text">("pdf");
   const [pdfFiles, setPdfFiles] = useState<UploadedPdf[]>([]);
+  const [extractedMetadata, setExtractedMetadata] = useState<JudicialExtractedMetadata | null>(null);
   const [activeKnowledgeDocsCount, setActiveKnowledgeDocsCount] = useState<number>(0);
   const [processNumber, setProcessNumber] = useState<string>("");
   const [processNumber2ndGrau, setProcessNumber2ndGrau] = useState<string>("");
@@ -620,20 +622,51 @@ export default function App() {
       setCurrentChatMessages([]);
       clearSessionDraft();
     }
+
+    // Auto-extração e cadastro automático dos dados do processo a partir do PDF
+    if (newPdf.extractedText && newPdf.extractedText.trim().length > 30) {
+      try {
+        const meta = extractJudicialMetadataFromText(newPdf.extractedText);
+        setExtractedMetadata(meta);
+        if (meta.processNumber) {
+          setProcessNumber(meta.processNumber);
+        }
+      } catch (e) {
+        console.warn("Erro ao extrair metadados automáticos do PDF:", e);
+      }
+    }
   };
 
   const handleUpdatePdf = (updated: UploadedPdf) => {
     setPdfFiles((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setErrorMessage(null);
+    if (updated.extractedText && updated.extractedText.trim().length > 30) {
+      try {
+        const meta = extractJudicialMetadataFromText(updated.extractedText);
+        setExtractedMetadata(meta);
+        if (meta.processNumber) {
+          setProcessNumber(meta.processNumber);
+        }
+      } catch (e) {
+        console.warn("Erro ao extrair metadados automáticos do PDF:", e);
+      }
+    }
   };
 
   const handleRemovePdf = (id: string) => {
-    setPdfFiles((prev) => prev.filter((p) => p.id !== id));
+    setPdfFiles((prev) => {
+      const remaining = prev.filter((p) => p.id !== id);
+      if (remaining.length === 0) {
+        setExtractedMetadata(null);
+      }
+      return remaining;
+    });
     setDismissedParadigmId(null);
   };
 
   const handleClearPdfs = () => {
     setPdfFiles([]);
+    setExtractedMetadata(null);
     setDismissedParadigmId(null);
     if (generationResult) {
       setGenerationResult(null);
@@ -646,6 +679,7 @@ export default function App() {
   const handleClearAllProcess = () => {
     clearSessionDraft();
     setPdfFiles([]);
+    setExtractedMetadata(null);
     setProcessText("");
     setProcessNumber("");
     setProcessNumber2ndGrau("");
@@ -887,23 +921,25 @@ export default function App() {
         pdfFiles: sanitizedPdfFiles,
         knowledgePdfs: activeKnowledgeDocs,
         customPromptText: activePrompt.promptText,
+        activePromptTitle: activePrompt.title || "",
         cabinetTesesText: effectiveTesesText,
         isTesesEnabled: Boolean(effectiveTesesText),
         paradigmModelText: effectiveParadigmText,
         paradigmModelTitle: effectiveParadigmTitle,
         isParadigmEnabled: Boolean(effectiveParadigmText && effectiveParadigmText.trim()),
-        proceduralPhase: activePrompt.proceduralPhaseHint || "conhecimento",
-        actType: "auto",
+        proceduralPhase: activePrompt.proceduralPhaseHint || (extractedMetadata?.hasSentencaProferida ? "recursal_ou_pos_sentenca" : "conhecimento"),
+        actType: activePrompt.actTypeHint || (activePrompt.title?.toLowerCase().includes("embargo") ? "embargos" : (extractedMetadata?.suggestedActType || "auto")),
+        actSubtype: extractedMetadata?.pendingMatterDescription || "",
         processActsSummary,
         isExpertModeEnabled,
         isGroundingEnabled: getIsGroundingEnabled(),
         processInfo: {
-          processNumber: processNumber || "Extrair automaticamente dos autos",
-          comarca: activeUnit?.name ? `Comarca de ${activeUnit.name.split('/')[0].trim()} - TJGO` : "Juizado Especial Cível e Criminal da Comarca de Mineiros - TJGO",
+          processNumber: processNumber || extractedMetadata?.processNumber || "Extrair automaticamente dos autos",
+          comarca: activeUnit?.name ? `Comarca de ${activeUnit.name.split('/')[0].trim()} - TJGO` : (extractedMetadata?.judicialUnit || "Juizado Especial Cível e Criminal da Comarca de Mineiros - TJGO"),
           vara: activeUnit?.name ? (activeUnit.name.split('/')[1]?.trim() || activeUnit.name) : "Juizado Especial Cível e Criminal",
           juiz: "Juiz(a) de Direito",
-          autor: "",
-          reu: "",
+          autor: extractedMetadata?.author || "",
+          reu: extractedMetadata?.defendant || "",
           valorCausa: "",
           assunto: activePrompt.title,
         },
@@ -976,13 +1012,46 @@ export default function App() {
         }
       } catch (parseErr: any) {
         console.log("[Assessor Judicial] Resposta recebida requer ajuste de estrutura:", parseErr?.message || parseErr);
-        const lowerResponse = (responseText || "").toLowerCase();
-        if (lowerResponse.includes("resource_exhausted") || lowerResponse.includes("quota exceeded") || lowerResponse.includes("credits are depleted") || lowerResponse.includes("429")) {
-          throw new Error("Limite de requisições ou cota da chave de inteligência artificial atingido no Google Gemini (Quota / Rate Limit). Aguarde 1 minuto ou configure outra chave nas configurações.");
-        } else if (lowerResponse.includes("503") || lowerResponse.includes("high demand") || lowerResponse.includes("unavailable") || lowerResponse.includes("overloaded")) {
-          throw new Error("Os servidores do Google Gemini estão enfrentando um pico temporário de alta demanda (503/Overloaded). Aguarde alguns segundos e clique em 'Tentar Novamente'.");
+        // Autocorreção e reparo de JSON em caso de truncamento ou quebras na conexão
+        try {
+          const trimmed = responseText.trim();
+          const jsonStart = trimmed.indexOf('{');
+          if (jsonStart !== -1) {
+            let candidate = trimmed.substring(jsonStart).replace(/```json/gi, '').replace(/```/g, '').trim();
+            candidate = candidate.replace(/(\}\s*){6,}$/, '}');
+            let inString = false;
+            let escaped = false;
+            const stack: string[] = [];
+            for (let i = 0; i < candidate.length; i++) {
+              const ch = candidate[i];
+              if (escaped) { escaped = false; continue; }
+              if (ch === '\\') { escaped = true; continue; }
+              if (ch === '"') { inString = !inString; continue; }
+              if (!inString) {
+                if (ch === '{' || ch === '[') stack.push(ch);
+                else if (ch === '}' && stack.length > 0 && stack[stack.length - 1] === '{') stack.pop();
+                else if (ch === ']' && stack.length > 0 && stack[stack.length - 1] === '[') stack.pop();
+              }
+            }
+            if (inString) candidate += '"';
+            while (stack.length > 0) {
+              const open = stack.pop();
+              candidate += (open === '{' ? '}' : ']');
+            }
+            candidate = candidate.replace(/,\s*([\}\]])/g, '$1');
+            rawData = JSON.parse(candidate);
+          }
+        } catch (_) {}
+
+        if (!rawData) {
+          const lowerResponse = (responseText || "").toLowerCase();
+          if (lowerResponse.includes("resource_exhausted") || lowerResponse.includes("quota exceeded") || lowerResponse.includes("credits are depleted") || lowerResponse.includes("429")) {
+            throw new Error("Limite de requisições ou cota da chave de inteligência artificial atingido no Google Gemini (Quota / Rate Limit). Aguarde 1 minuto ou configure outra chave nas configurações.");
+          } else if (lowerResponse.includes("503") || lowerResponse.includes("high demand") || lowerResponse.includes("unavailable") || lowerResponse.includes("overloaded")) {
+            throw new Error("Os servidores do Google Gemini estão enfrentando um pico temporário de alta demanda (503/Overloaded). Aguarde alguns segundos e clique em 'Tentar Novamente'.");
+          }
+          throw new Error("A conexão com a inteligência jurídica foi interrompida momentaneamente pela rede durante a leitura dos autos. Por favor, clique em 'Tentar Novamente'.");
         }
-        throw new Error("A conexão com a inteligência jurídica foi interrompida momentaneamente pela rede durante a leitura dos autos. Por favor, clique em 'Tentar Novamente'.");
       }
 
       // Check for transparent API key rotation
@@ -1782,14 +1851,50 @@ export default function App() {
                 </div>
 
                 {inputMode === "pdf" ? (
-                  <PdfUploadZone
-                    pdfFiles={pdfFiles}
-                    onAddPdf={handleAddPdf}
-                    onUpdatePdf={handleUpdatePdf}
-                    onRemovePdf={handleRemovePdf}
-                    onClearAll={handleClearPdfs}
-                    onOpenAssessorGuide={() => setIsAssessorWorkflowGuideOpen(true)}
-                  />
+                  <>
+                    <PdfUploadZone
+                      pdfFiles={pdfFiles}
+                      onAddPdf={handleAddPdf}
+                      onUpdatePdf={handleUpdatePdf}
+                      onRemovePdf={handleRemovePdf}
+                      onClearAll={handleClearPdfs}
+                      onOpenAssessorGuide={() => setIsAssessorWorkflowGuideOpen(true)}
+                    />
+                    {pdfFiles.length > 0 && extractedMetadata && (
+                      <div className="p-3 bg-emerald-50/90 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-1.5 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in duration-200">
+                        <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>Dados Cadastrados Automaticamente dos Autos (PDF):</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-emerald-100 dark:border-emerald-900/50 text-[11px]">
+                          <div>
+                            <span className="text-slate-500 block">Processo nº:</span>
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">
+                              {extractedMetadata.processNumber || processNumber || "Identificado nos autos"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">Promovente (Autor):</span>
+                            <span className="font-semibold text-slate-900 dark:text-white truncate block" title={extractedMetadata.author}>
+                              {extractedMetadata.author || "Identificado na inicial"}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block">Promovido (Réu):</span>
+                            <span className="font-semibold text-slate-900 dark:text-white truncate block" title={extractedMetadata.defendant}>
+                              {extractedMetadata.defendant || "Identificado na contestação"}
+                            </span>
+                          </div>
+                        </div>
+                        {extractedMetadata.pendingMatterDescription && (
+                          <div className="flex items-start gap-1.5 pt-1.5 border-t border-emerald-100 dark:border-emerald-900/50 text-[11px] text-emerald-900 dark:text-emerald-200">
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400 shrink-0">⚖️ Marcha Processual:</span>
+                            <span>{extractedMetadata.pendingMatterDescription}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="space-y-3 text-xs">
                     <div className="flex items-center gap-1.5 flex-wrap">

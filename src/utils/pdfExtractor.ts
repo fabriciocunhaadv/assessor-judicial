@@ -380,7 +380,7 @@ export async function extractTextFromPdf(
           }
 
           if (pageTextBlocks.length > 0) {
-            pageParagraphs.push(pageTextBlocks.join("\n\n"));
+            pageParagraphs.push(`[Página ${i} de ${numPages}]\n` + pageTextBlocks.join("\n\n"));
           }
         }
       } catch (pageErr) {

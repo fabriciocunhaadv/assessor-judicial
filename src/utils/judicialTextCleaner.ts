@@ -11,8 +11,8 @@ export function cleanJudicialPdfText(rawText: string): string {
 
   let cleaned = rawText;
 
-  // 1. Remover marcadores artificiais de quebra de página
-  cleaned = cleaned.replace(/\[---\s*P[AÁ]GINA\s+\d+\s+DE\s+\d+[^\]]*---\]/gi, "\n\n");
+  // 1. Normalizar marcadores de página para formato canônico pesquisável pela IA
+  cleaned = cleaned.replace(/\[---\s*P[AÁ]GINA\s+(\d+)\s+DE\s+(\d+)[^\]]*---\]/gi, "\n[Página $1 de $2]\n");
   cleaned = cleaned.replace(/===+\s*(?:DOCUMENTO|TEXTO ADICIONAL)[^=\n]*===+/gi, "\n\n");
 
   // 2. Remover assinaturas eletrônicas laterais, links de rodapés e marcas d'água
@@ -77,10 +77,10 @@ export function cleanJudicialPdfText(rawText: string): string {
       continue;
     }
 
-    // Descartar se a linha ainda contém vestígios puros de ruído
+    // Descartar se a linha ainda contém vestígios puros de ruído (preservando marcadores estruturados de página)
     if (
-      /^(?:fls?\.\s*\d+|p[aá]g\.\s*\d+|p[aá]gina\s+\d+|folha\s+\d+|chave:\s*[a-z0-9]+|c[oó]digo:\s*[a-z0-9]+)$/i.test(line) ||
-      /^(?:tribunal\s+de\s+justi[cç]a|poder\s+judici[aá]rio|juizado\s+especial|vara\s+c[ií]vel)$/i.test(line)
+      !line.startsWith("[Página") &&
+      /^(?:fls?\.\s*\d+|p[aá]g\.\s*\d+|folha\s+\d+|chave:\s*[a-z0-9]+|c[oó]digo:\s*[a-z0-9]+)$/i.test(line)
     ) {
       continue;
     }

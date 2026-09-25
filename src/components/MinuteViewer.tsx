@@ -44,6 +44,7 @@ import {
   BookOpen,
   ClipboardList,
   Clock,
+  UserCheck,
 } from "lucide-react";
 import { GenerationResult, MinuteData, ApiUsageMetadata, ChatMessage, MinuteVersion } from "../types";
 import { copyMinuteToClipboard, exportMinuteToDocx, printFormattedMinute } from "../utils/documentExport";
@@ -131,6 +132,9 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
   // Manual Editor state
   const [editTitle, setEditTitle] = useState("");
   const [editHeader, setEditHeader] = useState("");
+  const [editProcessNumber, setEditProcessNumber] = useState("");
+  const [editAuthor, setEditAuthor] = useState("");
+  const [editDefendant, setEditDefendant] = useState("");
   const [editRelatorio, setEditRelatorio] = useState("");
   const [editFundamentacao, setEditFundamentacao] = useState("");
   const [editDispositivo, setEditDispositivo] = useState("");
@@ -139,6 +143,12 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
   const [editMode, setEditMode] = useState<"structured" | "raw">("structured");
   const [isSavingManual, setIsSavingManual] = useState(false);
   const [manualSaveSuccess, setManualSaveSuccess] = useState(false);
+
+  // Quick Edit Parties modal state
+  const [isQuickEditPartiesOpen, setIsQuickEditPartiesOpen] = useState(false);
+  const [quickProcessNumber, setQuickProcessNumber] = useState("");
+  const [quickAuthor, setQuickAuthor] = useState("");
+  const [quickDefendant, setQuickDefendant] = useState("");
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -214,6 +224,9 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
       const min = result.minute;
       setEditTitle(min.title || "SENTENÇA");
       setEditHeader(min.header || "");
+      setEditProcessNumber(min.processNumber || "");
+      setEditAuthor(min.parties?.author || "");
+      setEditDefendant(min.parties?.defendant || "");
       setEditRelatorio((min.relatorio || "").replace(/\\n/g, "\n"));
       setEditFundamentacao((min.fundamentacao || "").replace(/\\n/g, "\n"));
       setEditDispositivo((min.dispositivo || "").replace(/\\n/g, "\n"));
@@ -345,6 +358,40 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
     ) {
       return true;
     }
+
+    // Factual claims, relationship narratives, predicates (never valid party names)
+    if (
+      normalized.includes("manteve") ||
+      normalized.includes("uniao afetiva") ||
+      normalized.includes("uniao estavel") ||
+      normalized.includes("com o requerido") ||
+      normalized.includes("com a requerida") ||
+      normalized.includes("com o reu") ||
+      normalized.includes("com a re") ||
+      normalized.includes("contra o requerido") ||
+      normalized.includes("contra a requerida") ||
+      normalized.includes("contra o reu") ||
+      normalized.includes("contra a re") ||
+      normalized.includes("em face do") ||
+      normalized.includes("em face da") ||
+      normalized.includes("acao de") ||
+      normalized.includes("pedido de") ||
+      normalized.includes("tutela de") ||
+      normalized.includes("dissolucao de") ||
+      normalized.includes("revisao de")
+    ) {
+      return true;
+    }
+
+    const narrativeVerbs = [
+      "alega", "aduz", "sustenta", "afirma", "relata", "narra", "pretende",
+      "pleiteia", "postula", "requer", "pugna", "ajuizou", "ingressou",
+      "propos", "trata-se", "cuida-se", "visando", "discute-se"
+    ];
+    if (narrativeVerbs.some(v => normalized.includes(v))) {
+      return true;
+    }
+
     const proceduralNoise = [
       "designacao", "audiencia", "instrucao", "conciliacao", "julgamento",
       "despacho", "decisao", "sentenca", "certidao", "intimacao", "citacao",
@@ -356,7 +403,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
     if (proceduralNoise.some(term => normalized.includes(term))) {
       return true;
     }
-    if (/^(a|o|as|os|da|do|das|dos|de|em|para|por)\s+(designa|solicita|requer|pede|realiza|marca|abre|julga|converte)/i.test(lower)) {
+    if (/^(a|o|as|os|da|do|das|dos|de|em|para|por)\s+(designa|solicita|requer|pede|realiza|marca|abre|julga|converte|alega|aduz|mant)/i.test(lower)) {
       return true;
     }
     return false;
@@ -368,7 +415,8 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
     }
     const rel = [minute?.relatorio, minute?.fullFormattedText, minute?.fundamentacao].filter(Boolean).join("\n");
     const m = rel.match(/(?:instaurad[oa]|propost[oa]|ajuizad[oa]|promovid[oa]|movid[oa])\s+por\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s+em\s+face|\s+contra|\s+desfavor)/i)
-      || rel.match(/(?:polo\s+ativo|promovente|requerente|autor(?:a)?|exequente)[\s:]+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s+em\s+face|\s+contra)/i);
+      || rel.match(/(?:polo\s+ativo|promovente|requerente|exequente)\s*[:\-]?\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s+em\s+face|\s+contra)/i)
+      || rel.match(/(?:autor(?:a)?)\s*:\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s+em\s+face|\s+contra)/i);
     if (m && m[1] && !isInvalidPartyText(m[1].trim())) {
       return m[1].replace(/[\*\_]/g, "").trim();
     }
@@ -381,7 +429,8 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
     }
     const rel = [minute?.relatorio, minute?.dispositivo, minute?.fullFormattedText, minute?.fundamentacao].filter(Boolean).join("\n");
     const m = rel.match(/(?:em\s+face\s+d[eao]s?|contra\s+(?:o|a)?|desfavor\s+d[eao]s?)\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s*,\s*tombad|\s*,\s*todos|[,\.\n]|\s+visando|\s+pretendendo)/i)
-      || rel.match(/(?:polo\s+passivo|promovid[oa]|requerid[oa]|executad[oa]|réu|ré)[\s:]+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s*,\s*qualificad)/i)
+      || rel.match(/(?:polo\s+passivo|promovid[oa]|requerid[oa]|executad[oa])\s*[:\-]?\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s*,\s*qualificad)/i)
+      || rel.match(/(?:réu|ré)\s*:\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s*,\s*qualificad)/i)
       || rel.match(/(?:condenar\s+(?:o|a)?\s+(?:requerid[oa]|promovid[oa]|demandad[oa]|executad[oa]|réu|ré)?\s*)([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s+(?:a|ao|para|em)\s+pagar|\s*,\s*a\s+pagar|[,\.\n])/i);
     if (m && m[1] && !isInvalidPartyText(m[1].trim())) {
       return m[1].replace(/[\*\_]/g, "").trim();
@@ -567,18 +616,109 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
     setTimeout(() => setUpdateNotification(null), 4000);
   };
 
+  const handleOpenQuickEditParties = () => {
+    setQuickAuthor(
+      minute?.parties?.author && !isInvalidPartyText(minute.parties.author)
+        ? minute.parties.author
+        : displayAuthor !== "Parte Autora"
+          ? displayAuthor
+          : (minute?.parties?.author || "")
+    );
+    setQuickDefendant(
+      minute?.parties?.defendant && !isInvalidPartyText(minute.parties.defendant)
+        ? minute.parties.defendant
+        : displayDefendant !== "Parte Ré"
+          ? displayDefendant
+          : (minute?.parties?.defendant || "")
+    );
+    setQuickProcessNumber(
+      minute?.processNumber && minute.processNumber !== "Autos do Processo"
+        ? minute.processNumber
+        : displayProcessNumber !== "Autos do Processo"
+          ? displayProcessNumber
+          : (minute?.processNumber || "")
+    );
+    setIsQuickEditPartiesOpen(true);
+  };
+
+  const handleSaveQuickEditParties = async () => {
+    if (!result?.minute || !minute) return;
+    const authorVal = quickAuthor.trim() || "Parte Autora";
+    const defendantVal = quickDefendant.trim() || "Parte Ré";
+    const procVal = quickProcessNumber.trim() || "Autos do Processo";
+
+    const updatedMinute: MinuteData = {
+      ...minute,
+      processNumber: procVal,
+      parties: {
+        author: authorVal,
+        defendant: defendantVal
+      }
+    };
+
+    if (updatedMinute.fullFormattedText) {
+      const rel = updatedMinute.relatorio || "";
+      const fund = updatedMinute.fundamentacao || "";
+      const disp = updatedMinute.dispositivo || "";
+      const clos = updatedMinute.closing || "";
+      updatedMinute.fullFormattedText = [
+        updatedMinute.header ? updatedMinute.header.toUpperCase() : "",
+        updatedMinute.title ? `\n\n${updatedMinute.title.toUpperCase()}\n` : "",
+        `\nProcesso nº: ${procVal}`,
+        `Promovente (Autor): ${authorVal}`,
+        `Promovido (Réu): ${defendantVal}`,
+        rel ? `\n\nI - RELATÓRIO\n${rel}` : "",
+        fund ? `\n\nII - FUNDAMENTAÇÃO\n${fund}` : "",
+        disp ? `\n\nIII - DISPOSITIVO\n${disp}` : "",
+        clos ? `\n\n${clos}` : `\n\nDocumento assinado digitalmente.`
+      ].filter(Boolean).join("\n");
+    }
+
+    onUpdateMinute(updatedMinute);
+
+    const newVersion: MinuteVersion = {
+      id: `v-${Date.now()}-parties`,
+      versionNumber: versions.length + 1,
+      label: `Ajuste de Dados das Partes #${versions.length + 1}`,
+      timestamp: Date.now(),
+      minute: updatedMinute,
+      source: "editor",
+      author: "Assessor Judicial",
+      changeSummary: `Ajuste do Promovente (Autor) para "${authorVal}" e Promovido para "${defendantVal}"`
+    };
+
+    const updatedVersions = [newVersion, ...versions];
+    setVersions(updatedVersions);
+
+    if (currentAnalysisId) {
+      try {
+        await updateAnalysisChatAndMinute(currentAnalysisId, chatMessages, updatedMinute, updatedVersions);
+      } catch (dbErr) {
+        console.warn("Could not save updated parties to DB:", dbErr);
+      }
+    }
+
+    setIsQuickEditPartiesOpen(false);
+    setUpdateNotification("Dados do Promovente (Autor), Réu e Processo ajustados e salvos com sucesso!");
+    setTimeout(() => setUpdateNotification(null), 4000);
+  };
+
   const handleSaveManualEdit = async () => {
     if (!result?.minute) return;
     setIsSavingManual(true);
     try {
       let updatedMinute: MinuteData;
       if (editMode === "structured") {
+        const finalProcNum = editProcessNumber.trim() || minute.processNumber || "Autos do Processo";
+        const finalAuthor = editAuthor.trim() || minute.parties?.author || "Parte Autora";
+        const finalDefendant = editDefendant.trim() || minute.parties?.defendant || "Parte Ré";
+
         const fullText = [
           editHeader ? editHeader.toUpperCase() : "",
           editTitle ? `\n\n${editTitle.toUpperCase()}\n` : "",
-          minute.processNumber ? `\nProcesso nº: ${minute.processNumber}` : "",
-          minute.parties?.author ? `Autor(a): ${minute.parties.author}` : "",
-          minute.parties?.defendant ? `Réu/Ré: ${minute.parties.defendant}` : "",
+          finalProcNum ? `\nProcesso nº: ${finalProcNum}` : "",
+          finalAuthor ? `Autor(a): ${finalAuthor}` : "",
+          finalDefendant ? `Réu/Ré: ${finalDefendant}` : "",
           editRelatorio ? `\n\nI - RELATÓRIO\n${editRelatorio}` : "",
           editFundamentacao ? `\n\nII - FUNDAMENTAÇÃO\n${editFundamentacao}` : "",
           editDispositivo ? `\n\nIII - DISPOSITIVO\n${editDispositivo}` : "",
@@ -589,6 +729,11 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           ...minute,
           title: editTitle.trim() || minute.title || "SENTENÇA",
           header: editHeader,
+          processNumber: finalProcNum,
+          parties: {
+            author: finalAuthor,
+            defendant: finalDefendant
+          },
           relatorio: editRelatorio,
           fundamentacao: editFundamentacao,
           dispositivo: editDispositivo,
@@ -1095,6 +1240,94 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
         </div>
       )}
 
+      {/* Quick Edit Parties & Process Modal */}
+      {isQuickEditPartiesOpen && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-lg w-full border border-slate-200 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3 text-emerald-800">
+                <div className="p-2.5 bg-emerald-100 rounded-xl shrink-0">
+                  <UserCheck className="w-5 h-5 text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Ajustar Dados das Partes e dos Autos</h3>
+                  <p className="text-xs text-slate-500">Corrija o nome do autor, réu e número do processo diretamente na minuta.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQuickEditPartiesOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs text-slate-700 font-sans">
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Número do Processo (CNJ):
+                </label>
+                <input
+                  type="text"
+                  value={quickProcessNumber}
+                  onChange={(e) => setQuickProcessNumber(e.target.value)}
+                  placeholder="Ex: 5001234-56.2024.8.09.0105"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-mono text-xs focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Promovente (Parte Autora / Requerente):
+                </label>
+                <input
+                  type="text"
+                  value={quickAuthor}
+                  onChange={(e) => setQuickAuthor(e.target.value)}
+                  placeholder="Nome completo do(a) Autor(a)"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-medium text-xs focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Insira o nome da pessoa física ou jurídica do polo ativo.
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-800 mb-1">
+                  Promovido (Parte Ré / Requerida):
+                </label>
+                <input
+                  type="text"
+                  value={quickDefendant}
+                  onChange={(e) => setQuickDefendant(e.target.value)}
+                  placeholder="Nome completo da Parte Ré / Empresa"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl font-medium text-xs focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsQuickEditPartiesOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickEditParties}
+                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer shadow-sm flex items-center gap-1.5"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Salvar Ajuste</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs Navigation */}
       <div id="tour-result-tabs" className="flex items-center border-b border-slate-200 bg-slate-50 px-3 overflow-x-auto">
         <button
@@ -1375,15 +1608,27 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
               </div>
 
               {/* Meta Information Box */}
-              <div className="bg-slate-50 p-3 rounded border border-slate-200 font-sans text-xs space-y-1">
-                <div>
-                  <strong>Processo nº:</strong> <span className="font-mono">{displayProcessNumber}</span>
+              <div id="tour-meta-parties-box" className="bg-slate-50 p-3 rounded-lg border border-slate-200 font-sans text-xs space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-1 mb-1">
+                  <span className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">Identificação dos Autos & Polos</span>
+                  <button
+                    type="button"
+                    onClick={handleOpenQuickEditParties}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition cursor-pointer"
+                    title="Ajustar ou corrigir manualmente o Nome do Promovente (Autor), Promovido (Réu) ou Número do Processo"
+                  >
+                    <Edit3 className="w-3 h-3 text-emerald-600" />
+                    <span>Ajustar Dados do Autor / Partes</span>
+                  </button>
                 </div>
                 <div>
-                  <strong>Promovente (Autor):</strong> {displayAuthor}
+                  <strong>Processo nº:</strong> <span className="font-mono ml-1 font-medium">{displayProcessNumber}</span>
                 </div>
                 <div>
-                  <strong>Promovido (Réu):</strong> {displayDefendant}
+                  <strong>Promovente (Autor):</strong> <span className="ml-1 font-semibold text-slate-900">{displayAuthor}</span>
+                </div>
+                <div>
+                  <strong>Promovido (Réu):</strong> <span className="ml-1 font-medium text-slate-800">{displayDefendant}</span>
                 </div>
                 {effectiveTpu && (
                   <div className="pt-1.5 mt-1 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap text-[11px]">
@@ -1664,9 +1909,9 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
                         const fullText = [
                           editHeader ? editHeader.toUpperCase() : "",
                           editTitle ? `\n\n${editTitle.toUpperCase()}\n` : "",
-                          minute.processNumber ? `\nProcesso nº: ${minute.processNumber}` : "",
-                          minute.parties?.author ? `Autor(a): ${minute.parties.author}` : "",
-                          minute.parties?.defendant ? `Réu/Ré: ${minute.parties.defendant}` : "",
+                          editProcessNumber ? `\nProcesso nº: ${editProcessNumber}` : (minute.processNumber ? `\nProcesso nº: ${minute.processNumber}` : ""),
+                          editAuthor ? `Autor(a): ${editAuthor}` : (minute.parties?.author ? `Autor(a): ${minute.parties.author}` : ""),
+                          editDefendant ? `Réu/Ré: ${editDefendant}` : (minute.parties?.defendant ? `Réu/Ré: ${minute.parties.defendant}` : ""),
                           editRelatorio ? `\n\nI - RELATÓRIO\n${editRelatorio}` : "",
                           editFundamentacao ? `\n\nII - FUNDAMENTAÇÃO\n${editFundamentacao}` : "",
                           editDispositivo ? `\n\nIII - DISPOSITIVO\n${editDispositivo}` : "",
@@ -1748,6 +1993,47 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
                       onChange={(e) => setEditHeader(e.target.value)}
                       className="w-full p-2.5 text-xs border border-emerald-200 rounded-lg bg-white focus:ring-2 focus:ring-slate-800 focus:border-slate-800 font-sans"
                       placeholder="Ex: TRIBUNAL DE JUSTIÇA DO ESTADO DE GOIÁS - JUIZADO ESPECIAL CÍVEL"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Processo nº:
+                    </label>
+                    <input
+                      type="text"
+                      value={editProcessNumber}
+                      onChange={(e) => setEditProcessNumber(e.target.value)}
+                      className="w-full p-2.5 text-xs border border-emerald-200 rounded-lg bg-white focus:ring-2 focus:ring-slate-800 focus:border-slate-800 font-mono"
+                      placeholder="0000000-00.0000.0.00.0000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Promovente (Parte Autora):
+                    </label>
+                    <input
+                      type="text"
+                      value={editAuthor}
+                      onChange={(e) => setEditAuthor(e.target.value)}
+                      className="w-full p-2.5 text-xs border border-emerald-200 rounded-lg bg-white focus:ring-2 focus:ring-slate-800 focus:border-slate-800 font-sans"
+                      placeholder="Nome completo do(a) Autor(a)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Promovido (Parte Ré):
+                    </label>
+                    <input
+                      type="text"
+                      value={editDefendant}
+                      onChange={(e) => setEditDefendant(e.target.value)}
+                      className="w-full p-2.5 text-xs border border-emerald-200 rounded-lg bg-white focus:ring-2 focus:ring-slate-800 focus:border-slate-800 font-sans"
+                      placeholder="Nome completo do(a) Réu/Ré"
                     />
                   </div>
                 </div>
