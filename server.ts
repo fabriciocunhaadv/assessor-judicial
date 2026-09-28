@@ -254,6 +254,29 @@ app.post("/api/parse-precedents-pdf", async (req, res) => {
             return res.status(400).json({ error: "Texto do documento insuficiente para indexação." });
         }
 
+        const prompt = `Você é um especialista em indexação de jurisprudência e teses judiciais vinculantes (STF, STJ, TNU e TJGO).
+Analise o texto abaixo, extraído de documento/informativo oficial ou caderno de súmulas ("${fileName || 'Documento Anexado'}"):
+"""
+${pdfText.substring(0, 40000)}
+"""
+
+Extraia todas as súmulas, teses repetitivas, enunciados ou informativos de jurisprudência identificados no texto.
+Responda EXCLUSIVAMENTE em formato JSON puro (um array de objetos), sem blocos de markdown explicativos.
+Estrutura de cada objeto:
+[
+  {
+    "id": "identificador_unico_curto_ex_tjgo_inf_xx",
+    "tribunal": "TJGO" ou "STJ" ou "STF" ou "TNU",
+    "type": "sumula" ou "sumula_vinculante" ou "tese_repetitivo" ou "informativo_tjgo" ou "tese_tnu",
+    "number": "Número/identificação oficial (ex: Informativo TJGO 2026 nº 5, Súmula 32 TJGO)",
+    "title": "Título conciso da tese",
+    "statement": "Enunciado completo, claro e objetivo da tese",
+    "sourceUrl": "https://transparencia.tjgo.jus.br/jurisprudencia",
+    "tags": ["termo1", "termo2", "termo3"],
+    "area": "Ramo do Direito (ex: Direito do Consumidor, Direito Bancário, Fazenda Pública, Processual Civil)"
+  }
+]`;
+
         const options = {
             apiKey,
             keyPool: extractApiKeyPool(req),
