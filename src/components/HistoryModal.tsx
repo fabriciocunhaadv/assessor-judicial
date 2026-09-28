@@ -57,6 +57,56 @@ interface HistoryModalProps {
   onGoHome?: () => void;
 }
 
+const toSafeString = (val: any, fallback: string = ""): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === "string") return val.trim();
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (typeof val === "object") {
+    const candidate =
+      (typeof val.name === "string" && val.name.trim()) ||
+      (typeof val.author === "string" && val.author.trim()) ||
+      (typeof val.plaintiff === "string" && val.plaintiff.trim()) ||
+      (typeof val.defendant === "string" && val.defendant.trim()) ||
+      (typeof val.processNumber === "string" && val.processNumber.trim()) ||
+      (typeof val.title === "string" && val.title.trim()) ||
+      (typeof val.judicialUnit === "string" && val.judicialUnit.trim()) ||
+      (typeof val.court === "string" && val.court.trim()) ||
+      (typeof val.comarca === "string" && val.comarca.trim()) ||
+      (typeof val.comarcaVara === "string" && val.comarcaVara.trim()) ||
+      (typeof val.vara === "string" && val.vara.trim()) ||
+      (typeof val.address === "string" && val.address.trim()) ||
+      "";
+    if (candidate) return candidate;
+    return fallback;
+  }
+  return String(val).trim();
+};
+
+const getSafeUnitText = (val: any): string => {
+  if (!val) return "";
+  if (typeof val === "string") return val.trim();
+  if (typeof val === "object") {
+    const candidate =
+      (typeof val.judicialUnit === "string" && val.judicialUnit.trim()) ||
+      (typeof val.court === "string" && val.court.trim()) ||
+      (typeof val.comarcaVara === "string" && val.comarcaVara.trim()) ||
+      (typeof val.comarca === "string" && val.comarca.trim()) ||
+      (typeof val.vara === "string" && val.vara.trim()) ||
+      (typeof val.name === "string" && val.name.trim()) ||
+      (typeof val.address === "string" && val.address.trim()) ||
+      "";
+    if (candidate) return candidate;
+    if (val.judicialUnit && typeof val.judicialUnit === "object") {
+      return getSafeUnitText(val.judicialUnit);
+    }
+    if (val.court && typeof val.court === "object") {
+      return getSafeUnitText(val.court);
+    }
+    return "";
+  }
+  return String(val).trim();
+};
+
 export const HistoryModal: React.FC<HistoryModalProps> = ({
   isOpen,
   onClose,
@@ -242,12 +292,12 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
     if (!item || !item.id || isCorruptedHistoryItem(item)) return false;
     const term = searchTerm.toLowerCase();
     const matchesTerm =
-      (item.promptTitle || item.result?.minute?.title || "").toLowerCase().includes(term) ||
-      (item.processNumber && item.processNumber.toLowerCase().includes(term)) ||
-      (item.creatorName && item.creatorName.toLowerCase().includes(term)) ||
-      (item.creatorEmail && item.creatorEmail.toLowerCase().includes(term)) ||
-      (item.result?.minute?.parties?.author && item.result.minute.parties.author.toLowerCase().includes(term)) ||
-      (item.result?.minute?.parties?.defendant && item.result.minute.parties.defendant.toLowerCase().includes(term));
+      toSafeString(item.promptTitle || item.result?.minute?.title).toLowerCase().includes(term) ||
+      toSafeString(item.processNumber).toLowerCase().includes(term) ||
+      toSafeString(item.creatorName).toLowerCase().includes(term) ||
+      toSafeString(item.creatorEmail).toLowerCase().includes(term) ||
+      toSafeString(item.result?.minute?.parties?.author).toLowerCase().includes(term) ||
+      toSafeString(item.result?.minute?.parties?.defendant).toLowerCase().includes(term);
 
     if (!matchesTerm) return false;
 
@@ -602,16 +652,16 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
                       {/* Parties */}
                       <p className="text-xs font-bold text-slate-900 mt-1 line-clamp-1">
-                        {dossier.parties?.author || "Parte Autora"} <span className="text-indigo-600 font-semibold">vs</span> {dossier.parties?.defendant || "Parte Ré"}
+                        {toSafeString(dossier.parties?.author, "Parte Autora")} <span className="text-indigo-600 font-semibold">vs</span> {toSafeString(dossier.parties?.defendant, "Parte Ré")}
                       </p>
 
                       {/* Judicial Unit / Comarca Badge */}
                       <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                        {dossier.judicialUnit || latestAct?.result?.minute?.judicialUnit ? (
+                        {getSafeUnitText(dossier.judicialUnit || latestAct?.result?.minute?.judicialUnit) ? (
                           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-800 text-[11px] font-bold shadow-2xs">
                             <span className="text-slate-900 text-xs">📍</span>
                             <span className="truncate max-w-[260px]">
-                              {dossier.judicialUnit || latestAct?.result?.minute?.judicialUnit}
+                              {getSafeUnitText(dossier.judicialUnit || latestAct?.result?.minute?.judicialUnit)}
                             </span>
                             <button
                               onClick={(e) => {
@@ -619,7 +669,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                                 const cat = latestAct ? detectPromptCategory(latestAct) : undefined;
                                 setEditingUnitProcess({
                                   processNumber: dossier.processNumber,
-                                  currentUnit: dossier.judicialUnit || latestAct?.result?.minute?.judicialUnit || "",
+                                  currentUnit: getSafeUnitText(dossier.judicialUnit || latestAct?.result?.minute?.judicialUnit),
                                   currentUnitId: dossier.unitId || latestAct?.unitId || "montes_claros",
                                   currentCategory: cat?.category,
                                 });
@@ -786,7 +836,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                                   e.stopPropagation();
                                   setEditingUnitProcess({
                                     processNumber: item.processNumber || item.result?.minute?.processNumber || "Processo s/ nº",
-                                    currentUnit: item.result?.minute?.judicialUnit || "",
+                                    currentUnit: getSafeUnitText(item.result?.minute?.judicialUnit),
                                     currentUnitId: item.unitId || "montes_claros",
                                     currentCategory: cat.category,
                                     analysisId: item.id,
@@ -835,23 +885,23 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
                       {parties && (parties.author || parties.defendant) && (
                         <p className="text-[11px] text-slate-500 mt-1.5 line-clamp-1">
-                          <strong className="text-slate-700">{parties.author || "Autor"}</strong> vs <strong className="text-slate-700">{parties.defendant || "Réu"}</strong>
+                          <strong className="text-slate-700">{toSafeString(parties.author, "Autor")}</strong> vs <strong className="text-slate-700">{toSafeString(parties.defendant, "Réu")}</strong>
                         </p>
                       )}
 
                       {/* Judicial Unit / Comarca Tag */}
                       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                        {item.result?.minute?.judicialUnit ? (
+                        {getSafeUnitText(item.result?.minute?.judicialUnit) ? (
                           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-800 text-[10px] font-bold">
                             <span className="text-slate-900">📍</span>
-                            <span className="truncate max-w-[220px]">{item.result.minute.judicialUnit}</span>
+                            <span className="truncate max-w-[220px]">{getSafeUnitText(item.result?.minute?.judicialUnit)}</span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const cat = detectPromptCategory(item);
                                 setEditingUnitProcess({
                                   processNumber: item.processNumber || item.result?.minute?.processNumber || "Processo s/ nº",
-                                  currentUnit: item.result?.minute?.judicialUnit || "",
+                                  currentUnit: getSafeUnitText(item.result?.minute?.judicialUnit),
                                   currentUnitId: item.unitId || "montes_claros",
                                   currentCategory: cat.category,
                                   analysisId: item.id,

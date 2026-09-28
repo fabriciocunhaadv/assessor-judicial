@@ -109,8 +109,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canUseNativeKey = Boolean(userProfile?.canUseNativeKey);
 
   useEffect(() => {
-    setNativeKeyAccessState(canUseNativeKey);
-  }, [canUseNativeKey]);
+    setNativeKeyAccessState(canUseNativeKey, user?.uid);
+  }, [canUseNativeKey, user?.uid]);
 
   const activeTenantId = useMemo(() => {
     if (isSuperAdmin && superAdminTenantId) {
@@ -205,6 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribeUnits: (() => void) | null = null;
     let unsubscribeProfile: (() => void) | null = null;
+    let unsubscribeProfileEmail: (() => void) | null = null;
     let unsubscribeTenant: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (u) => {
@@ -214,6 +215,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (unsubscribeProfile) {
         unsubscribeProfile();
         unsubscribeProfile = null;
+      }
+      if (unsubscribeProfileEmail) {
+        unsubscribeProfileEmail();
+        unsubscribeProfileEmail = null;
       }
       if (unsubscribeUnits) {
         unsubscribeUnits();
@@ -274,6 +279,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setLoading(false);
             });
 
+            const uEmail = (u.email || '').toLowerCase().trim();
+            if (uEmail && uEmail !== u.uid) {
+              unsubscribeProfileEmail = onSnapshot(doc(db, 'users', uEmail), (snapEmail) => {
+                if (snapEmail.exists()) {
+                  const emailData = snapEmail.data() as UserProfile;
+                  setUserProfile((prev) => {
+                    if (!prev) return emailData;
+                    const nextProfile = {
+                      ...prev,
+                      canUseNativeKey: emailData.canUseNativeKey !== undefined ? emailData.canUseNativeKey : prev.canUseNativeKey,
+                      isActive: emailData.isActive !== undefined ? emailData.isActive : prev.isActive,
+                      role: emailData.role || prev.role,
+                      tenantId: (prev.tenantId && prev.tenantId !== 'unassigned') ? prev.tenantId : (emailData.tenantId || prev.tenantId)
+                    };
+                    syncApiKeyWithUserProfile(nextProfile, u.uid);
+                    return nextProfile;
+                  });
+                }
+              }, (err) => console.warn('Snapshot error on email profile:', err));
+            }
+
             // Realtime listener for any updates to user's profile
             unsubscribeProfile = onSnapshot(doc(db, 'users', u.uid), (snapshot) => {
               if (snapshot.exists()) {
@@ -281,14 +307,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (!isSuper || !savedSuperTenant) {
                   setGlobalTenantId(updatedProfile.tenantId || 'gabinete_default');
                 }
-                setUserProfile(updatedProfile);
+                setUserProfile(prev => {
+                  if (!prev) return updatedProfile;
+                  return {
+                    ...updatedProfile,
+                    canUseNativeKey: updatedProfile.canUseNativeKey !== undefined ? updatedProfile.canUseNativeKey : prev.canUseNativeKey,
+                    tenantId: (updatedProfile.tenantId && updatedProfile.tenantId !== 'unassigned') ? updatedProfile.tenantId : prev.tenantId
+                  };
+                });
                 syncApiKeyWithUserProfile(updatedProfile, u.uid);
               }
             }, (error) => { console.warn('Snapshot error on user profile:', error); 
               if (error.code === 'resource-exhausted' || (error.message && error.message.includes('Quota limit'))) {
                 setAuthError("Aviso: A quota gratuita diária do Firebase foi excedida. Você precisará habilitar o plano pago (Blaze) ou aguardar o reset diário para ler do banco. Tente novamente mais tarde.");
               }
- });
+            });
           }
         } catch (error: any) {
           console.warn("Notice during profile sync:", error);
@@ -309,6 +342,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       if (unsubscribeUnits) unsubscribeUnits();
       if (unsubscribeProfile) unsubscribeProfile();
+      if (unsubscribeProfileEmail) unsubscribeProfileEmail();
       if (unsubscribeTenant) unsubscribeTenant();
       unsubscribeAuth();
     };

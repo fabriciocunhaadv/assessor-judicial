@@ -1049,27 +1049,52 @@ export const saveApiUsageStatsToDb = async (stats: ApiUsageStats): Promise<void>
 };
 
 export const getUserProfile = async (uid: string, email?: string): Promise<UserProfile | null> => {
+  let profileByUid: UserProfile | null = null;
+  let profileByEmail: UserProfile | null = null;
+
   if (uid) {
-    const d = await getDoc(doc(db, 'users', uid));
-    if (d.exists()) {
-      return d.data() as UserProfile;
-    }
-  }
-  const targetEmail = (email || (uid && uid.includes('@') ? uid : '')).trim().toLowerCase();
-  if (targetEmail) {
-    const dEmail = await getDoc(doc(db, 'users', targetEmail));
-    if (dEmail.exists()) {
-      return dEmail.data() as UserProfile;
-    }
     try {
-      const q = query(collection(db, 'users'), where('email', '==', targetEmail));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        return snap.docs[0].data() as UserProfile;
+      const d = await getDoc(doc(db, 'users', uid));
+      if (d.exists()) {
+        profileByUid = d.data() as UserProfile;
       }
     } catch (_) {}
   }
-  return null;
+
+  const targetEmail = (email || (uid && uid.includes('@') ? uid : '')).trim().toLowerCase();
+  if (targetEmail) {
+    try {
+      const dEmail = await getDoc(doc(db, 'users', targetEmail));
+      if (dEmail.exists()) {
+        profileByEmail = dEmail.data() as UserProfile;
+      } else {
+        const q = query(collection(db, 'users'), where('email', '==', targetEmail));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          profileByEmail = snap.docs[0].data() as UserProfile;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (profileByUid && profileByEmail) {
+    const validTenant = (profileByUid.tenantId && profileByUid.tenantId !== 'unassigned' && profileByUid.tenantId !== 'unauthorized')
+      ? profileByUid.tenantId
+      : (profileByEmail.tenantId || profileByUid.tenantId);
+
+    const merged: UserProfile = {
+      ...profileByEmail,
+      ...profileByUid,
+      tenantId: validTenant,
+      canUseNativeKey: Boolean(profileByUid.canUseNativeKey || profileByEmail.canUseNativeKey),
+      isActive: profileByUid.isActive !== undefined ? profileByUid.isActive : (profileByEmail.isActive !== undefined ? profileByEmail.isActive : true),
+      role: profileByUid.role || profileByEmail.role || 'user',
+      isJudge: profileByUid.isJudge !== undefined ? profileByUid.isJudge : profileByEmail.isJudge
+    };
+    return merged;
+  }
+
+  return profileByUid || profileByEmail || null;
 };
 
 export const syncUserProfile = async (user: any): Promise<UserProfile> => {
@@ -1140,7 +1165,7 @@ export const syncUserProfile = async (user: any): Promise<UserProfile> => {
           isActive: false,
           createdAt: Date.now(),
           completedTours: [],
-          canUseNativeKey: false,
+          canUseNativeKey: Boolean(profile?.canUseNativeKey),
           tenantId: 'unassigned',
           isUnauthorized: true
         };
@@ -1164,6 +1189,9 @@ export const syncUserProfile = async (user: any): Promise<UserProfile> => {
       isJudge: isJudgeAccount
     };
     await setDoc(doc(db, 'users', user.uid), cleanForFirestore(profile));
+    if (userEmail && userEmail !== user.uid) {
+      await setDoc(doc(db, 'users', userEmail), cleanForFirestore(profile), { merge: true });
+    }
   } else {
     // If profile already exists, STRICTLY preserve all custom fields, tenantId, and Super Admin permissions
     if (profile.uid !== user.uid) {
@@ -1189,6 +1217,9 @@ export const syncUserProfile = async (user: any): Promise<UserProfile> => {
     }
     if (shouldUpdate) {
       await setDoc(doc(db, 'users', user.uid), cleanForFirestore(profile), { merge: true });
+      if (userEmail && userEmail !== user.uid) {
+        await setDoc(doc(db, 'users', userEmail), cleanForFirestore(profile), { merge: true });
+      }
     }
   }
   

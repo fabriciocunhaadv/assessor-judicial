@@ -215,29 +215,21 @@ export function extractJudicialMetadataFromText(text: string): JudicialExtracted
   // 5. DETECÇÃO CRONOLÓGICA DA MARCHA E QUESTÕES PROCESSUAIS PENDENTES
   const lowerText = text.toLowerCase();
 
-  // A) Verificar se já existe SENTENÇA proferida nos autos
+  // A) Verificar se já existe SENTENÇA proferida especificamente nos autos deste processo
   const hasSentencaProferida = (
     /(?:^|\n|\b)(?:mov(?:imentação)?|evento)\s*[\d\.\s-]*[-–:]?\s*(?:sentença|sentenca)/i.test(lowerText) ||
-    /(?:julgo\s+(?:procedente|improcedente|parcialmente\s+procedente)|resolvo\s+o\s+mérito|extingo\s+o\s+processo\s+com\s+resolução|dispositivo\s+da\s+sentença)/i.test(lowerText) ||
-    /(?:proferida\s+a\s+sentença|publicada\s+a\s+sentença|certidão\s+de\s+publicação\s+da\s+sentença|após\s+a\s+sentença)/i.test(lowerText) ||
-    /(?:trata-se\s+de\s+embargos\s+de\s+declaração\s+opostos\s+em\s+face\s+da\s+sentença)/i.test(lowerText)
+    /(?:sentença\s+proferida\s+n[oa]\s+mov|certidão\s+de\s+publicação\s+da\s+sentença)/i.test(lowerText)
   );
 
-  // B) Verificar se há EMBARGOS DE DECLARAÇÃO pendentes de apreciação
+  // B) Verificar se há petição formal de EMBARGOS DE DECLARAÇÃO pendente
   let embargosMovimentacao = "";
-  const mMovEmbargos = lowerText.match(/(?:mov(?:imentação)?|evento)\s*(\d+)[\s\S]{1,60}?(?:embargos\s+de\s+declaração|embargos\s+declaratórios)/i) ||
-                       lowerText.match(/(?:embargos\s+de\s+declaração|embargos\s+declaratórios)[\s\S]{1,60}?(?:no\s+mov(?:imentação)?|no\s+evento)\s*(\d+)/i);
+  const mMovEmbargos = lowerText.match(/(?:mov(?:imentação)?|evento)\s*(\d+)[\s\S]{1,60}?(?:petição\s*[-–:]?\s*embargos\s+de\s+declaração|petição\s+de\s+embargos\s+declaratórios)/i) ||
+                       lowerText.match(/(?:petição\s*[-–:]?\s*embargos\s+de\s+declaração)[\s\S]{1,60}?(?:no\s+mov(?:imentação)?|no\s+evento)\s*(\d+)/i);
   if (mMovEmbargos && mMovEmbargos[1]) {
     embargosMovimentacao = `mov. ${mMovEmbargos[1]}`;
   }
 
-  const hasEmbargosDeclaracao = (
-    Boolean(embargosMovimentacao) ||
-    /(?:embargos\s+de\s+declaração|embargos\s+declaratórios|opõe\s+embargos|opostos\s+embargos|interpostos\s+embargos)/i.test(lowerText) ||
-    /(?:art(?:igo)?\.?\s*1\.?022|art(?:igo)?\.?\s*1022)[^\.\n]*?(?:omissão|contradição|obscuridade|erro\s+material)/i.test(lowerText) ||
-    lowerText.includes("efeitos infringentes") ||
-    lowerText.includes("acolhimento dos presentes declaratórios")
-  );
+  const hasEmbargosDeclaracao = Boolean(embargosMovimentacao) && /(?:petição\s*[-–:]?\s*embargos\s+de\s+declaração|opostos\s+embargos\s+de\s+declaração\s+em\s+face\s+da\s+sentença)/i.test(lowerText);
 
   // C) Verificar se há Cumprimento de Sentença
   const hasCumprimentoSentenca = (
@@ -267,24 +259,32 @@ export function extractJudicialMetadataFromText(text: string): JudicialExtracted
     /(?:mov(?:imentação)?|evento)\s*[\d\.\s-]*[-–:]?\s*(?:contestação|defesa\s+apresentada)/i.test(lowerText)
   );
 
+  // Ordem de análise das coisas pendentes no PDF: Despacho / Decisão / Sentença
   let suggestedActType: "embargos" | "decisao" | "despacho" | "sentenca" = "sentenca";
   let pendingMatterDescription = "";
 
-  if (hasSentencaProferida && hasEmbargosDeclaracao) {
-    suggestedActType = "embargos";
-    pendingMatterDescription = `Sentença já proferida nos autos. Questão pendente: Julgamento dos Embargos de Declaração ${embargosMovimentacao ? `(${embargosMovimentacao})` : "opostos"} contra a sentença (art. 1.022 do CPC).`;
+  if (!hasContestacao) {
+    // Fase inicial (sem defesa nos autos)
+    if (hasUrgentRequest) {
+      suggestedActType = "decisao";
+      pendingMatterDescription = "Fase postulatória inicial. Questão pendente: Apreciação de Pedido Liminar / Tutela Provisória de Urgência (art. 300 do CPC) e Gratuidade da Justiça.";
+    } else {
+      suggestedActType = "despacho";
+      pendingMatterDescription = "Fase postulatória inicial. Questão pendente: Despacho de Recebimento, Citação do Réu e Designação de Audiência de Conciliação (art. 334 do CPC).";
+    }
+  } else if (hasSaneamentoPendente && !hasSentencaProferida) {
+    suggestedActType = "decisao";
+    pendingMatterDescription = "Processo na fase de saneamento. Questão pendente: Decisão de Saneamento e Organização (art. 357 do CPC).";
   } else if (hasSentencaProferida && hasCumprimentoSentenca) {
     suggestedActType = "decisao";
     pendingMatterDescription = "Processo na fase executiva (Cumprimento de Sentença). Questão pendente: Decisão interlocutória de atos executivos.";
-  } else if (!hasContestacao && hasUrgentRequest) {
-    suggestedActType = "decisao";
-    pendingMatterDescription = "Fase postulatória inicial. Questão pendente: Apreciação de Pedido Liminar / Tutela Provisória de Urgência (art. 300 do CPC).";
-  } else if (hasSaneamentoPendente && !hasSentencaProferida) {
-    suggestedActType = "decisao";
-    pendingMatterDescription = "Processo instruído com réplica e especificação de provas. Questão pendente: Decisão de Saneamento e Organização (art. 357 do CPC).";
+  } else if (hasSentencaProferida && hasEmbargosDeclaracao && embargosMovimentacao) {
+    // Apenas se houver petição formal recente de embargos identificada com movimentação
+    suggestedActType = "embargos";
+    pendingMatterDescription = `Sentença proferida nos autos. Questão pendente: Julgamento dos Embargos de Declaração (${embargosMovimentacao}) contra a sentença (art. 1.022 do CPC).`;
   } else {
     suggestedActType = "sentenca";
-    pendingMatterDescription = "Processo maduro para resolução de mérito. Questão pendente: Sentença Judicial de Mérito (art. 487 do CPC).";
+    pendingMatterDescription = "Processo instruído e maduro para julgamento. Questão pendente: Sentença Judicial de Mérito (art. 487 do CPC).";
   }
 
   return {

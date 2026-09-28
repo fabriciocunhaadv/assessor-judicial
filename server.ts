@@ -39,14 +39,24 @@ DIRETRIZES DE RIGOR JURÍDICO, EXAUSTIVIDADE E EXTRAÇÃO PROBATÓRIA (ART. 489,
    - Sempre que invocar súmulas do STJ, STF ou TJGO, TRANSCREVA O ENUNCIADO COMPLETO da súmula em bloco destacado ('> "Súmula nº ...'").
    - Sempre que aplicar teses vinculantes do Caderno de Teses do Gabinete, TRANSCREVA A TESE em bloco destacado e aplique-a expressamente ao caso concreto.
 
-5. ESTRUTURAÇÃO CAPITULAR DA FUNDAMENTAÇÃO EM SUBTÓPICOS (MARKDOWN RICO):
-   - A 'fundamentacao' NÃO PODE ser um texto corrido indiferenciado. Deve ser dividida obrigatoriamente em capítulos temáticos identificados por subtópicos '### 1. ...', '### 2. ...':
-     * Capítulo de Admissibilidade, Gratuidade da Justiça e Regularidade Processual;
-     * Capítulo para cada preliminar e prejudicial de mérito arguida (prescrição, decadência, inépcia, ilegitimidade, etc.);
-     * Capítulo individualizado para cada pedido ou matéria de mérito (guarda, visitas, alimentos, dano moral, repetição de indébito, etc.);
-     * Capítulo dos Consectários Legais (juros e correção monetária nos termos da Lei nº 14.905/2024).
+5. REGRA INTRÍNSECA DOS 7 BLOCOS OBRIGATÓRIOS DA FUNDAMENTAÇÃO JUDICIAL (ART. 489, § 1º, DO CPC):
+   - A 'fundamentacao' DEVE ser estruturada obrigatoriamente nos seguintes 7 blocos substantivos e densos, identificados por subtópicos Markdown ('### 1. ...', '### 2. ...'), com proibição absoluta de parágrafos telegráficos, sucintos ou genéricos:
+     ### 1. DA REGULARIDADE PROCESSUAL, COMPETÊNCIA E GRATUIDADE DA JUSTIÇA
+     (Exame minucioso da legitimidade das partes, competência do juízo e deliberação fundamentada sobre o pedido de gratuidade da justiça ou recolhimento de custas nos arts. 98 e 99 do CPC).
+     ### 2. DO EXAME INDIVIDUALIZADO DE TODAS AS PRELIMINARES E PREJUDICIAIS
+     (Apreciação analítica e motivada de CADA preliminar ou matéria prejudicial arguida na contestação ou matérias de ordem pública, com transcrição literal dos argumentos entre aspas. Proibido rejeitar em bloco ou de forma simplificada).
+     ### 3. DO CERNE DA LIDE E DELIMITAÇÃO DAS QUESTÕES CONTROVERTIDAS
+     (Fixação cristalina das matérias fáticas e jurídicas em conflito entre o pleito autoral e a resistência da defesa).
+     ### 4. DO REGIME JURÍDICO APLICÁVEL, NORMAS E SÚMULAS VINCULANTES
+     (Citação e transcrição em bloco destacado '> "Art. ..."' de artigos de lei, microssistemas normativos e enunciados das súmulas do STF, STJ e TJGO).
+     ### 5. DO CONFRONTO FÁTICO-PROBATÓRIO DOCUMENTO A DOCUMENTO
+     (Exame individualizado de cada prova acostada aos autos com indicação obrigatória da tríplice localização: Mov. X, Arq. Y, Pág. Z / Fls. Z, e transcrição de trechos essenciais entre aspas).
+     ### 6. DA APRECIAÇÃO EXAUSTIVA E VALORAÇÃO INDIVIDUALIZADA DE CADA PEDIDO
+     (Análise dedicada e separada para cada pedido formulado na inicial e na defesa/reconvenção, julgando motivadamente o acolhimento, rejeição ou procedência parcial com enfrentamento de todos os argumentos capazes de infirmar a conclusão).
+     ### 7. DOS CONSECTÁRIOS LEGAIS, JUROS E CORREÇÃO MONETÁRIA (LEI Nº 14.905/2024)
+     (Fixação estrita dos critérios de correção monetária e juros moratórios pela Lei nº 14.905/2024, verbas sucumbenciais, custas e honorários).
    - Use **negrito** nas conclusões e nomes de documentos, e *itálico* em expressões em latim (*fumus boni iuris*, *periculum in mora*, *in albis*, *inaudita altera parte*, etc.) e nomes de leis.
-   - Parágrafos separados por duas quebras de linha (\\n\\n). Proibido usar termos artificiais como "PARÁGRAFO 1".`;
+   - Parágrafos separados por duas quebras de linha (\\n\\n). Proibido usar termos artificiais como "PARÁGRAFO 1". Proibido truncar ou abreviar fundamentações mesmo em modelos mais leves ou chaves gratuitas.`;
 
 function getActiveCabinetTeses(cabinetTesesText: any, isTesesEnabled: any) {
     if (isTesesEnabled === false) return "";
@@ -81,7 +91,7 @@ app.post("/api/test-api-key", async (req, res) => {
         const key = extractApiKey(req);
         if (!key) return res.status(400).json({ success: false, error: "Nenhuma chave de API informada." });
         const ai = new GoogleGenAI({ apiKey: key });
-        const testModels = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"];
+        const testModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
         let lastErr: any;
         for (const m of testModels) {
             try {
@@ -434,7 +444,7 @@ ${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetT
             keyPool: extractApiKeyPool(req),
             res,
             primaryModel: "gemini-3.8-flash",
-            fallbackModel: "gemini-flash-latest",
+            fallbackModel: "gemini-3.7-flash",
             contents: [
                 { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
             ],
@@ -1129,7 +1139,8 @@ Retorne estritamente em JSON com o formato:
 });
 
 function isRequestNativeAllowed(req: any): boolean {
-    return req.headers['x-use-native-key'] === 'true';
+    const isNativeHeader = req.headers['x-use-native-key'] === 'true';
+    return isNativeHeader;
 }
 
 function extractApiKey(req) {
@@ -1295,8 +1306,13 @@ async function generateWithFallbackAndRetry(options) {
     let fbModel = options.fallbackModel || 'gemini-flash-latest';
     const defaultFlashQueue = [
         "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash",
+        "gemini-flash-latest",
+        "gemini-3.5-flash-lite",
         "gemini-3.1-flash-lite",
-        "gemini-flash-latest"
+        "gemini-flash-lite-latest"
     ];
     const initialList = [pModel];
     if (fbModel && !initialList.includes(fbModel)) {
@@ -1853,6 +1869,30 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
     };
 }
 
+function extractSafeString(val: any, fallback: string = ""): string {
+    if (!val) return fallback;
+    if (typeof val === "string") return val.trim();
+    if (typeof val === "object") {
+        if (typeof val.judicialUnit === "string" && val.judicialUnit.trim()) return val.judicialUnit.trim();
+        if (typeof val.court === "string" && val.court.trim()) return val.court.trim();
+        if (typeof val.comarcaVara === "string" && val.comarcaVara.trim()) return val.comarcaVara.trim();
+        if (typeof val.comarca === "string" && val.comarca.trim()) return val.comarca.trim();
+        if (typeof val.vara === "string" && val.vara.trim()) return val.vara.trim();
+        if (typeof val.processNumber === "string" && val.processNumber.trim()) return val.processNumber.trim();
+        if (typeof val.processoNumero === "string" && val.processoNumero.trim()) return val.processoNumero.trim();
+        if (typeof val.author === "string" && val.author.trim()) return val.author.trim();
+        if (typeof val.plaintiff === "string" && val.plaintiff.trim()) return val.plaintiff.trim();
+        if (typeof val.poloAtivo === "string" && val.poloAtivo.trim()) return val.poloAtivo.trim();
+        if (typeof val.defendant === "string" && val.defendant.trim()) return val.defendant.trim();
+        if (typeof val.poloPassivo === "string" && val.poloPassivo.trim()) return val.poloPassivo.trim();
+        if (typeof val.title === "string" && val.title.trim()) return val.title.trim();
+        if (typeof val.name === "string" && val.name.trim()) return val.name.trim();
+        if (typeof val.tribunal === "string" && val.tribunal.trim()) return val.tribunal.trim();
+        return fallback;
+    }
+    return String(val).trim();
+}
+
 function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string, actType: string, processInfo: any) {
     let parsed = rawParsed;
     if (!parsed || typeof parsed !== 'object') {
@@ -1953,18 +1993,43 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
         }
     }
 
-    const fallbackTitle = actType === "decisao" ? "DECISÃO INTERLOCUTÓRIA" : actType === "despacho" ? "DESPACHO" : "SENTENÇA";
-    const title = (mContainer.title || mContainer.titulo || parsed.title || parsed.actType || fallbackTitle).toUpperCase();
-    const court = parsed.court || mContainer.court || mContainer.judicialUnit || parsed.judicialUnit || processInfo?.comarca || "Comarca de Montes Claros de Goiás";
-    const header = mContainer.header || mContainer.cabecalho || (parsed.court ? `PODER JUDICIÁRIO\nTRIBUNAL DE JUSTIÇA DO ESTADO DE GOIÁS\n${parsed.court.toUpperCase()}` : "PODER JUDICIÁRIO DO ESTADO DE GOIÁS");
-    const processNumber = mContainer.processNumber || parsed.processNumber || processInfo?.processNumber || "Autos do Processo";
-    const author = mContainer.parties?.author || parsed.author || parsed.parties?.author || "Parte Autora";
-    const defendant = mContainer.parties?.defendant || parsed.defendant || parsed.parties?.defendant || "Parte Ré";
-    const closing = mContainer.closing || mContainer.fecho || parsed.closing || (parsed.judge ? `${parsed.judge}\nJuiz(a) de Direito` : "Gabinete Judicial.");
+    const fallbackTitle = actType === "embargos" 
+        ? "DECISÃO - EMBARGOS DE DECLARAÇÃO" 
+        : (actType === "decisao_saneamento" || actType === "saneamento") 
+            ? "DECISÃO DE SANEAMENTO E ORGANIZAÇÃO" 
+            : actType === "decisao" 
+                ? "DECISÃO INTERLOCUTÓRIA" 
+                : actType === "despacho" 
+                    ? "DESPACHO" 
+                    : "SENTENÇA";
+    const rawTitle = mContainer.title || mContainer.titulo || parsed.title || parsed.actType || fallbackTitle;
+    const title = extractSafeString(rawTitle, fallbackTitle).toUpperCase();
+
+    const rawCourt = parsed.court || mContainer.court || mContainer.judicialUnit || parsed.judicialUnit || processInfo?.comarca || "Comarca de Montes Claros de Goiás";
+    const court = extractSafeString(rawCourt, "Comarca de Montes Claros de Goiás");
+
+    const rawHeader = mContainer.header || mContainer.cabecalho || (parsed.court ? `PODER JUDICIÁRIO\nTRIBUNAL DE JUSTIÇA DO ESTADO DE GOIÁS\n${court.toUpperCase()}` : "PODER JUDICIÁRIO DO ESTADO DE GOIÁS");
+    const header = extractSafeString(rawHeader, "PODER JUDICIÁRIO DO ESTADO DE GOIÁS");
+
+    const rawProcessNumber = mContainer.processNumber || parsed.processNumber || processInfo?.processNumber || "Autos do Processo";
+    const processNumber = extractSafeString(rawProcessNumber, "Autos do Processo");
+
+    const rawAuthor = mContainer.parties?.author || parsed.author || parsed.parties?.author || "Parte Autora";
+    const author = extractSafeString(rawAuthor, "Parte Autora");
+
+    const rawDefendant = mContainer.parties?.defendant || parsed.defendant || parsed.parties?.defendant || "Parte Ré";
+    const defendant = extractSafeString(rawDefendant, "Parte Ré");
+
+    const rawClosing = mContainer.closing || mContainer.fecho || parsed.closing || (parsed.judge ? `${parsed.judge}\nJuiz(a) de Direito` : "Gabinete Judicial.");
+    const closing = extractSafeString(rawClosing, "Gabinete Judicial.");
+
+    const safeRelatorio = extractSafeString(relatorio, "Relatório elaborado com base nos autos do processo.");
+    const safeFundamentacao = extractSafeString(fundamentacao, "Fundamentação jurídica elaborada com base no acervo fático-probatório dos autos.");
+    const safeDispositivo = extractSafeString(dispositivo, "Ante o exposto, decide-se conforme os autos.");
 
     // Indicação do Tipo de Movimentação TPU CNJ no Projudi
     const rawTpu = parsed.indicacaoTpuCnj || mContainer.indicacaoTpuCnj || parsed.auditAnalysis?.indicacaoTpuCnj || parsed.tpu || null;
-    const indicacaoTpuCnj = inferTpuCnjMovement(actType, title, dispositivo, rawTpu);
+    const indicacaoTpuCnj = inferTpuCnjMovement(actType, title, safeDispositivo, rawTpu);
 
     const finalMinute = {
         title,
@@ -1975,11 +2040,11 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
             author,
             defendant
         },
-        relatorio: relatorio || "Relatório elaborado com base nos autos do processo.",
-        fundamentacao: fundamentacao || "Fundamentação jurídica elaborada com base no acervo fático-probatório dos autos.",
-        dispositivo: dispositivo || "Ante o exposto, decide-se conforme os autos.",
+        relatorio: safeRelatorio,
+        fundamentacao: safeFundamentacao,
+        dispositivo: safeDispositivo,
         closing,
-        fullFormattedText: `${header}\nProcesso nº: ${processNumber}\nPromovente: ${author}\nPromovido: ${defendant}\n\n${title}\n\nI - RELATÓRIO\n\n${relatorio}\n\nII - FUNDAMENTAÇÃO\n\n${fundamentacao}\n\nIII - DISPOSITIVO\n\n${dispositivo}\n\n${closing}`,
+        fullFormattedText: `${header}\nProcesso nº: ${processNumber}\nPromovente: ${author}\nPromovido: ${defendant}\n\n${title}\n\nI - RELATÓRIO\n\n${safeRelatorio}\n\nII - FUNDAMENTAÇÃO\n\n${safeFundamentacao}\n\nIII - DISPOSITIVO\n\n${safeDispositivo}\n\n${closing}`,
         indicacaoTpuCnj
     };
 
@@ -2255,15 +2320,20 @@ function extractProcessMetadata(stage1Json: any, processInfo: any, allText: stri
     }
 
     // Judicial Unit / Comarca
-    let judicialUnit = stage1Json?.judicialUnit || processInfo?.vara || processInfo?.comarca || "Poder Judiciário do Estado de Goiás - TJGO";
-    if (stage1Json?.relatorio && (judicialUnit.includes("Poder Judiciário") || judicialUnit.includes("Mineiros"))) {
+    let judicialUnit = extractSafeString(stage1Json?.judicialUnit || processInfo?.vara || processInfo?.comarca, "Poder Judiciário do Estado de Goiás - TJGO");
+    if (stage1Json?.relatorio && typeof stage1Json.relatorio === "string" && (judicialUnit.includes("Poder Judiciário") || judicialUnit.includes("Mineiros"))) {
         const mUnit = stage1Json.relatorio.match(/perante\s+o?\s+([A-ZÁ-Úa-zá-ú\s]{5,70}?(?:Comarca\s+de\s+[A-ZÁ-Úa-zá-ú\s]+|TJGO))/i);
         if (mUnit && mUnit[1]) {
             judicialUnit = mUnit[1].trim();
         }
     }
 
-    return { procNum, author, defendant, judicialUnit };
+    return {
+        procNum: extractSafeString(procNum, "Autos do Processo"),
+        author: extractSafeString(author, "Parte Autora"),
+        defendant: extractSafeString(defendant, "Parte Ré"),
+        judicialUnit: extractSafeString(judicialUnit, "Poder Judiciário do Estado de Goiás - TJGO")
+    };
 }
 
 app.post("/api/generate-minute", async (req, res) => {
@@ -2460,10 +2530,47 @@ DIRETRIZ DA ETAPA 1 (ASSESSOR FÁTICO-PROCESSUAL & ANALISTA PROBATÓRIO):
 Você atua estritamente como Assessor Fático-Processual e Analista Probatório do Gabinete.
 Sua missão é realizar a extração e o confronto probatório bruto de todas as peças e documentos dos autos, sem qualquer juízo genérico ou abreviação telegráfica.
 
-REGRA MANDATÓRIA DE OBSERVAÇÃO DA MARCHA PROCESSUAL E QUESTÕES PENDENTES DE JULGAMENTO:
-1. OBSERVE A ORDEM CRONOLÓGICA DAS MOVIMENTAÇÕES DOS AUTOS: Identifique com precisão qual é o ato ou questão que está PENDENTE de resolução pelo juízo (a última movimentação conclusa).
-2. SENTENÇA PRÉVIA & EMBARGOS DE DECLARAÇÃO: Se os autos já foram sentenciados em evento anterior e há petição de Embargos de Declaração pendente de apreciação (ex: mov. 55), É TERMINANTEMENTE PROIBIDO REDIGIR UMA NOVA SENTENÇA DO PROCESSO. Você deve redigir a minuta preliminar para o JULGAMENTO DOS EMBARGOS DE DECLARAÇÃO, identificando a sentença embargada, os embargos opostos no respectivo evento/movimento e os vícios alegados (omissão, contradição, obscuridade ou erro material)!
-3. EXTRAÇÃO FIEL DOS DADOS: Extraia com absoluta fidelidade o número do processo (formato CNJ completo: 0000000-00.0000.0.00.0000), os nomes completos das partes (Promovente/Autor/Embargante e Promovido/Réu/Embargado) e a unidade judiciária. NUNCA utilize predicados, verbos ou relatos fáticos como nome de partes.
+REGRA MANDATÓRIA DE OBSERVAÇÃO DA MARCHA PROCESSUAL E CASO A CASO (ANÁLISE INDIVIDUALIZADA):
+1. OBSERVE A ORDEM CRONOLÓGICA DAS MOVIMENTAÇÕES DOS AUTOS E CALIBRAGEM DA MARCHA (VISÃO DE GABINETE):
+   - Analise a linha do tempo e a situação real dos autos caso a caso, observando os últimos atos praticados:
+     * TARJAS E CERTIDÕES DE CONCLUSÃO (INDÍCIO FORTE, SEM CERTEZA CEGA): Se houver tarja ou certidão nos autos indicando "Conclusos para Sentença" (código TPU 51), "Conclusos para Decisão" (TPU 53) ou "Conclusos para Despacho" (TPU 52), considere como indício forte. Contudo, NÃO adote automatismo cego de 100%: confronte a tarja com a realidade dos autos (se a fase probatória realmente se encerrou ou se ainda há atos saneadores pendentes) para assegurar o ato processual correto.
+     * SE JÁ HOUVE INSTRUÇÃO/LAUDO/PERÍCIA OU A CAUSA ESTÁ MADURA: O saneamento do Art. 357 do CPC é anterior à produção da perícia. Se o processo já superou a fase postulatória e a prova pericial/estudo técnico/audiência já foi realizada, ou se as partes não requereram outras provas, ou se houve alegações finais ou parecer de mérito do Ministério Público (em qualquer processo com intervenção do MP), a instrução probatória está encerrada e a lide está madura para SENTENÇA (Art. 355 / Art. 487 do CPC). É TERMINANTEMENTE PROIBIDO regredir os autos para decisão de saneamento se a prova técnica já foi produzida ou se a matéria está madura para julgamento final!
+     * SE O PROCESSO DEMANDA DELIMITAÇÃO PROBATÓRIA: Se após contestação e réplica, o feito ainda estiver na fase prévia de fixar pontos controvertidos, julgar preliminares pendentes e deferir/indeferir provas: o ato cabível é DECISÃO DE SANEAMENTO E ORGANIZAÇÃO (Art. 357 do CPC).
+     * SE HOUVER PEDIDO LIMINAR/URGÊNCIA PENDENTE NA FASE INICIAL: DECISÃO INTERLOCUTÓRIA (Tutela de Urgência / Art. 300 do CPC).
+     * SE FOR FASE INICIAL SEM LIMINAR: DESPACHO de mero expediente / citação / emenda (Art. 321 ou 334 do CPC).
+     * SE HOUVER PETIÇÃO RECENTE DE EMBARGOS CONTRA DECISÃO/SENTENÇA: EMBARGOS DE DECLARAÇÃO.
+2. MAPEAMENTO INTRÍNSECO DE 100% DOS PEDIDOS E PRELIMINARES:
+   - Você DEVE identificar, extrair e catalogar exaustivamente todos os pedidos deduzidos na exordial (danos materiais, danos morais, obrigação de fazer/não fazer, repetição de indébito, rescisão contratual, etc.) e todas as preliminares e matérias de defesa da contestação (incompetência, ilegitimidade, inépcia, falta de interesse, prescrição, decadência, etc.).
+   - É expressamente proibido resumir em bloco ou omitir pedidos secundários.
+3. PROTOCOLO ANTI-INFERÊNCIA E FIDELIDADE TEXTUAL ESTRITA:
+   - É expressamente PROIBIDO utilizar resumos evasivos ou inferências genéricas (tais como "foram debatidas pelas partes e pelo Ministério Público" ou "as partes manifestaram-se no feito").
+   - Você DEVE extrair e registrar discriminadamente: 1) O que o autor sustentou expressamente sobre os fatos e laudos (com indicação de Mov. X); 2) O que o réu sustentou (com indicação de Mov. X); 3) A transcrição literal entre aspas dos trechos essenciais das peças.
+4. BLINDAGEM CONTRA PROVAS FANTASMAS (PRINCÍPIO DISPOSITIVO):
+   - O juízo só delibera sobre provas que foram expressamente postuladas pelas partes nos autos.
+   - É terminantemente PROIBIDO inventar indeferimento ou deferimento de provas não requeridas (ex: inventar indeferimento de prova testemunhal se nenhuma das partes a requereu). Se não há novos pedidos probatórios pendentes, registre a preclusão e o encerramento da fase probatória.
+5. EXTRAÇÃO QUALIFICADA DO PARECER DO MINISTÉRIO PÚBLICO (OBRIGATÓRIO EM TODOS OS PROCESSOS COM ATUAÇÃO DO MP):
+   - Em todo e qualquer processo em que houver parecer ou manifestação do Ministério Público como custos legis / fiscal da ordem jurídica (Família, Sucessões, Infância, Fazenda Pública, Meio Ambiente, Interdição/Curatela, Registros Públicos ou qualquer matéria em que atue):
+     * O Relatório DEVE conter um parágrafo dedicado identificando a Movimentação (Mov. X, Arq. Y, Pág. Z), data e Promotor(a) de Justiça;
+     * Consignar expressamente se o MP opinou pela procedência total, improcedência ou procedência parcial dos pedidos;
+     * TRANSCREVER LITERALMENTE ENTRE ASPAS a conclusão e as medidas específicas requeridas pelo Ministério Público.
+6. RESPEITO AO ATO SOLICITADO E VEDAÇÃO À PRESUNÇÃO INDEVIDA DE EMBARGOS: É vedado presumir ou enquadrar o caso automaticamente como embargos de declaração por simples citação de acórdãos ou regras recursais. Somente haverá julgamento de embargos de declaração se houver petição formal recente de aclaratórios pendente de decisão nos autos e essa for a diretriz requerida pelo gabinete.
+7. EXTRAÇÃO FIEL DOS DADOS: Extraia com absoluta fidelidade o número do processo (formato CNJ completo: 0000000-00.0000.0.00.0000), os nomes completos das partes (Promovente/Autor/Embargante e Promovido/Réu/Embargado) e a unidade judiciária. NUNCA utilize predicados, verbos ou relatos fáticos como nome de partes.
+8. BLINDAGEM CONTRA OMISSÃO DE PETIÇÕES E REQUERIMENTOS INTERCORRENTES (ART. 493 DO CPC):
+   - Realize varredura preventiva em todas as movimentações dos autos para detectar petições intercorrentes pendentes de deliberação judicial (ex: petição de acordo/transação entre as partes para homologação, pedido de desistência da ação ou contra réu, juntada de documento novo substancial, pedido de habilitação de herdeiros ou terceiros, manifestação sobre gratuidade ou renúncia de prazo).
+   - É terminantemente PROIBIDO elaborar a minuta sem antes acusar e deliberar motivadamente sobre a petição intercorrente pendente no Relatório, na Fundamentação ou no Dispositivo, prevenindo nulidade ou embargos de declaração por omissão.
+9. PISO MÍNIMO DE EXTENSÃO E PROIBIÇÃO ABSOLUTA DE SÍNTESE/BREVIDADE:
+   - É expressamente PROIBIDO sintetizar, resumir ou gerar decisões telegráficas ou simplificadas. A brevidade ou concisão excessiva é considerada erro formal grave de técnica judicante. Não economize tokens ou espaço.
+   - PISO MÍNIMO DO RELATÓRIO: O 'relatorio' DEVE conter no mínimo 4 a 6 parágrafos densos e encadeados, narrando exaustivamente a exordial, pedidos, tutelas, certidões, contestação, réplica, laudos, parecer do MP e conclusão.
+   - PISO MÍNIMO DA FUNDAMENTAÇÃO: Cada um dos 7 blocos obrigatórios DEVE conter no mínimo 2 a 3 parágrafos aprofundados, totalizando no mínimo 14 a 20 parágrafos judiciais densos e fundamentados.
+10. PROTOCOLO DE ANCORAGEM PROBATÓRIA E TRANSCRIÇÕES LITERAIS OBRIGATÓRIAS:
+   - Para impedir que o modelo gere textos genéricos ou abstratos, você DEVE obrigatoriamente abrir aspas e TRANSCREVER LITERALMENTE:
+     * O trecho exato dos pedidos e da causa de pedir da petição inicial;
+     * Os argumentos e teses exatas da contestação com que o réu impugnou os fatos;
+     * As conclusões, diagnósticos e valores de laudos periciais, contratos ou termos de audiência (com indicação de Mov., Arq. e Pág.);
+     * A conclusão literal do parecer do Ministério Público;
+     * O texto integral dos artigos de lei e das súmulas aplicadas em bloco destacado (>).
+11. CHECKLIST EXAUSTIVO DE DOCUMENTOS (SEM DESCARTAR NENHUM DADO DO PROCESSO):
+   - É terminantemente PROIBIDO descartar, omitir ou ignorar qualquer documento anexado aos autos no PDF. Todo documento relevante DEVE ser examinado e citado com sua tríplice localização processual (Mov. X, Arq. Y, Pág. Z).
 
 Você deve produzir a MINUTA PRELIMINAR FACTUAL estruturada em JSON contendo:
 - "processNumber": Número do processo CNJ autêntico;
@@ -2471,11 +2578,10 @@ Você deve produzir a MINUTA PRELIMINAR FACTUAL estruturada em JSON contendo:
 - "defendant": Nome completo da parte ré / requerida / embargada / executada;
 - "judicialUnit": Comarca e Vara oficial dos autos;
 - "pendingMatter": Descrição exata da questão que está pendente de julgamento nos autos;
-- "actType": Tipo do ato judicial adequado (EMBARGOS DE DECLARAÇÃO, DECISÃO INTERLOCUTÓRIA, SENTENÇA ou DESPACHO);
-- "relatorio": Relatório judicial completo, fidedigno e cronológico (narrando detalhadamente todas as partes, pedidos, tutelas, certidões, contestações, réplicas, laudos e provas com a tríplice localização processual: Mov. X, Arq. Y, Pág. Z);
-- "fundamentacao": Fundamentação jurídica fática e probatória densa estruturada rigorosamente nos 7 blocos obrigatórios em 5 a 8 parágrafos profundos (1. Regularidade processual; 2. Cerne da questão; 3. Regime legal e precedentes com transcrição de artigos; 4. Confronto fático-probatório concreto documento a documento com citação de eventos e transcrição de trechos entre aspas; 5. Subsunção motivada; 6. Apreciação individualizada de cada pedido; 7. Consectários legais e juros pela Lei 14.905/2024);
-- "dispositivo": Dispositivo preliminar operacional com comandos claros e precisos adequados aos pedidos ou ao julgamento do recurso pendente.
-`;
+- "actType": Tipo do ato judicial adequado (EMBARGOS DE DECLARAÇÃO, DECISÃO INTERLOCUTÓRIA, DECISÃO DE SANEAMENTO E ORGANIZAÇÃO, SENTENÇA ou DESPACHO);
+- "relatorio": Relatório judicial completo, fidedigno e cronológico em 4 a 6 parágrafos densos (narrando detalhadamente todas as partes, pedidos, tutelas, certidões, contestações, réplicas, laudos e provas com a tríplice localização processual: Mov. X, Arq. Y, Pág. Z, acusando expressamente eventuais petições intercorrentes pendentes de homologação/apreciação);
+- "fundamentacao": Fundamentação jurídica fática e probatória exaustiva estruturada rigorosamente nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com 2 a 3 parágrafos aprofundados por bloco (totalizando no mínimo 14 a 20 parágrafos judiciais densos com citações literais entre aspas e tríplice localização Mov./Arq./Pág.), enfrentando 100% dos pedidos e preliminares;
+- "dispositivo": Dispositivo preliminar operacional com comandos claros e precisos adequados aos pedidos ou ao julgamento do recurso pendente, contendo a fixação operacional dos consectários legais (juros pela Selic deduzida e correção monetária pelo IPCA nos termos da Lei nº 14.905/2024).`;
 if (processActsSummary && typeof processActsSummary === "string" && processActsSummary.trim().length > 0) {
     stage1SystemInstruction += `\n\n[MEMÓRIA PROCESSUAL DO GABINETE • EVOLUÇÃO DOS ATOS PRÉVIOS DESTE MESMO PROCESSO]:\n${processActsSummary.trim()}\n`;
 }
@@ -2490,8 +2596,31 @@ Sua missão é:
 1. LER a Minuta Preliminar Factual com atenção máxima aos eventos probatórios;
 2. CONFRONTÁ-LA com o CADERNO DE TESES DO GABINETE, as SÚMULAS VINCULANTES (STF, STJ, TNU e TJGO) e a MINUTA PARADIGMA (se ativada);
 3. REESCREVER e ADENSAR magistralmente a fundamentação ('fundamentacao') e o dispositivo ('dispositivo') aplicando as teses consolidadas do magistrado e a jurisprudência vinculante, sem perder a riqueza fática da Etapa 1;
-4. GERAR a estrutura final ('minute') e a MATRIZ DE AUDITORIA FORENSE COMPLETA ('auditAnalysis': Fato vs Prova evento a evento, Competência, 6 Pilares de Integridade Documental, Normas Aplicadas, Legislação Mapeada, Consectários Detalhados e Pré-Auditoria).
-`;
+4. BLINDAGEM INTRÍNSECA DOS 7 BLOCOS OBRIGATÓRIOS DA FUNDAMENTAÇÃO:
+   - É expressamente PROIBIDO resumir, omitir ou suprimir qualquer um dos 7 blocos obrigatórios ou sintetizar a fundamentação em parágrafos genéricos.
+   - Mesmo operando sob modelos ágeis de contingência (Flash-Lite) ou chaves gratuitas, você DEVE preservar a divisão em subtópicos Markdown (### 1. a ### 7.), com formatação rica (negrito, itálico, citações em bloco '>' e indicação de Mov., Arq., Pág.).
+   - Você DEVE deliberar exaustivamente sobre CADA preliminar arguida na contestação e CADA pedido formulado na inicial.
+5. GERAR a estrutura final ('minute') e a MATRIZ DE AUDITORIA FORENSE COMPLETA ('auditAnalysis': Fato vs Prova evento a evento, Competência, 6 Pilares de Integridade Documental, Normas Aplicadas, Legislação Mapeada, Consectários Detalhados e Pré-Auditoria).
+6. PROTOCOLO ANTI-INFERÊNCIA E FIDELIDADE TEXTUAL ESTRITA:
+   - É expressamente proibido resumir com fórmulas evasivas (como "foram debatidas pelas partes e pelo Ministério Público" ou "as partes manifestaram-se no feito").
+   - Registre expressamente o que cada parte sustentou com as respectivas Movimentações.
+7. EXTRAÇÃO QUALIFICADA DO MINISTÉRIO PÚBLICO (EM TODOS OS PROCESSOS COM ATUAÇÃO DO MP):
+   - Em todo e qualquer feito com parecer ou intervenção do Ministério Público (Família, Sucessões, Infância, Fazenda Pública, Meio Ambiente, Curatela, etc.): preserve no Relatório um parágrafo próprio detalhado com a Mov., data, identificação do Promotor(a), juízo sobre o mérito (procedência, improcedência ou procedência parcial) e a TRANSCRIÇÃO LITERAL ENTRE ASPAS da conclusão do parecer ministerial, enfrentando os apontamentos na Fundamentação.
+8. BLINDAGEM CONTRA PROVAS FANTASMAS E CALIBRAGEM DA MARCHA:
+   - O magistrado só delibera sobre provas efetivamente postuladas nos autos. Não crie indeferimentos de provas que ninguém requereu (ex: indeferir testemunhas inexistentes).
+   - Se o laudo/perícia já foi produzido e as partes/MP manifestaram-se sobre ele, a instrução está exaurida e a causa está madura para SENTENÇA (não para saneamento).
+9. BLINDAGEM CONTRA OMISSÃO DE PETIÇÕES E REQUERIMENTOS INTERCORRENTES (ART. 493 DO CPC):
+   - Confronte minuciosamente os autos para assegurar que nenhuma petição pendente de deliberação judicial (acordo/transação para homologação, pedido de desistência da ação ou de parte, documentos novos juntados, habilitação de herdeiros ou pedidos de prazo) reste sem apreciação motivada no Relatório ou no Dispositivo.
+10. CONSECTÁRIOS LEGAIS CONSOLIDADOS NO DISPOSITIVO (SEM POLUIR A FUNDAMENTAÇÃO):
+   - A fundamentação não deve ser sobrecarregada com teorizações extensas sobre a Lei nº 14.905/2024. A fixação operacional e líquida dos consectários (termo inicial da correção monetária pelo IPCA, juros moratórios pela Selic deduzida ou taxa legal, e súmulas 43, 54 e 362 do STJ) deve constar diretamente de forma clara e executável no III - DISPOSITIVO do ato (despacho, decisão ou sentença).
+11. PISO MÍNIMO DE EXTENSÃO E PROIBIÇÃO ABSOLUTA DE SÍNTESE/BREVIDADE:
+   - É expressamente PROIBIDO enxugar, abreviar, condensar ou simplificar a minuta. A concisão telegráfica ou simplificação fática é considerada erro formal grave de técnica judicante. Não economize tokens ou espaço.
+   - PISO MÍNIMO DO RELATÓRIO: O 'relatorio' DEVE conter no mínimo 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha processual.
+   - PISO MÍNIMO DA FUNDAMENTAÇÃO: A 'fundamentacao' DEVE conter de 2 a 3 parágrafos profundos por subtópico nos 7 blocos obrigatórios (totalizando no mínimo 14 a 20 parágrafos judiciais densos e fundamentados), enfrentando exaustivamente cada preliminar, cada prova e cada pedido da exordial.
+12. PROTOCOLO DE ANCORAGEM PROBATÓRIA E TRANSCRIÇÕES LITERAIS OBRIGATÓRIAS:
+   - Para impedir respostas genéricas ou abstratas, mantenha e amplie as TRANSCRIÇÕES LITERAIS ENTRE ASPAS dos autos: exordial, contestação, laudos periciais, contratos e parecer ministerial, além da transcrição em bloco destacado (>) de artigos de lei e enunciados de súmulas aplicados.
+13. CHECKLIST EXAUSTIVO DE DOCUMENTOS (SEM DESCARTAR NENHUM DADO DO PROCESSO):
+   - Nenhum documento probatório relevante anexado ao PDF dos autos pode ser ignorado ou descartado. Todos os documentos devem constar do confronto probatório e da Matriz Fato vs Prova com sua respectiva localização (Mov. X, Arq. Y, Pág. Z).`;
 
 if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
     stage2SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE:\n- Confronte a minuta preliminar com as teses acima. Se o caso se enquadrar em qualquer tese, REESCREVA a fundamentação e o dispositivo aplicando expressamente as teses e enunciados do magistrado.\n`;
@@ -2587,68 +2716,142 @@ const hasSentencaPrevia = (
 );
 
 let embargosMovimentacaoTexto = "";
-const mMovEmbargos = combinedTextLower.match(/(?:mov(?:imentação)?|evento)\s*(\d+)[\s\S]{1,60}?(?:embargos\s+de\s+declaração|embargos\s+declaratórios)/i) ||
-                     combinedTextLower.match(/(?:embargos\s+de\s+declaração|embargos\s+declaratórios)[\s\S]{1,60}?(?:no\s+mov(?:imentação)?|no\s+evento)\s*(\d+)/i);
+const mMovEmbargos = combinedTextLower.match(/(?:mov(?:imentação)?|evento)\s*(\d+)[\s\S]{1,60}?(?:petição\s*[-–:]?\s*embargos\s+de\s+declaração|petição\s+de\s+embargos\s+declaratórios)/i) ||
+                     combinedTextLower.match(/(?:petição\s*[-–:]?\s*embargos\s+de\s+declaração)[\s\S]{1,60}?(?:no\s+mov(?:imentação)?|no\s+evento)\s*(\d+)/i);
 if (mMovEmbargos && mMovEmbargos[1]) {
     embargosMovimentacaoTexto = `mov. ${mMovEmbargos[1]}`;
 }
 
-const hasEmbargosDeclaracao = (
-    Boolean(embargosMovimentacaoTexto) ||
-    /(?:embargos\s+de\s+declaração|embargos\s+declaratórios|opõe\s+embargos|opostos\s+embargos|interpostos\s+embargos)/i.test(combinedTextLower) ||
-    /(?:art(?:igo)?\.?\s*1\.?022|art(?:igo)?\.?\s*1022)[^\.\n]*?(?:omissão|contradição|obscuridade|erro\s+material)/i.test(combinedTextLower) ||
-    combinedTextLower.includes("efeitos infringentes") ||
-    combinedTextLower.includes("acolhimento dos presentes declaratórios")
+const hasEmbargosDeclaracao = Boolean(embargosMovimentacaoTexto) && /(?:petição\s*[-–:]?\s*embargos\s+de\s+declaração|opostos\s+embargos\s+de\s+declaração\s+em\s+face\s+da\s+sentença)/i.test(combinedTextLower);
+const hasSaneamentoPendente = (
+    combinedTextLower.includes("especificação de provas") || 
+    combinedTextLower.includes("especificacao de provas") ||
+    combinedTextLower.includes("saneamento e organização") || 
+    combinedTextLower.includes("saneamento e organizacao") ||
+    combinedTextLower.includes("pontos controvertidos") ||
+    combinedTextLower.includes("decisão de saneamento") ||
+    combinedTextLower.includes("decisao de saneamento") ||
+    combinedTextLower.includes("despacho saneador") ||
+    combinedTextLower.includes("saneador")
+) && !(
+    combinedTextLower.includes("conclusos para sentença") ||
+    combinedTextLower.includes("concluso para sentença") ||
+    combinedTextLower.includes("conclusão para julgamento") ||
+    combinedTextLower.includes("parecer de mérito") ||
+    combinedTextLower.includes("parecer final") ||
+    combinedTextLower.includes("alegações finais") ||
+    combinedTextLower.includes("não têm mais provas") ||
+    combinedTextLower.includes("não têm outras provas") ||
+    combinedTextLower.includes("sem outras provas a produzir")
 );
 
-const promptDirectives = ((customPromptText || "") + " " + (activePromptTitle || "") + " " + (actType || "")).toLowerCase();
-const isPromptInstructingEmbargos = promptDirectives.includes("embargo") || promptDirectives.includes("declarat");
+const userExplicitActType = (actType || "").toLowerCase().trim();
+const promptDirectives = ((customPromptText || "") + " " + (activePromptTitle || "")).toLowerCase();
+const isUserExplicitlyRequestingEmbargos = userExplicitActType.includes("embargo") || promptDirectives.includes("embargos de declaração") || promptDirectives.includes("aclaratórios");
+let isSaneamentoDecision = (hasSaneamentoPendente && !hasSentencaPrevia) || 
+                             promptDirectives.includes("saneamento") || 
+                             promptDirectives.includes("saneador") || 
+                             userExplicitActType.includes("saneam") || 
+                             (actSubtype || "").toLowerCase().includes("saneamento");
 
-let resolvedActType = (actType || "").toLowerCase().trim();
+let resolvedActType = "sentenca";
 
-// REGRA MANDATÓRIA DE BLINDAGEM DE FASE PROCESSUAL:
-// 1. Se os autos já foram sentenciados e a questão pendente são Embargos de Declaração (ou se o prompt instrui embargos):
-// É ESTRITAMENTE PROIBIDO proferir nova Sentença de Mérito! O ato obrigatório é JULGAMENTO DE EMBARGOS DE DECLARAÇÃO.
-if (isPromptInstructingEmbargos || (hasSentencaPrevia && hasEmbargosDeclaracao) || resolvedActType.includes("embargo")) {
-    resolvedActType = "embargos";
-    console.log(`[Assessor Judicial] Sentença Prévia e Embargos de Declaração Detectados (${embargosMovimentacaoTexto || "nos autos"}). Enquadramento mandatório: JULGAMENTO DE EMBARGOS DE DECLARAÇÃO`);
-} else if (isOnlyInitialPetitionPresent) {
-    if (!resolvedActType || resolvedActType === "auto" || resolvedActType.includes("definir") || resolvedActType === "sentenca") {
-        resolvedActType = hasUrgentRequest ? "decisao" : "despacho";
-        console.log(`[Assessor Judicial] Fase Inicial Isolada Detectada. Enquadramento obrigatório para: ${resolvedActType.toUpperCase()} (Tutela/Liminar: ${hasUrgentRequest})`);
+// 1. O USUÁRIO OU GABINETE SELECIONOU UM TIPO ESPECÍFICO: RESPEITO INTEGRAL À ESCOLHA!
+if (userExplicitActType && userExplicitActType !== "auto" && !userExplicitActType.includes("definir")) {
+    if (userExplicitActType.includes("senten")) {
+        resolvedActType = "sentenca";
+    } else if (userExplicitActType.includes("decis")) {
+        resolvedActType = "decisao";
+    } else if (userExplicitActType.includes("despach")) {
+        resolvedActType = "despacho";
+    } else if (userExplicitActType.includes("embargo")) {
+        resolvedActType = "embargos";
+    } else {
+        resolvedActType = userExplicitActType;
     }
-} else if (!resolvedActType || resolvedActType === "auto" || resolvedActType.includes("definir")) {
-    resolvedActType = "sentenca";
+    console.log(`[Assessor Judicial] Tipo de ato explicitamente selecionado pelo usuário/prompt: ${resolvedActType.toUpperCase()}`);
+} else if (isUserExplicitlyRequestingEmbargos) {
+    resolvedActType = "embargos";
+    console.log(`[Assessor Judicial] Prompt configurado para Embargos de Declaração. Enquadramento: EMBARGOS`);
+} else {
+    // 2. MODO AUTO PRELIMINAR: ESTIMATIVA INICIAL (A SER REFINADA CASO A CASO NA ETAPA 1)
+    if (isOnlyInitialPetitionPresent) {
+        resolvedActType = hasUrgentRequest ? "decisao" : "despacho";
+        console.log(`[Assessor Judicial] Auto-detecção preliminar: Fase inicial isolada. Ato: ${resolvedActType.toUpperCase()} (Tutela: ${hasUrgentRequest})`);
+    } else if (hasUrgentRequest && !hasContestacao) {
+        resolvedActType = "decisao";
+        console.log(`[Assessor Judicial] Auto-detecção preliminar: Tutela de urgência pendente. Ato: DECISÃO`);
+    } else if (hasSaneamentoPendente && !hasSentencaPrevia) {
+        resolvedActType = "decisao";
+        console.log(`[Assessor Judicial] Auto-detecção preliminar: Fase de saneamento pendente. Ato: DECISÃO DE SANEAMENTO`);
+    } else if (hasSentencaPrevia && hasEmbargosDeclaracao && embargosMovimentacaoTexto) {
+        resolvedActType = "embargos";
+        console.log(`[Assessor Judicial] Auto-detecção preliminar: Petição de embargos pendente (${embargosMovimentacaoTexto}). Ato: EMBARGOS`);
+    } else {
+        resolvedActType = "sentenca";
+        console.log(`[Assessor Judicial] Auto-detecção preliminar: Processo encaminhado para SENTENÇA`);
+    }
 }
 
-const actTypeGuidance = resolvedActType === "embargos"
-  ? `DIRETRIZ MANDATÓRIA PARA JULGAMENTO DE EMBARGOS DE DECLARAÇÃO (ART. 1.022 A 1.026 DO CPC):
+function buildActTypeGuidance(targetActType: string, isSaneamento: boolean): string {
+  return targetActType === "embargos"
+  ? `DIRETRIZ PARA JULGAMENTO DE EMBARGOS DE DECLARAÇÃO (ART. 1.022 A 1.026 DO CPC):
 - O ato a ser proferido é um JULGAMENTO DE EMBARGOS DE DECLARAÇÃO (DECISÃO OU SENTENÇA DE EMBARGOS DE DECLARAÇÃO).
-- PROIBIÇÃO ABSOLUTA DE PROFERIR NOVA SENTENÇA DE MÉRITO DO PROCESSO: O processo já possui sentença proferida em evento/movimentação anterior. Realizar uma nova sentença sobre a petição inicial configuraria grave erro processual, violação à coisa julgada e à preclusão consumativa do magistrado (art. 494 do CPC).
-- O FOCO DO ATO JUDICIAL É APRECIAR OS EMBARGOS DE DECLARAÇÃO OPOSTOS ${embargosMovimentacaoTexto ? `NO ${embargosMovimentacaoTexto.toUpperCase()}` : "NOS AUTOS"} CONTRA A SENTENÇA EMBARGADA.
+- O foco do ato judicial é examinar a petição de embargos de declaração pendente de apreciação nos autos ${embargosMovimentacaoTexto ? `(${embargosMovimentacaoTexto.toUpperCase()})` : ""}, confrontando motivadamente as alegações de omissão, contradição, obscuridade ou erro material com a decisão/sentença embargada.
 - No campo 'title', utilize "DECISÃO - EMBARGOS DE DECLARAÇÃO" ou "SENTENÇA - EMBARGOS DE DECLARAÇÃO".
 - ESTRUTURAÇÃO OBRIGATÓRIA EM SUBTÓPICOS:
   1. I - RELATÓRIO:
-     * Narrar com precisão a sentença embargada (data, movimentação/evento e síntese do dispositivo);
-     * Narrar a oposição dos embargos de declaração (identificando a parte embargante, o número da movimentação/evento da petição de embargos - ex: ${embargosMovimentacaoTexto || "mov. 55"} -, data e tempestividade nos termos do art. 1.023 do CPC);
+     * Narrar com precisão a decisão/sentença embargada (data, movimentação/evento e síntese do dispositivo);
+     * Narrar a oposição dos embargos de declaração (identificando a parte embargante, o número da movimentação/evento da petição de embargos - ex: ${embargosMovimentacaoTexto || "nos autos"} -, data e tempestividade nos termos do art. 1.023 do CPC);
      * Descrever de forma minuciosa os vícios apontados pelo embargante (omissão, contradição, obscuridade ou erro material), citando expressamente os trechos da petição de embargos entre aspas e a localização (Mov. X, Arq. Y, Pág. Z);
      * Registrar se houve ou não intimação da parte adversa para apresentar contrarrazões em caso de potencial efeito infringente (art. 1.023, § 2º, do CPC).
   2. II - FUNDAMENTAÇÃO MAGISTRAL (ART. 1.022 DO CPC):
      ### 1. DA ADMISSIBILIDADE E TEMPESTIVIDADE
      * Exame de admissibilidade dos aclaratórios: tempestividade no prazo legal de 5 (cinco) dias úteis (art. 1.023 do CPC) e regularidade de representação. Transcrever o art. 1.022 do CPC em bloco destacado (> "Art. 1.022. Cabem embargos de declaração...").
      ### 2. DO EXAME DAS OMISSÕES, CONTRADIÇÕES OU ERROS APONTADOS
-     * Confronto analítico ponto a ponto entre a tese do embargante e os exatos termos da sentença embargada;
-     * Se a questão já foi resolvida com fundamentação lógica e coerente na sentença e o embargante busca apenas o reexame probatório, afastar a alegação fundamentando que os embargos não se prestam à rediscussão do mérito ou reforma do julgado por via inadequada (jurisprudência consolidada do TJGO e STJ);
+     * Confronto analítico ponto a ponto entre a tese do embargante e os exatos termos da decisão/sentença embargada;
+     * Se a questão já foi resolvida com fundamentação lógica e coerente e o embargante busca apenas o reexame probatório, afastar a alegação fundamentando que os embargos não se prestam à rediscussão do mérito ou reforma do julgado por via inadequada (jurisprudência consolidada do TJGO e STJ);
      * Se houver efetiva omissão ou erro material involuntário, reconhecer motivadamente o ponto e integrar a fundamentação para sanar o vício;
      * Analisar se há ou não incidência de efeitos infringentes/modificativos.
      ### 3. DA APLICAÇÃO DE PRECEDENTES E TESES VINCULANTES
      * Aplicar enunciados do TJGO/STJ sobre cabimento estrito dos aclaratórios e rejeição de intuito protelatório.
   3. III - DISPOSITIVO OPERACIONAL:
-     * "Ante o exposto, CONHEÇO dos embargos de declaração opostos no ${embargosMovimentacaoTexto || "evento dos autos"} porquanto tempestivos, e, no mérito, REJEITO-OS, mantendo incólume a sentença embargada em todos os seus termos."
+     * "Ante o exposto, CONHEÇO dos embargos de declaração opostos ${embargosMovimentacaoTexto ? `no ${embargosMovimentacaoTexto}` : "nos autos"} porquanto tempestivos, e, no mérito, REJEITO-OS, mantendo incólume a decisão embargada em todos os seus termos."
      * (OU se houver vício real: "CONHEÇO dos embargos de declaração e, no mérito, ACOLHO-OS (com/sem efeitos infringentes), para sanar a omissão/erro material apontado e declarar que...")
      * Consignar expressamente a interrupção do prazo para interposição de outros recursos (art. 1.026 do CPC).
      * Determinar as intimações de estilo e prosseguimento do feito.`
-  : resolvedActType === "decisao"
+  : (targetActType === "decisao" && isSaneamento)
+  ? `DIRETRIZ MANDATÓRIA PARA DECISÃO DE SANEAMENTO E ORGANIZAÇÃO DO PROCESSO (ART. 357 E ART. 489 DO CPC):
+- O ato a ser proferido é uma DECISÃO DE SANEAMENTO E ORGANIZAÇÃO DO PROCESSO (ART. 357 DO CPC).
+- PROIBIÇÃO ABSOLUTA DE DECISÃO SUCINTA, DE 1 PARÁGRAFO OU GENÉRICA: A decisão deve estruturar e sanear exaustivamente o processo, enfrentando minuciosamente cada documento, preliminar, fato controvertido e pedido de prova.
+- No campo 'title', utilize "DECISÃO DE SANEAMENTO E ORGANIZAÇÃO".
+- PROTOCOLO DE TRÍPLICE CITAÇÃO E EXTRAÇÃO PROBATÓRIA REAL:
+  * Toda referência aos autos DEVE conter a tríplice localização: (Mov. X, Arq. Y, Pág. Z / Fls. Z).
+  * TRANSCREVA LITERALMENTE ENTRE ASPAS os trechos dos pedidos da inicial, das teses da contestação e das manifestações de provas.
+- ESTRUTURAÇÃO OBRIGATÓRIA DA DECISÃO DE SANEAMENTO EM SUBTÓPICOS (###) BASEADA NOS INCISOS DO ART. 357 DO CPC:
+  1. I - RELATÓRIO DA MARCHA PROCESSUAL:
+     * Narrar detalhadamente a qualificação das partes, os pedidos da petição inicial, a síntese analítica da contestação com todas as teses e preliminares deduzidas, a manifestação em réplica e os requerimentos de provas formulados pelas partes, citando eventos, arquivos e páginas (Mov. X, Arq. Y, Pág. Z).
+  2. II - FUNDAMENTAÇÃO MAGISTRAL (ART. 357 DO CPC):
+     ### 1. DA REGULARIDADE PROCESSUAL E RESOLUÇÃO DE PRELIMINARES (Art. 357, I, do CPC)
+     * Apreciação exaustiva, individualizada e fundamentada de CADA preliminar ou prejudicial de mérito arguida pelo demandado (incompetência do juízo, ilegitimidade de parte, inépcia da inicial, ausência de interesse processual, impugnação ao valor da causa ou à gratuidade da justiça, prescrição ou decadência).
+     * É TERMINANTEMENTE PROIBIDO rejeitar ou acolher preliminar com frases genéricas. Transcreva os argumentos das partes entre aspas e aplique a legislação e jurisprudência consolidada do TJGO e STJ.
+     ### 2. DA DELIMITAÇÃO DAS QUESTÕES DE FATO CONTROVERTIDAS E PROVAS ADMITIDAS (Art. 357, II, do CPC)
+     * Fixação expressa e discriminada de CADA ponto fático controvertido que dependa de dilação probatória, confrontando a versão sustentada pelo autor versus a impugnação específica do réu.
+     ### 3. DA DISTRIBUIÇÃO DO ÔNUS DA PROVA (Art. 357, III e Art. 373 do CPC)
+     * Definição motivada do encargo probatório atribuído a cada parte quanto a cada fato controvertido.
+     * Em se tratando de relação de consumo (art. 6º, VIII, do CDC) ou hipótese de vulnerabilidade técnica/informacional (art. 373, § 1º, do CPC), proferir decisão circunstanciada de inversão/dinamização do ônus da prova, justificando a hipossuficiência técnica ou a verossimilhança das alegações.
+     ### 4. DA DELIMITAÇÃO DAS QUESTÕES DE DIREITO RELEVANTES (Art. 357, IV, do CPC)
+     * Mapeamento das normas jurídicas materiais e processuais aplicáveis, precedentes vinculantes, súmulas e teses do Gabinete pertinentes ao mérito da causa.
+     ### 5. DO DEFERIMENTO/INDEFERIMENTO MOTIVADO DAS PROVAS E DESIGNAÇÃO (Art. 357, V, do CPC)
+     * Deliberação analítica e motivada sobre todos os meios de prova requeridos pelas partes (testemunhal, pericial, documental suplementar, depoimento pessoal):
+       - Se deferida prova pericial: fixar o objeto da perícia, nomear o perito oficial, assinalar honorários/proposta e fixar prazo de 15 dias para quesitos e assistentes técnicos (art. 465 do CPC);
+       - Se deferida prova oral: designar Audiência de Instrução e Julgamento (AIJ) e fixar prazo para depósito do rol de testemunhas (art. 357, § 4º, do CPC);
+       - Se as provas requeridas forem protelatórias ou desnecessárias: indeferi-las motivadamente com fulcro no art. 370, parágrafo único, do CPC.
+  3. III - DISPOSITIVO MANDAMENTAL DE SANEAMENTO:
+     * Comandos claros, precisos e operacionais sobre as providências saneadoras;
+     * FIXAÇÃO EXPRESSA DO PRAZO DO ART. 357, § 1º, DO CPC: Assinalar expressamente o prazo comum de 5 (cinco) dias úteis para que as partes possam solicitar esclarecimentos ou pedir ajustes, após o qual a presente decisão se tornará plenamente estável;
+     * Intimações de estilo das partes e providências à Secretaria do Juizado/Vara.`
+  : targetActType === "decisao"
   ? `DIRETRIZ MANDATÓRIA PARA DECISÃO INTERLOCUTÓRIA COMPLETA, PROFUNDA E EXAUSTIVA (ART. 300 E ART. 489 DO CPC):
 - O ato a ser proferido é uma DECISÃO INTERLOCUTÓRIA (NÃO É SENTENÇA E NÃO É DESPACHO).
 - PROIBIÇÃO ABSOLUTA DE DECISÃO SUCINTA, DE 1 PARÁGRAFO OU GENÉRICA: A decisão deve ser densa, robusta e articulada, enfrentando minuciosamente cada documento, fato e pedido.
@@ -2676,7 +2879,7 @@ const actTypeGuidance = resolvedActType === "embargos"
      * COMANDO SOBRE A GRATUIDADE: Deferimento ou indeferimento da gratuidade da justiça.
      * CITAÇÃO E DESIGNAÇÃO DE AUDIÊNCIA DE CONCILIAÇÃO: Determinação de citação e intimação da parte demandada para cumprimento e para comparecimento à audiência de conciliação (art. 334 do CPC), com advertência de prazo para contestação (art. 335 do CPC).
 - No campo 'title', utilize "DECISÃO INTERLOCUTÓRIA".`
-  : resolvedActType === "despacho"
+  : targetActType === "despacho"
   ? `DIRETRIZ MANDATÓRIA PARA DESPACHO JUDICIAL:
 - O ato a ser proferido é um DESPACHO de mero expediente ou de impulso oficial (não é Sentença nem Decisão Interlocutória).
 - PROTOCOLO DE CITAÇÃO DOS AUTOS: Indique com precisão as movimentações, arquivos e páginas (Mov. X, Arq. Y, Pág. Z) que ensejam a determinação.
@@ -2696,9 +2899,30 @@ const actTypeGuidance = resolvedActType === "embargos"
   * TRANSCREVA O TEXTO INTEGRAL dos artigos de lei aplicados (CPC, CC, CDC, CF/88, ECA, etc.) em bloco destacado (> "Art. ...").
   * TRANSCREVA O ENUNCIADO COMPLETO das súmulas do STJ, STF ou TJGO aplicadas em bloco destacado (> "Súmula nº ...").
   * TRANSCREVA AS TESES DO CADERNO DO GABINETE em bloco destacado e aplique-as ao caso concreto.
-- ESTRUTURAÇÃO DA FUNDAMENTAÇÃO EM CAPÍTULOS TEMÁTICOS (###):
-  * A fundamentação DEVE conter subtópicos numerados em Markdown (ex: ### 1. DA REGULARIDADE PROCESSUAL E GRATUIDADE; ### 2. DAS PRELIMINARES ARGUIDAS NA CONTESTAÇÃO; ### 3. DO MÉRITO E CONFRONTO PROBATÓRIO INDIVIDUALIZADO [um tópico para cada pedido]; ### 4. DA APLICAÇÃO DO CADERNO DE TESES DO GABINETE E SÚMULAS VINCULANTES; ### 5. DOS CONSECTÁRIOS LEGAIS).
-- DISPOSITIVO CRISTALINO E EXAURIENTE: Delibere expressamente sobre procedência, procedência parcial ou improcedência, obrigações com prazos, condenações pecuniárias líquidas ou critérios de liquidação, custas e honorários advocatícios (ou isenção nos termos da Lei nº 9.099/95).`;
+- ESTRUTURAÇÃO OBRIGATÓRIA NOS 7 BLOCOS MANDATÓRIOS DA FUNDAMENTAÇÃO EM SUBTÓPICOS (###):
+  A 'fundamentacao' DEVE conter obrigatoriamente os seguintes subtópicos numerados em Markdown:
+  ### 1. DA REGULARIDADE PROCESSUAL, COMPETÊNCIA E GRATUIDADE DA JUSTIÇA
+  (Exame exaustivo da regularidade dos atos processuais, representação, competência e deliberação fundamentada sobre o pedido de gratuidade da justiça ou recolhimento de custas).
+  ### 2. DO EXAME INDIVIDUALIZADO DE TODAS AS PRELIMINARES E PREJUDICIAIS
+  (Enfrentamento analítico de CADA preliminar ou prejudicial arguida na contestação ou matérias cognoscíveis de ofício, transcrevendo as razões das partes e motivando a decisão).
+  ### 3. DO CERNE DA LIDE E DELIMITAÇÃO DAS QUESTÕES CONTROVERTIDAS
+  (Fixação precisa dos pontos fáticos e jurídicos controvertidos entre os pedidos da exordial e a defesa apresentada).
+  ### 4. DO REGIME JURÍDICO APLICÁVEL, NORMAS E SÚMULAS VINCULANTES
+  (Enquadramento normativo completo com transcrição literal em bloco '>' de artigos de lei, microssistemas aplicáveis e súmulas do STF, STJ e TJGO).
+  ### 5. DO CONFRONTO FÁTICO-PROBATÓRIO DOCUMENTO A DOCUMENTO
+  (Exame individualizado de cada prova, indicando Mov. X, Arq. Y, Pág. Z e transcrevendo trechos essenciais entre aspas).
+  ### 6. DA APRECIAÇÃO EXAUSTIVA E VALORAÇÃO INDIVIDUALIZADA DE CADA PEDIDO
+  (Análise separada em subtópicos próprios para cada pedido deduzido na inicial e nos pleitos contrapostos/reconvenção da defesa, julgando o acolhimento, rejeição ou procedência parcial).
+  ### 7. DA SUCUMBÊNCIA, CUSTAS E HONORÁRIOS ADVOCATÍCIOS (ART. 85 DO CPC)
+  (Apreciação motivada de sucumbência integral ou recíproca, causalidade, gratuidade da justiça ou isenção de 1º grau nos Juizados Especiais da Lei 9.099/95, remetendo a aplicação operacional dos consectários legais ao Dispositivo).
+- DISPOSITIVO CRISTALINO, EXAURIENTE E COM CONSECTÁRIOS LEGAIS DIRETOS:
+  * Delibere expressamente sobre procedência, procedência parcial ou improcedência de cada pedido formulado;
+  * Defina as obrigações de fazer/não fazer/pagar com prazos operacionais e eventuais astreintes;
+  * FIXAÇÃO LÍQUIDA E OPERACIONAL DOS CONSECTÁRIOS DA LEI Nº 14.905/2024: Fixe diretamente no dispositivo os parâmetros exatos de correção monetária pelo IPCA e juros moratórios pela Selic deduzida ou padrão legal, indicando os termos iniciais (citação, arbitramento ou evento danoso conforme as súmulas 43, 54 e 362 do STJ), sem necessidade de teorizações na fundamentação;
+  * Condenação em custas e honorários advocatícios (ou isenção legal).`;
+}
+
+let actTypeGuidance = buildActTypeGuidance(resolvedActType, isSaneamentoDecision);
 
 const userPrompt=`
 DADOS DO PROCESSO:
@@ -2728,7 +2952,10 @@ ${contentsParts.length>0?`[DIRETRIZ DE LEITURA DO PDF E VISÃO MULTIMODAL DE MAN
 - INSPEÇÃO VISUAL DIRETA: Examine visualmente imagens, contratos, cheques e NOTAS PROMISSÓRIAS (inclusive manuscritos de próprio punho como 'peguei emprestado a 5% ao mês', rasuras, anotações de juros no corpo ou verso). Faça o confronto matemático e o devido tratamento jurídico do negócio e das taxas de juros.`:""}
 
 DIRETRIZES DE REDAÇÃO DA MINUTA:
-1. RELATÓRIO PORMENORIZADO: Redigir um relatório completo e minucioso, narrando cronologicamente toda a marcha do processo com citação expressa dos eventos/movimentações, ARQUIVOS E PÁGINAS (ex: petição inicial na mov. 1, arq. 1, pág. 2/5; emenda na mov. 5, arq. 2, pág. 1/1; tutela na mov. 23, arq. 4; certidão de citação na mov. 44, arq. 2; contestação/defesa na mov. 74, arq. 3; réplica na mov. 80; laudo pericial na mov. 188, arq. 2, pág. 340; parecer do Ministério Público na mov. 250; etc.).
+1. RELATÓRIO PORMENORIZADO E PROTOCOLO ANTI-INFERÊNCIA:
+   - Redigir um relatório completo e minucioso, narrando cronologicamente toda a marcha do processo com citação expressa dos eventos/movimentações, ARQUIVOS E PÁGINAS (ex: petição inicial na mov. 1, arq. 1, pág. 2/5; emenda na mov. 5, arq. 2, pág. 1/1; tutela na mov. 23, arq. 4; certidão de citação na mov. 44, arq. 2; contestação/defesa na mov. 74, arq. 3; réplica na mov. 80; laudo pericial na mov. 188, arq. 2, pág. 340; parecer do Ministério Público na mov. 250; etc.).
+   - PROTOCOLO ANTI-INFERÊNCIA: É expressamente proibido resumir com fórmulas vagas (como "foram debatidas pelas partes e pelo Ministério Público" ou "manifestaram-se nos autos"). Descreva detalhadamente o que cada parte sustentou com as respectivas movimentações.
+   - EXTRAÇÃO QUALIFICADA DO PARECER DO MINISTÉRIO PÚBLICO (OBRIGATÓRIO EM TODOS OS PROCESSOS COM INTERVENÇÃO DO MP): Em qualquer matéria (Família, Sucessões, Infância, Fazenda Pública, Cível, Meio Ambiente, Interdição ou Registros Públicos), o relatório DEVE conter parágrafo autônomo indicando Mov., data, Promotor(a) de Justiça, sentido do parecer (procedência total, parcial ou improcedência) e a TRANSCRIÇÃO LITERAL ENTRE ASPAS da conclusão do parecer ministerial. Se o MP já opinou pelo mérito e a instrução está finda ou dispensada, o processo está maduro para SENTENÇA!
 
 2. FUNDAMENTAÇÃO MAGISTRAL, CAPITULAR E EXAUSTIVA (ART. 489, § 1º, DO CPC - NUNCA REDUZA OU SINTETIZE PARA ECONOMIZAR ESPAÇO):
    - A análise DEVE ser completa, aprofundada e confiável, estruturada obrigatoriamente em SUBTÓPICOS NUMERADOS (### 1., ### 2., ### 3.).
@@ -2739,35 +2966,36 @@ DIRETRIZES DE REDAÇÃO DA MINUTA:
    - PRELIMINARES E IMPUGNAÇÕES (OBRIGATÓRIO): Cada preliminar apresentada nos autos deve ser identificada, analisada e fundamentada em tópico próprio (impugnação à gratuidade, impugnação ao valor da causa, inépcia da inicial, ilegitimidade, incompetência, etc.).
    - MÉRITO E CONFRONTO PROBATÓRIO DIRETO: Analise minuciosamente cada documento acostado com juízo de subsunção motivado demonstrando a incidência do direito aos fatos comprovados nos autos.
    - APRECIAÇÃO INDIVIDUALIZADA DE CADA PEDIDO: Enfrente expressamente cada um dos pedidos formulados na inicial, fundamentando o acolhimento ou rejeição de cada um.
-   - CONSECTÁRIOS LEGAIS: Fixação fundamentada de juros moratórios e correção monetária aplicáveis (Lei 14.905/2024, IPCA, Selic, Súmulas 43 e 54 do STJ).
+   - CONSECTÁRIOS LEGAIS CONSOLIDADOS NO DISPOSITIVO: O detalhamento normativo de atualização monetária e juros moratórios (Lei 14.905/2024, IPCA, Selic deduzida e súmulas 43/54/362 do STJ) deve constar diretamente de forma líquida e executável no Dispositivo, preservando a fundamentação limpa e objetiva.
    - FORMATAÇÃO RICA:
      * Use Markdown para negritos (**...**) nas partes, datas, conclusões e teses, itálicos (*...*) em expressões em latim e normas, e blocos recuados (> ...) para transcrições.
-     * USE SEMPRE DUAS QUEBRAS DE LINHA (\\n\\n) PARA SEPARAR CADA PARÁGRAFO. É expressamente proibido gerar o texto como um bloco corrido sem respiro.
+     * USE SEMPRE DUAS QUEBRAS DE LINHA (\n\n) PARA SEPARAR CADA PARÁGRAFO. É expressamente proibido gerar o texto como um bloco corrido sem respiro.
      * Não inicie com termos artificiais como "PARÁGRAFO 1", "BLOCO 2". Redija como uma peça judicial real, fluida e contínua.
 
-3. DISPOSITIVO: Comandos judiciais completos, claros e exaurientes (procedência, procedência parcial, improcedência ou extinção, tutelas deferidas/indeferidas, obrigações com prazos e astreintes, condenações pecuniárias líquidas ou parâmetros de liquidação, custas e honorários advocatícios ou isenção em Juizados).
+3. DISPOSITIVO: Comandos judiciais completos, claros e exaurientes (procedência, procedência parcial, improcedência ou extinção, tutelas deferidas/indeferidas, deliberação sobre acordos/desistências/habilitações intercorrentes se houver, fixação operacional de juros pela Selic deduzida e correção pelo IPCA nos termos da Lei 14.905/2024, condenações pecuniárias líquidas ou parâmetros de liquidação, custas e honorários advocatícios ou isenção em Juizados).
 
 4. MARCHA PROCESSUAL & PRECLUSÃO: Siga a ordem lógica do processo. Não reabra discussões sobre matérias já decididas nos autos, salvo se houver fato novo ou superveniente (CPC 493).
+5. BLINDAGEM CONTRA OMISSÃO: Se houver qualquer requerimento ou petição intercorrente pendente (acordo, desistência, documento novo, habilitação), delibere expressamente sobre ela.
 
-5. RIGOR MAGISTRAL E PROFUNDIDADE TOTAL: Dedique a totalidade da sua capacidade e volume de tokens à redação jurídica exaustiva da decisão (I - RELATÓRIO, II - FUNDAMENTAÇÃO e III - DISPOSITIVO). Enfrente minuciosamente cada documento, alegação e prova, e aplique com rigor absoluto as diretrizes do Caderno de Teses do Gabinete e súmulas vigentes do TJGO/STJ.
+6. RIGOR MAGISTRAL E PROFUNDIDADE TOTAL: Dedique a totalidade da sua capacidade e volume de tokens à redação jurídica exaustiva da decisão (I - RELATÓRIO, II - FUNDAMENTAÇÃO e III - DISPOSITIVO). Enfrente minuciosamente cada documento, alegação e prova, e aplique com rigor absoluto as diretrizes do Caderno de Teses do Gabinete e súmulas vigentes do TJGO/STJ.
 
-6. IDENTIFICAÇÃO E EXTRAÇÃO PRECISA DOS DADOS DO PROCESSO:
+7. IDENTIFICAÇÃO E EXTRAÇÃO PRECISA DOS DADOS DO PROCESSO:
    - Extraia obrigatoriamente dos autos o número único do processo (formato CNJ: 0000000-00.0000.0.00.0000). É ESTRITAMENTE PROIBIDO retornar 'Extrair automaticamente dos autos', 'Autos do Processo' ou 'Não informado'.
    - Extraia o nome completo da parte autora / promovente e da parte ré / promovida (pessoa física ou jurídica: ex. 'Banco Bradesco S/A', 'Claro S/A', 'Estado de Goiás', 'Fulano de Tal'). É TERMINANTEMENTE PROIBIDO preencher o campo 'defendant' ou 'author' com atos processuais ou movimentações.
    - Identifique a Vara e Comarca exatas de tramitação (ex: Vara de Família e Sucessões da Comarca de Orizona - TJGO).
 
 MISSÃO DA ETAPA 1 (ASSESSOR FÁTICO):
 Atue estritamente como assessor fático-processual e analista probatório, sem resumir ou emitir juízos genéricos:
-1. RELATÓRIO CRONOLÓGICO MINUCIOSO: Identificação nominal das partes, pedidos, tutelas, certidões, defesas, documentos e manifestações com os números exatos de todas as movimentações/eventos dos autos (Mov. X, Arq. Y, Pág. Z).
-2. ESTRUTURAÇÃO DA FUNDAMENTAÇÃO EM 7 BLOCOS OBRIGATÓRIOS (5 A 8 PARÁGRAFOS PROFUNDOS):
+1. RELATÓRIO CRONOLÓGICO MINUCIOSO (MÍNIMO 4 A 6 PARÁGRAFOS DENSOS): Identificação nominal das partes, pedidos, tutelas, certidões, defesas, documentos e manifestações com os números exatos de todas as movimentações/eventos dos autos (Mov. X, Arq. Y, Pág. Z).
+2. ESTRUTURAÇÃO DA FUNDAMENTAÇÃO EM 7 BLOCOS OBRIGATÓRIOS (PISO DE 14 A 20+ PARÁGRAFOS PROFUNDOS):
    Bloco 1. Regularidade Processual: Pressupostos processuais, condições da ação e contraditório.
    Bloco 2. Cerne da Questão: Delimitação fática e jurídica da controvérsia.
    Bloco 3. Regime Legal e Precedentes: Transcrição e citação expressa de artigos de lei e enunciados (CPC, CC, CDC, Juizados, Súmulas STJ/STF).
    Bloco 4. Confronto Fático-Probatório Concreto: Análise documento a documento com citação expressa dos eventos (Mov. X, Arq. Y, Pág. Z) e transcrição literal entre aspas das conclusões de laudos, cláusulas contratuais e certidões.
    Bloco 5. Subsunção e Convicção Judicial Motivada: Aplicação do direito aos fatos comprovados nos autos.
    Bloco 6. Apreciação Individualizada: Julgamento pormenorizado de cada um dos pedidos formulados (materiais, morais, obrigação de fazer, etc.).
-   Bloco 7. Consectários Legais: Critérios normativos de juros e correção monetária (Lei 14.905/2024, Tema do STJ, termo inicial).
-3. DISPOSITIVO EXAUSTIVO E OPERACIONAL: Comandos operacionais claros com adequação estrita aos pedidos.
+   Bloco 7. Sucumbência, Custas e Honorários (com direcionamento dos parâmetros da Lei 14.905/2024 ao Dispositivo).
+3. DISPOSITIVO EXAUSTIVO E OPERACIONAL: Comandos operacionais claros com adequação estrita aos pedidos e parâmetros da Lei 14.905/2024.
 
 Retorne EXCLUSIVAMENTE o objeto JSON com os campos: processNumber, author, defendant, judicialUnit, pendingMatter, actType, relatorio, fundamentacao e dispositivo.
 `;
@@ -2786,8 +3014,8 @@ const stage1Response = await generateWithFallbackAndRetry({
     isNativeAllowed: isRequestNativeAllowed(req),
     res,
     primaryModel: "gemini-3.8-flash",
-    fallbackModel: "gemini-flash-latest",
-    timeoutMs: 120000,
+    fallbackModel: "gemini-3.7-flash",
+    timeoutMs: 180000,
     contents: [{ role: "user", parts: stage1ContentsParts }],
     config: {
         systemInstruction: stage1SystemInstruction,
@@ -2823,11 +3051,11 @@ const stage1Response = await generateWithFallbackAndRetry({
                 },
                 relatorio: {
                     type: Type.STRING,
-                    description: "Relatório judicial completo, com formatação rica (separando os parágrafos com quebras de linha e utilizando negritos para destaques), encadeado e fidedigno, narrando toda a marcha processual e citando nominalmente as partes, pedidos, tutelas, certidões, defesas, documentos e manifestações com os números exatos de todas as movimentações/eventos dos autos."
+                    description: "Relatório judicial completo em 4 a 6 parágrafos densos e encadeados, com formatação rica (separando os parágrafos com quebras de linha duplas e utilizando negritos para destaques), narrando toda a marcha processual e citando nominalmente as partes, pedidos, tutelas, certidões, defesas, documentos e manifestações com os números exatos de todas as movimentações/eventos dos autos."
                 },
                 fundamentacao: {
                     type: Type.STRING,
-                    description: "Fundamentação jurídica magistral, densa e completa em 5 a 8 parágrafos detalhados (separados rigorosamente por quebras de linha e utilizando formatação Markdown como negritos e itálicos), estruturada nos blocos fáticos e probatórios com citação de eventos (Mov. X, Arq. Y, Pág. Z) e enfrentamento exato do objeto pendente."
+                    description: "Fundamentação jurídica magistral, densa, exaustiva e completa estruturada nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com 2 a 3 parágrafos aprofundados por bloco (totalizando no mínimo 14 a 20 parágrafos judiciais densos e separados por quebras de linha duplas), com citação de eventos (Mov. X, Arq. Y, Pág. Z), transcrição literal entre aspas e enfrentamento exaustivo de cada preliminar e pedido."
                 },
                 dispositivo: {
                     type: Type.STRING,
@@ -2847,6 +3075,37 @@ if (!stage1Text) {
 let stage1Json: any = safeParseJson(stage1Text) || {};
 if (!stage1Json.relatorio && !stage1Json.fundamentacao && !stage1Json.dispositivo) {
     stage1Json = { relatorio: "", fundamentacao: stage1Text, dispositivo: "" };
+}
+
+// Se o usuário estiver no MODO AUTO (sem escolha soberana prévia de tipo de ato), a análise caso a caso da Etapa 1 refina o ato:
+if (!userExplicitActType || userExplicitActType === "auto" || userExplicitActType.includes("definir")) {
+    const s1Act = (stage1Json.actType || "").toLowerCase();
+    const s1Pending = (stage1Json.pendingMatter || "").toLowerCase();
+    
+    if (s1Act.includes("senten") || s1Pending.includes("senten") || s1Pending.includes("mérito") || s1Pending.includes("merito") || s1Pending.includes("julgar a ação") || s1Pending.includes("resolução da lide")) {
+        resolvedActType = "sentenca";
+        isSaneamentoDecision = false;
+        console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): Processo maduro para SENTENÇA (${stage1Json.pendingMatter})`);
+    } else if (s1Act.includes("saneam") || s1Pending.includes("saneam") || s1Pending.includes("organização") || s1Pending.includes("organizacao")) {
+        resolvedActType = "decisao";
+        isSaneamentoDecision = true;
+        console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): Fase de SANEAMENTO E ORGANIZAÇÃO (${stage1Json.pendingMatter})`);
+    } else if (s1Act.includes("embargo") || s1Pending.includes("embargo")) {
+        resolvedActType = "embargos";
+        isSaneamentoDecision = false;
+        console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): EMBARGOS DE DECLARAÇÃO (${stage1Json.pendingMatter})`);
+    } else if (s1Act.includes("despach") || s1Pending.includes("despacho")) {
+        resolvedActType = "despacho";
+        isSaneamentoDecision = false;
+        console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): DESPACHO (${stage1Json.pendingMatter})`);
+    } else if (s1Act.includes("decis") || s1Pending.includes("decis") || s1Pending.includes("liminar") || s1Pending.includes("tutela")) {
+        resolvedActType = "decisao";
+        isSaneamentoDecision = false;
+        console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): DECISÃO INTERLOCUTÓRIA (${stage1Json.pendingMatter})`);
+    }
+    
+    // Atualiza a diretriz da Etapa 2 de acordo com a marcha identificada caso a caso:
+    actTypeGuidance = buildActTypeGuidance(resolvedActType, isSaneamentoDecision);
 }
 
 console.log("[Assessor Judicial] Etapa 1 (Assessor Fático) concluída com êxito. Intervalo preventivo de resfriamento de cota (2.5s)...");
@@ -2885,11 +3144,13 @@ ${stage1Json.dispositivo || "(Não informado)"}
 ======================================================
 
 COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
-1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL:
+1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL (PISO DE DENSIDADE E PROIBIÇÃO DE BREVIDADE):
    - Leia atentamente o Relatório e a Fundamentação Preliminar;
    - Confronte com o Caderno de Teses do Gabinete, Súmulas Vinculantes, Jurisprudência e Minuta Paradigma (se ativada);
-   - Reescreva e aprofunde exaustivamente a Fundamentação ('fundamentacao') e o Dispositivo ('dispositivo') aplicando expressamente as teses e súmulas, transcrevendo os artigos de lei em bloco (> "Art. ..."), preservando a tríplice localização (Mov. X, Arq. Y, Pág. Z) e os trechos probatórios literais de laudos e contratos;
-   - Mantenha o Relatório completo e fidedigno ('relatorio');
+   - É expressamente PROIBIDO resumir, sintetizar, enxugar ou condensar. Aprofunde, adense e expanda a minuta:
+     * 'relatorio': Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z);
+     * 'fundamentacao': Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);
+     * 'dispositivo': Comandos operacionais claros, discriminados pedido por pedido, com deliberação de eventuais requerimentos intercorrentes e fixação dos consectários legais da Lei 14.905/2024;
    - Preencha o cabeçalho, comarca/vara e fecho judicante oficial;
    - Compile o texto integral contínuo pronto para o Projudi/PJe em 'fullFormattedText'.
 
@@ -2926,15 +3187,15 @@ const stage2ResponseSchema = {
                 },
                 relatorio: {
                     type: Type.STRING,
-                    description: "Relatório judicial completo, com formatação rica (separando os parágrafos com quebras de linha e utilizando negritos para destaques), encadeado e fidedigno, narrando toda a marcha processual e citando nominalmente as partes, peritos, pedidos, tutelas, certidões, defesas, laudos e parecer do MP com os números exatos de todas as movimentações/eventos dos autos."
+                    description: "Relatório judicial completo em 4 a 6 parágrafos densos e encadeados, com formatação rica (separando os parágrafos com quebras de linha duplas e utilizando negritos para destaques), encadeado e fidedigno, narrando toda a marcha processual e citando nominalmente as partes, peritos, pedidos, tutelas, certidões, defesas, laudos e parecer do MP com os números exatos de todas as movimentações/eventos dos autos."
                 },
                 fundamentacao: {
                     type: Type.STRING,
-                    description: "Fundamentação jurídica magistral, densa e completa em 5 a 8 parágrafos detalhados (separados rigorosamente por quebras de linha e utilizando formatação Markdown como negritos e itálicos), estruturada nos 7 blocos obrigatórios: 1. Regularidade processual; 2. Cerne da questão; 3. Regime legal e precedentes; 4. Confronto fático-probatório concreto documento a documento com citação de eventos (Mov. X, Arq. Y, Pág. Z); 5. Subsunção e convicção judicial motivada; 6. Apreciação individualizada de cada pedido; 7. Consectários legais e juros pela Lei 14.905/2024, aplicando expressamente as teses do Caderno de Teses do Gabinete e súmulas."
+                    description: "Fundamentação jurídica magistral, densa, exaustiva e profunda estruturada nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com 2 a 3 parágrafos aprofundados por bloco (totalizando no mínimo 14 a 20 parágrafos judiciais densos e separados por quebras de linha duplas), com citação de eventos (Mov. X, Arq. Y, Pág. Z), transcrição literal entre aspas e enfrentamento exaustivo de cada preliminar e pedido: 1. Regularidade processual e gratuidade; 2. Exame individualizado de preliminares; 3. Cerne da controvérsia; 4. Regime legal e súmulas com transcrição de artigos; 5. Confronto fático-probatório concreto documento a documento; 6. Apreciação individualizada de cada pedido; 7. Sucumbência, custas e honorários advocatícios (remetendo os consectários da Lei 14.905/2024 ao Dispositivo), aplicando expressamente as teses do Caderno de Teses do Gabinete e súmulas."
                 },
                 dispositivo: {
                     type: Type.STRING,
-                    description: "Dispositivo judicial exaustivo e operacional, com comandos claros e precisos adequados aos pedidos da ação (procedência, improcedência ou parcial procedência, obrigações de fazer/pagar, parâmetros legais de juros e correção monetária, custas e honorários se cabíveis, prazos recursais e arquivamento definitivo)."
+                    description: "Dispositivo judicial exaustivo e operacional, com comandos claros e precisos adequados aos pedidos da ação (procedência, improcedência ou parcial procedência, obrigações de fazer/pagar, deliberação sobre acordos/desistências pendentes, fixação operacional e líquida dos consectários legais da Lei nº 14.905/2024 com IPCA e juros da Selic deduzida, custas e honorários se cabíveis, prazos recursais e arquivamento definitivo)."
                 },
                 closing: { type: Type.STRING, description: "Fecho padrão judicial oficial (ex: Comarca/GO, data. Juiz(a) de Direito)." },
                 fullFormattedText: { type: Type.STRING, description: "Texto integral da minuta compilada e formatada com títulos I - RELATÓRIO, II - FUNDAMENTAÇÃO e III - DISPOSITIVO, pronta para cópia para o Projudi/PJe." }
@@ -3061,8 +3322,8 @@ const response = await generateWithFallbackAndRetry({
     isNativeAllowed: isRequestNativeAllowed(req),
     res,
     primaryModel: "gemini-3.8-flash",
-    fallbackModel: "gemini-flash-latest",
-    timeoutMs: 120000,
+    fallbackModel: "gemini-3.7-flash",
+    timeoutMs: 180000,
     contents: [{ role: "user", parts: [{ text: stage2Prompt }] }],
     config: {
         systemInstruction: stage2SystemInstruction,
@@ -3078,12 +3339,22 @@ if (!outputText) {
     throw new Error("Não foi possível gerar a resposta do modelo na Etapa 2.");
 }
 
+const defaultFallbackTitle = resolvedActType === "despacho" 
+    ? "DESPACHO" 
+    : (resolvedActType === "decisao" && isSaneamentoDecision) 
+        ? "DECISÃO DE SANEAMENTO E ORGANIZAÇÃO" 
+        : resolvedActType === "decisao" 
+            ? "DECISÃO INTERLOCUTÓRIA" 
+            : resolvedActType === "embargos" 
+                ? "DECISÃO - EMBARGOS DE DECLARAÇÃO" 
+                : (actType && actType !== "auto" ? actType.toUpperCase() : "SENTENÇA");
+
 let parsed = safeParseJson(outputText);
 if (!parsed || typeof parsed !== 'object') {
     console.warn("[Assessor Judicial] safeParseJson retornou nulo na Etapa 2. Construindo estrutura resiliente de contingência...");
     parsed = {
         minute: {
-            title: resolvedActType === "embargos" ? "DECISÃO - EMBARGOS DE DECLARAÇÃO" : (actType || "SENTENÇA"),
+            title: defaultFallbackTitle,
             processNumber: stage1Json?.processNumber || processInfo?.processNumber || "",
             parties: {
                 author: stage1Json?.author || processInfo?.autor || "",
@@ -3099,7 +3370,7 @@ if (!parsed || typeof parsed !== 'object') {
 }
 if (!parsed.minute || typeof parsed.minute !== 'object') {
     parsed.minute = {
-        title: resolvedActType === "embargos" ? "DECISÃO - EMBARGOS DE DECLARAÇÃO" : (actType || "SENTENÇA"),
+        title: defaultFallbackTitle,
         relatorio: stage1Json?.relatorio || "",
         fundamentacao: stage1Json?.fundamentacao || outputText || "",
         dispositivo: stage1Json?.dispositivo || ""
@@ -3114,6 +3385,12 @@ if ((!parsed.minute.fundamentacao || parsed.minute.fundamentacao.length < 100) &
 }
 if ((!parsed.minute.dispositivo || parsed.minute.dispositivo.length < 30) && stage1Json?.dispositivo) {
     parsed.minute.dispositivo = stage1Json.dispositivo;
+}
+// Blindagem intrínseca de densidade para chaves gratuitas e modelos ágeis (Flash-Lite):
+// Se a fundamentação da Etapa 2 ficou muito sucinta (menos de 650 caracteres), mas a Etapa 1 extraiu densidade fática substancial
+if (parsed.minute.fundamentacao && stage1Json?.fundamentacao && parsed.minute.fundamentacao.length < 650 && stage1Json.fundamentacao.length > 500) {
+    console.log("[Assessor Judicial] Fundamentação sucinta detectada na Etapa 2. Integrando acervo fático-probatório da Etapa 1 para assegurar os 7 blocos obrigatórios...");
+    parsed.minute.fundamentacao = `${stage1Json.fundamentacao}\n\n${parsed.minute.fundamentacao}`;
 }
 
 const normalized = normalizeGeneratedMinuteAndAudit(parsed, outputText, resolvedActType, processInfo);
@@ -3237,10 +3514,16 @@ if (!Array.isArray(parsed.auditAnalysis.fatoVsProva) || parsed.auditAnalysis.fat
     ];
 }
 
-parsed.minute = sanitizeMinuteData(parsed.minute, resolvedActType === "embargos" ? "DECISÃO - EMBARGOS DE DECLARAÇÃO" : (actType || "SENTENÇA"));
+parsed.minute = sanitizeMinuteData(parsed.minute, defaultFallbackTitle);
 if (parsed.minute) {
     if (resolvedActType === "embargos" && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("EMBARGO"))) {
         parsed.minute.title = "DECISÃO - EMBARGOS DE DECLARAÇÃO";
+    } else if (resolvedActType === "decisao" && isSaneamentoDecision && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("SANEAMENTO"))) {
+        parsed.minute.title = "DECISÃO DE SANEAMENTO E ORGANIZAÇÃO";
+    } else if (resolvedActType === "sentenca" && (!parsed.minute.title || parsed.minute.title.toUpperCase().includes("SANEAMENTO") || parsed.minute.title.toUpperCase().includes("INTERLOCUTÓRIA") || parsed.minute.title.toUpperCase().includes("DESPACHO"))) {
+        parsed.minute.title = "SENTENÇA";
+    } else if (resolvedActType === "despacho" && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("DESPACHO"))) {
+        parsed.minute.title = "DESPACHO";
     }
     const fullScope = [parsed.minute.relatorio, parsed.minute.dispositivo, parsed.minute.fundamentacao, parsed.minute.fullFormattedText, safeProcessText, accumulatedPdfText].filter(Boolean).join("\n");
     const reconciled = extractProcessMetadata({
@@ -3252,13 +3535,13 @@ if (parsed.minute) {
         fundamentacao: parsed.minute.fundamentacao,
         dispositivo: parsed.minute.dispositivo
     }, processInfo, fullScope);
-    parsed.minute.processNumber = reconciled.procNum;
-    if (!parsed.minute.parties) parsed.minute.parties = { author: "", defendant: "" };
-    parsed.minute.parties.author = reconciled.author;
-    parsed.minute.parties.defendant = reconciled.defendant;
-    if (reconciled.judicialUnit && (!parsed.minute.judicialUnit || parsed.minute.judicialUnit.length < 5)) {
-        parsed.minute.judicialUnit = reconciled.judicialUnit;
-    }
+    parsed.minute.processNumber = extractSafeString(reconciled.procNum, parsed.minute.processNumber || "Autos do Processo");
+    if (!parsed.minute.parties || typeof parsed.minute.parties !== "object") parsed.minute.parties = { author: "", defendant: "" };
+    parsed.minute.parties.author = extractSafeString(reconciled.author, parsed.minute.parties.author || "Parte Autora");
+    parsed.minute.parties.defendant = extractSafeString(reconciled.defendant, parsed.minute.parties.defendant || "Parte Ré");
+    parsed.minute.judicialUnit = extractSafeString(reconciled.judicialUnit || parsed.minute.judicialUnit, "Poder Judiciário do Estado de Goiás - TJGO");
+    parsed.minute.header = extractSafeString(parsed.minute.header, "PODER JUDICIÁRIO DO ESTADO DE GOIÁS");
+    parsed.minute.title = extractSafeString(parsed.minute.title, "SENTENÇA").toUpperCase();
 }
 
 parsed.groundingSources = liveGroundingSources;

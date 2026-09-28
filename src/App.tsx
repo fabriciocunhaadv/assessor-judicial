@@ -101,6 +101,7 @@ import {
   Compass,
   Lightbulb,
   BookOpen,
+  Search,
 } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { getPromptsFromDb, savePromptToDb, deletePromptFromDb, subscribeToCabinetTeses, subscribeToProjudiGuide, subscribeToJudgeParadigms } from "./lib/firestoreUtils";
@@ -267,7 +268,7 @@ export default function App() {
   const [historyList, setHistoryList] = useState<SavedAnalysis[]>([]);
   const [activeTimelineDossier, setActiveTimelineDossier] = useState<ProcessDossier | null>(null);
   const [autoExecutePending, setAutoExecutePending] = useState<boolean>(false);
-  const [selectedActType, setSelectedActType] = useState<"auto" | "sentenca" | "decisao" | "despacho">("auto");
+  const [selectedActType, setSelectedActType] = useState<"auto" | "sentenca" | "decisao" | "despacho" | "embargos">("auto");
 
   useEffect(() => {
     try {
@@ -928,7 +929,9 @@ export default function App() {
         paradigmModelTitle: effectiveParadigmTitle,
         isParadigmEnabled: Boolean(effectiveParadigmText && effectiveParadigmText.trim()),
         proceduralPhase: activePrompt.proceduralPhaseHint || (extractedMetadata?.hasSentencaProferida ? "recursal_ou_pos_sentenca" : "conhecimento"),
-        actType: activePrompt.actTypeHint || (activePrompt.title?.toLowerCase().includes("embargo") ? "embargos" : (extractedMetadata?.suggestedActType || "auto")),
+        actType: selectedActType !== "auto"
+          ? selectedActType
+          : (activePrompt.actTypeHint || (activePrompt.title?.toLowerCase().includes("embargo") ? "embargos" : (extractedMetadata?.suggestedActType || "auto"))),
         actSubtype: extractedMetadata?.pendingMatterDescription || "",
         processActsSummary,
         isExpertModeEnabled,
@@ -1846,6 +1849,86 @@ export default function App() {
                       }`}
                     >
                       Texto / Casos
+                    </button>
+                  </div>
+                </div>
+
+                {/* Seletor Interativo de Tipo de Minuta */}
+                <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Scale className="w-3.5 h-3.5 text-indigo-600" />
+                      Tipo de Minuta a Redigir:
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">
+                      {selectedActType === "auto" ? "Detecta marcha e pendências dos autos" : "Fixado manualmente"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedActType("auto")}
+                      className={`px-2 py-1.5 rounded-lg font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1 ${
+                        selectedActType === "auto"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700"
+                      }`}
+                      title="Analisa a ordem de coisas pendentes no PDF (Despacho, Decisão ou Sentença)"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Auto-Detectar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedActType("sentenca")}
+                      className={`px-2 py-1.5 rounded-lg font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1 ${
+                        selectedActType === "sentenca"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700"
+                      }`}
+                      title="Redigir Sentença de Mérito ou Terminativa (art. 487/485 CPC)"
+                    >
+                      <Scale className="w-3 h-3" />
+                      <span>Sentença</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedActType("decisao")}
+                      className={`px-2 py-1.5 rounded-lg font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1 ${
+                        selectedActType === "decisao"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700"
+                      }`}
+                      title="Redigir Decisão Interlocutória (Tutela de urgência, liminar ou saneamento)"
+                    >
+                      <Layers className="w-3 h-3" />
+                      <span>Decisão</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedActType("despacho")}
+                      className={`px-2 py-1.5 rounded-lg font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1 ${
+                        selectedActType === "despacho"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700"
+                      }`}
+                      title="Redigir Despacho de mero expediente, citação ou impulso oficial"
+                    >
+                      <FileText className="w-3 h-3" />
+                      <span>Despacho</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedActType("embargos")}
+                      className={`col-span-2 sm:col-span-1 px-2 py-1.5 rounded-lg font-bold text-[11px] transition cursor-pointer flex items-center justify-center gap-1 ${
+                        selectedActType === "embargos"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-700"
+                      }`}
+                      title="Julgar Embargos de Declaração pendentes (art. 1.022 CPC)"
+                    >
+                      <Search className="w-3 h-3" />
+                      <span>Embargos</span>
                     </button>
                   </div>
                 </div>

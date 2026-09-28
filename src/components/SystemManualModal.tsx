@@ -1563,6 +1563,136 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: 4 Blindagens Anti-Simplificação & Pisos Mínimos de Extensão */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>4 Blindagens Anti-Simplificação & Pisos Mínimos de Extensão (Padrão Inegociável)</span>
+                          <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">DENSIDADE & PROFUNDIDADE</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Piso Mínimo de Extensão por Tópico (Proibição de Brevidade):</strong> Removida qualquer âncora restritiva de parágrafos. O Relatório passa a exigir no mínimo 4 a 6 parágrafos densos e a Fundamentação passa a exigir um piso obrigatório de <strong>14 a 20+ parágrafos aprofundados</strong> (2 a 3 por subtópico nos 7 blocos), vedando qualquer síntese ou simplificação telegráfica.<br />
+                        • <strong>Protocolo de Transcrição Literal Obrigatória (Ancoragem Probatória):</strong> Obrigatoriedade de abertura de aspas para transcrever trechos literais da exordial, contestação, laudos periciais, termos de audiência e conclusão do Ministério Público, forçando o consumo de tokens de alta fidelidade e impedindo resumos genéricos.<br />
+                        • <strong>Checklist Exaustivo de Documentos dos Autos:</strong> Vedação terminante ao descarte de documentos do PDF. Todas as peças e provas anexadas devem constar da valoração judicial com sua tríplice localização processual (Mov. X, Arq. Y, Pág. Z).<br />
+                        • <strong>Elevação de Janela e Timeout Confortável:</strong> Garantia do teto de 16.384 tokens de saída e ampliação do timeout para 180 segundos nas duas etapas, viabilizando a redação integral de peças volumosas sem interrupções.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Cascata Estendida de Modelos Flash & Melhorias Refinadas */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Cpu className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-purple-300 dark:border-purple-800 bg-purple-50/70 dark:bg-purple-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Cascata Estendida Flash & Refino Operacional da Marcha (Tarjas, Consectários & Omissões)</span>
+                          <span className="bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">CASCATA & OPERACIONAL</span>
+                        </h3>
+                        <time className="text-xs font-mono text-purple-800 dark:text-purple-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Cascata Estendida de Raciocínio Profundo (Flash 3.8, 3.7, 3.6 e 3.5 Primeiro):</strong> A esteira de minutas e o pool de chaves agora esgotam <strong>todos os modelos de raciocínio profundo e capacidade integral primeiro</strong> antes de acionar qualquer modelo lite: <code>gemini-3.8-flash</code> (titular de máxima cognição) ➔ <code>gemini-3.7-flash</code> ➔ <code>gemini-3.6-flash</code> ➔ <code>gemini-3.5-flash</code> ➔ <code>gemini-flash-latest</code> (versão estável Google) ➔ e apenas em contingência residual <code>gemini-3.5-flash-lite</code> ➔ <code>gemini-3.1-flash-lite</code>.<br />
+                        • <strong>Mapeamento de Tarjas como Indício Forte (Sem Automatismo Cego):</strong> Tarjas do PROJUDI/PJe (TPU 51 "Conclusos para Sentença", TPU 53 "Decisão", TPU 52 "Despacho") são consideradas como indício forte, mas sempre confrontadas caso a caso com os atos reais dos autos para evitar sentenças precipitadas por erro de conclusão de secretaria.<br />
+                        • <strong>Consectários da Lei nº 14.905/2024 Consolidados no Dispositivo:</strong> A fundamentação teórica foi desonerada de discussões sobre índices de juros e correção; os parâmetros (IPCA, juros Selic deduzida e súmulas 43/54/362 do STJ) agora incidem de forma líquida, precisa e operacional diretamente no Dispositivo do ato.<br />
+                        • <strong>Blindagem contra Omissão de Petições Intercorrentes (Art. 493 do CPC):</strong> Varredura preventiva em todas as movimentações dos autos para detectar e deliberar expressamente sobre petições recentes de acordo, desistência, habilitação de herdeiros ou documentos novos pendentes.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Análise Cronológica Caso a Caso da Marcha Processual */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-blue-300 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Análise Holística Caso a Caso & Extração Qualificada de Pareceres do MP (Todos os Processos)</span>
+                          <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">MARCHA & MINISTÉRIO PÚBLICO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-blue-800 dark:text-blue-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Exame Individualizado e Dinâmico do Próximo Passo Processual:</strong> Eliminação de presunções cegas ou tabelas rígidas de prevalência. O sistema analisa o processo de forma integral (sem focar apenas na cauda final e sem tabelas automáticas), avaliando caso a caso a linha do tempo e a situação real das fases postulatória e probatória.<br />
+                        • <strong>Extração Universal e Qualificada do Parecer do Ministério Público (MP):</strong> Aplicável a <strong>todo e qualquer processo</strong> com intervenção ministerial (Família, Sucessões, Infância e Juventude, Fazenda Pública, Meio Ambiente, Interdição/Curatela ou Registros Públicos). O sistema transcreve literalmente entre aspas a conclusão ministerial, identifica a Promotoria e Movimentação, e reconhece que parecer de mérito com instrução encerrada indica causa madura para <strong>SENTENÇA</strong> (Art. 355 do CPC).<br />
+                        • <strong>Protocolo Anti-Inferência Estrito:</strong> Vedação terminante a resumos evasivos ("foram debatidas pelas partes e pelo MP"). O relatório extrai detalhadamente o que cada polo postulou e comprovou nos autos, com tríplice citação processual (Mov. X, Arq. Y, Pág. Z).<br />
+                        • <strong>Harmonização Dinâmica na Etapa 1 e Etapa 2:</strong> No Modo Automático, a classificação probatória da Etapa 1 ajusta o ato e calibra o título sem regredir indevidamente para saneamento, mantendo a soberania de escolha do magistrado.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Item: Blindagem Intrínseca dos 7 Blocos & Decisão de Saneamento Exaustiva */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Blindagem Intrínseca dos 7 Blocos da Fundamentação & Decisão Saneadora Completa (Art. 357 do CPC)</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">DENSIDADE & SANEAMENTO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Diretriz Mandatória de Saneamento e Organização (Art. 357 do CPC):</strong> No modo automático e nas decisões saneadoras, o sistema aciona um roteiro especializado estruturado nos 5 incisos legais: 1) Regularidade processual e resolução de todas as preliminares da contestação; 2) Delimitação discriminada de cada questão de fato controvertida; 3) Distribuição motivada do ônus da prova (com dinamização ou inversão pelo CDC fundamentadas); 4) Delimitação das questões de direito relevantes; 5) Deferimento/indeferimento motivado dos meios de prova e designação de AIJ com prazo para rol, fixando o prazo legal de 5 dias do art. 357, § 1º, para estabilização.<br />
+                        • <strong>Regra Intrínseca dos 7 Blocos Obrigatórios (Art. 489, § 1º, do CPC):</strong> Tornou-se intrínseco na análise dos PDFs o mapeamento de 100% dos pedidos da inicial e teses da defesa, com divisão mandatória em subtópicos Markdown (### 1. a ### 7.), tríplice localização processual e transcrição de trechos probatórios entre aspas.<br />
+                        • <strong>Blindagem de Densidade e Formatação Rica para Chaves Gratuitas:</strong> O motor protege a extensão e densidade da fundamentação mesmo em modelos de contingência (Flash-Lite) ou sob chaves gratuitas do AI Studio, assegurando formatação rica (negrito, itálico, subtópicos e citações em bloco) sem simplificação ou cortes precipitados de texto.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Controle Estrito da Chave Nativa pelo Super Admin */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Governança Estrita da Chave Nativa: Fidelidade Absoluta ao Painel Super Admin</span>
+                          <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">SEGURANÇA & ACESSO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Eliminação de Ativação Automática Compulsória:</strong> Removida a sobreposição rígida que forçava a Chave Nativa como ativa para a conta do Super Administrador mesmo quando não havia ativação deliberada no painel executivo.<br />
+                        • <strong>Controle Soberano por Usuário:</strong> O status da Chave Nativa agora obedece rigorosamente ao interruptor configurado no <em>Painel Super Admin</em> ou no <em>Gerenciador de Chaves de API</em>. Se o interruptor estiver desligado, a chave nativa permanecerá desativada e a IA operará exclusivamente pelas chaves pessoais do usuário ou permanecerá bloqueada até liberação expressa.<br />
+                        • <strong>Blindagem Completa Front-end & Back-end:</strong> Sincronizados tanto os cabeçalhos de requisição do cliente quanto os validadores do servidor Node.js, garantindo que nenhum bypass implícito ocorra sem a permissão formal cadastrada no banco de dados.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Item: Análise Fidedigna da Marcha Processual & Seletor de Tipo de Minuta */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Análise Fidedigna da Marcha Processual & Seletor de Tipo de Minuta (Sem Presunção Indevida de Embargos)</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">MARCHA PROCESSUAL</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Respeito Estrito à Ordem de Coisas Pendentes no PDF:</strong> O sistema analisa a ordem cronológica real dos autos para identificar o ato pendente (despacho, decisão ou sentença), sem suposições arbitrárias e sem enquadrar os autos como embargos de declaração por mera regra ou citações jurisprudenciais esparsas.<br />
+                        • <strong>Novo Seletor Interativo de Tipo de Minuta:</strong> Adicionado seletor com 5 opções (<em>Auto-Detectar, Sentença, Decisão, Despacho e Embargos</em>). O sistema respeita de forma soberana a opção fixada pelo assessor ou magistrado.<br />
+                        • <strong>Remoção de Vedações Rígidas:</strong> Eliminadas as restrições que proibiam sentenças nos autos de forma inadequada, assegurando que o juízo prolate a peça necessária para o estado real do processo.<br />
+                        • <strong>Proteção Anti-Crash em Renderização de Objetos:</strong> Sanitização defensiva em todas as camadas de histórico e dossiês, eliminando falhas de objetos como filhos React.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Respeito Estrito à Liberação da Chave Nativa pelo Super Admin (Multi-Tenant) */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">

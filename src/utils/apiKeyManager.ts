@@ -13,12 +13,27 @@ const activeKeyMemoryCache: Record<string, string | null> = {};
 const activeStateMemoryCache: Record<string, boolean> = {};
 let currentCanUseNativeKey: boolean = false;
 
-export function setNativeKeyAccessState(canUse: boolean): void {
+export function setNativeKeyAccessState(canUse: boolean, explicitUid?: string): void {
   currentCanUseNativeKey = canUse;
+  const uid = explicitUid || auth.currentUser?.uid;
+  if (uid) {
+    try {
+      localStorage.setItem("agaia_native_key_allowed_" + uid, canUse ? "true" : "false");
+    } catch {}
+  }
 }
 
 export function isNativeKeyAllowed(): boolean {
-  return currentCanUseNativeKey;
+  if (currentCanUseNativeKey) return true;
+  const uid = auth.currentUser?.uid;
+  if (uid) {
+    try {
+      if (localStorage.getItem("agaia_native_key_allowed_" + uid) === "true") {
+        return true;
+      }
+    } catch {}
+  }
+  return false;
 }
 
 // Cleanup legacy unscoped or anon keys that might have leaked across accounts
@@ -758,7 +773,7 @@ export function checkUserAiAccess(userProfile: UserProfile | null, userEmail?: s
   const effectiveEmail = userEmail || auth.currentUser?.email || userProfile?.email;
   const isMasterAdmin = effectiveEmail === "fabriciocunha.adv@gmail.com";
   const isAdmin = userProfile?.role === "admin" || isMasterAdmin;
-  const nativeAllowed = Boolean(userProfile?.canUseNativeKey ?? isNativeKeyAllowed());
+  const nativeAllowed = userProfile ? Boolean(userProfile.canUseNativeKey) : isNativeKeyAllowed();
 
   // 1. PRIORIDADE MÁXIMA: Se o Super Admin autorizou a Chave Nativa, ela sobrepõe o uso da chave pessoal!
   if (nativeAllowed) {

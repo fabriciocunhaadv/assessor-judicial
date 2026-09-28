@@ -37,6 +37,30 @@ export function formatProcessCnj(raw: string): string {
   return raw;
 }
 
+export function extractCleanString(val: any, fallback: string = ""): string {
+  if (!val) return fallback;
+  if (typeof val === "string") return val.trim();
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (typeof val === "object") {
+    const candidate =
+      (typeof val.judicialUnit === "string" && val.judicialUnit.trim()) ||
+      (typeof val.court === "string" && val.court.trim()) ||
+      (typeof val.comarcaVara === "string" && val.comarcaVara.trim()) ||
+      (typeof val.comarca === "string" && val.comarca.trim()) ||
+      (typeof val.vara === "string" && val.vara.trim()) ||
+      (typeof val.author === "string" && val.author.trim()) ||
+      (typeof val.plaintiff === "string" && val.plaintiff.trim()) ||
+      (typeof val.defendant === "string" && val.defendant.trim()) ||
+      (typeof val.processNumber === "string" && val.processNumber.trim()) ||
+      (typeof val.name === "string" && val.name.trim()) ||
+      (typeof val.address === "string" && val.address.trim()) ||
+      "";
+    if (candidate) return candidate;
+    return fallback;
+  }
+  return String(val).trim();
+}
+
 /**
  * Agrupa uma lista de SavedAnalysis em Dossiês Processuais únicos,
  * eliminando qualquer duplicidade visual no histórico e organizando a linha do tempo cronológica.
@@ -81,7 +105,7 @@ export function groupAnalysesIntoDossiers(analyses: SavedAnalysis[]): ProcessDos
     const oldest = sortedChronological[0];
 
     // Encontra o melhor número formatado do processo
-    const bestProcessNumber =
+    const rawProc =
       items.find(
         (i) =>
           i.processNumber &&
@@ -92,48 +116,55 @@ export function groupAnalysesIntoDossiers(analyses: SavedAnalysis[]): ProcessDos
       newest.result?.minute?.processNumber ||
       newest.processNumber ||
       "Processo s/ nº";
+    const bestProcessNumber = extractCleanString(rawProc, "Processo s/ nº");
 
     // Encontra as melhores partes
-    const bestParties =
+    const rawParties =
       items.find(
         (i) =>
           (i.result?.minute?.parties?.author && i.result.minute.parties.author !== "Parte Autora") ||
           (i.result?.minute?.parties?.defendant && i.result.minute.parties.defendant !== "Parte Ré")
       )?.result?.minute?.parties ||
       newest.result?.minute?.parties || { author: "Parte Autora", defendant: "Parte Ré" };
+    
+    const bestParties = {
+      author: extractCleanString(rawParties?.author, "Parte Autora"),
+      defendant: extractCleanString(rawParties?.defendant, "Parte Ré")
+    };
 
     // Tipos de atos proferidos
     const actTypesSet = new Set<string>();
     items.forEach((item) => {
-      const actTitle = item.result?.minute?.title || item.promptTitle || "MINUTA";
+      const actTitle = extractCleanString(item.result?.minute?.title || item.promptTitle, "MINUTA");
       actTypesSet.add(actTitle.toUpperCase().trim());
     });
 
     // Encontra a melhor Unidade Judiciária / Comarca / Vara
-    const bestJudicialUnit =
-      items.find((i) => i.result?.minute?.judicialUnit && i.result.minute.judicialUnit.trim().length > 0)
+    const rawJudicialUnit =
+      items.find((i) => i.result?.minute?.judicialUnit && extractCleanString(i.result.minute.judicialUnit).length > 0)
         ?.result?.minute?.judicialUnit ||
-      items.find((i) => i.result?.minute?.comarca && i.result.minute.comarca.trim().length > 0)
+      items.find((i) => i.result?.minute?.comarca && extractCleanString(i.result.minute.comarca).length > 0)
         ?.result?.minute?.comarca ||
       newest.result?.minute?.judicialUnit ||
       "";
+    const bestJudicialUnit = extractCleanString(rawJudicialUnit, "");
 
-    const bestComarca =
-      items.find((i) => i.result?.minute?.comarca && i.result.minute.comarca.trim().length > 0)
+    const rawComarca =
+      items.find((i) => i.result?.minute?.comarca && extractCleanString(i.result.minute.comarca).length > 0)
         ?.result?.minute?.comarca ||
       newest.result?.minute?.comarca ||
       "";
+    const bestComarca = extractCleanString(rawComarca, "");
 
-    const bestVara =
-      items.find((i) => i.result?.minute?.vara && i.result.minute.vara.trim().length > 0)
+    const rawVara =
+      items.find((i) => i.result?.minute?.vara && extractCleanString(i.result.minute.vara).length > 0)
         ?.result?.minute?.vara ||
       newest.result?.minute?.vara ||
       "";
+    const bestVara = extractCleanString(rawVara, "");
 
     const bestUnitId =
-      items.find((i) => i.unitId && i.unitId.trim().length > 0)?.unitId ||
-      newest.unitId ||
-      "montes_claros";
+      extractCleanString(items.find((i) => i.unitId && i.unitId.trim().length > 0)?.unitId || newest.unitId, "montes_claros");
 
     // Criadores que atuaram no processo
     const creatorsSet = new Set<string>();

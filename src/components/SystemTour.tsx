@@ -68,9 +68,9 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       target: "#tour-input-panel",
       content: (
         <div className="text-left font-sans space-y-1.5">
-          <h3 className="font-bold text-md text-emerald-800">Passo 3: Seletor de Minuta & Inserção dos Autos</h3>
+          <h3 className="font-bold text-md text-emerald-800">Passo 3: Seletor de Tipo de Minuta & Inserção dos Autos</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Selecione o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão ou Despacho)</strong>. Ao carregar um PDF contendo apenas a Petição Inicial, o modo <em>Auto-Detectar</em> identifica a fase postulatória e elabora a Decisão Interlocutória (liminar/tutela de urgência e gratuidade) ou Despacho cabível, sem forçar sentenças prematuras. A integridade dos autos é preservada integralmente sem cortes de miolo, garantindo análise exaustiva de todas as preliminares (incluindo impugnação à gratuidade da justiça) e documentos.
+            Utilize o seletor interativo para escolher o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão, Despacho ou Embargos)</strong>. No modo <em>Auto-Detectar</em>, a inteligência analisa caso a caso a linha do tempo do PDF de ponta a ponta (identificando se o processo superou saneamento/instrução e está maduro para sentença, ou se demanda saneamento pelo art. 357 do CPC, liminar ou despacho), sem tabelas rígidas automáticas e sem enquadrar indevidamente os autos como embargos. Em qualquer processo com parecer ministerial (Família, Infância, Fazenda, Cível etc.), o parecer é transcrito fielmente e, se de mérito, firma a causa madura para sentença. A escolha manual do magistrado é sempre soberana e respeitada integralmente.
           </p>
         </div>
       ),
@@ -161,10 +161,10 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       content: (
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800 flex items-center gap-1.5">
-            <span>Chave de API, Pool Inteligente & Geração Unificada 🔑⚡</span>
+            <span>Chave de API, Pool Inteligente & Cascata Estendida Flash 🔑⚡</span>
           </h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            O sistema gerencia com rigor o acesso à IA: a <strong>Chave Nativa</strong> é governada com exclusividade pelo <strong>Super Admin</strong>, operando as chaves do seu <strong>Pool Inteligente</strong> de forma 100% blindada e isolada. A esteira prioriza de primeira os modelos mais ágeis e econômicos (Gemini Flash Lite), acelerando a resposta e preservando suas cotas gratuitas, com desativação do validador rígido e filtros de ruído folha a folha para máxima velocidade. Caso a esteira enfrente picos temporários de demanda (503), o sistema reinicia a esteira completa com intervalos preventivos de resfriamento.
+            O sistema gerencia com rigor o acesso à IA: a <strong>Chave Nativa</strong> é governada com exclusividade pelo <strong>Super Admin</strong>, ativada somente para usuários expressamente autorizados no painel executivo. Quando desativada, o usuário opera exclusivamente com suas próprias chaves gratuitas do Google AI Studio cadastradas no seu <strong>Pool Inteligente</strong> de forma 100% blindada e isolada. A esteira prioriza <strong>todos os modelos de raciocínio profundo e capacidade integral primeiro (Gemini 3.8 ➔ 3.7 ➔ 3.6 ➔ 3.5 ➔ Flash-Latest)</strong> antes de recorrer a versões Lite de contingência, assegurando máxima cognição jurídica e failover automático instantâneo sem travamentos.
           </p>
         </div>
       ),
@@ -277,7 +277,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Passo 6: Executar Minuta em Duas Etapas & Observância da Marcha ⚖️⚡</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Clique em <strong>Gerar Minuta Judicial</strong> para acionar a esteira em duas fases com inteligência de marcha processual: o sistema extrai e cadastra <strong>automaticamente o número do processo (CNJ) e os nomes das partes (Autor e Réu)</strong> diretamente do PDF. Além disso, <strong>observa rigorosamente as questões pendentes de julgamento</strong>: se o processo já tiver sido sentenciado e houver Embargos de Declaração pendentes (ex.: mov. 55), o sistema julga os aclaratórios (art. 1.022 do CPC) sem gerar sentença indevida! Na <strong>Etapa 1 (Assessor Fático)</strong>, extrai fidedignamente os fatos e provas com tríplice localização (Mov., Arq. e Pág.); na <strong>Etapa 2 (Juiz Revisor)</strong>, aplica o <strong>Caderno de Teses</strong>, <strong>Súmulas</strong> e <strong>Minuta Paradigma</strong>, gerando a minuta magistral final e a <strong>Matriz de Auditoria Forense Completa</strong>.
+            Clique em <strong>Gerar Minuta Judicial</strong> para acionar a esteira em duas fases com inteligência de marcha processual caso a caso: o sistema extrai e cadastra <strong>automaticamente o número do processo (CNJ) e os nomes das partes (Autor e Réu)</strong> diretamente do PDF. Além disso, <strong>observa caso a caso a linha do tempo processual e as tarjas de conclusão do PROJUDI/PJe (como indício forte sem automatismo cego)</strong>: se o feito já superou a fase probatória (com perícia/audiência realizada, ou sem novas provas a produzir, ou com parecer de mérito do MP onde aplicável), o processo é encaminhado com firmeza para <strong>Sentença</strong>, sem regredir para saneamento nem depender de tabelas automáticas rígidas! A esteira conta com <strong>blindagem contra omissão de petições intercorrentes</strong> (acordos, desistências, documentos novos). Na <strong>Etapa 1 (Assessor Fático)</strong>, extrai fidedignamente os fatos e provas com tríplice localização (Mov., Arq. e Pág.); na <strong>Etapa 2 (Juiz Revisor)</strong>, aplica o <strong>Caderno de Teses</strong>, <strong>Súmulas</strong> e <strong>Minuta Paradigma</strong>, gerando a minuta magistral final (com os <strong>consectários da Lei 14.905/2024 liquidados no Dispositivo</strong>) e a <strong>Matriz de Auditoria Forense Completa</strong>.
           </p>
         </div>
       ),
@@ -293,7 +293,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Abas de Trabalho, Teses & Pré-Auditoria Automática 📄</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Navegue entre a <strong>Minuta do Ato</strong> (com fundamentação exaustiva no motor Gemini 3.8 Flash, auditoria explícita das diretrizes do <strong>Caderno de Teses Vinculantes</strong> e modelo paradigma do juiz), a <strong>Pré-Auditoria dos Autos</strong>, a aba <strong>Texto Projudi & TPU CNJ</strong> (com código TPU numérico oficial, movimentação, prazos e fila de secretaria), o <strong>1º Modelo Original</strong> (intocável), o <strong>Comparador Lado a Lado</strong>, a <strong>Matriz Fato vs Prova</strong> e a <strong>Calculadora de Consectários (Lei 14.905/2024)</strong>.
+            Navegue entre a <strong>Minuta do Ato</strong> (blindada com as <strong>4 travas de profundidade anti-simplificação</strong>: piso de 14 a 20+ parágrafos nos <strong>7 blocos obrigatórios de fundamentação</strong>, transcrições literais obrigatórias de exordial, defesa e parecer do MP, roteiro exaustivo de <strong>Decisão de Saneamento do art. 357 do CPC</strong>, enfrentamento de 100% dos pedidos e preliminares, diretrizes do <strong>Caderno de Teses Vinculantes</strong> e modelo paradigma do juiz), a <strong>Pré-Auditoria dos Autos</strong>, a aba <strong>Texto Projudi & TPU CNJ</strong> (com código TPU numérico oficial, movimentação, prazos e fila de secretaria), o <strong>1º Modelo Original</strong> (intocável), o <strong>Comparador Lado a Lado</strong>, a <strong>Matriz Fato vs Prova</strong> e a <strong>Calculadora de Consectários (Lei 14.905/2024)</strong>.
           </p>
         </div>
       ),
