@@ -1563,6 +1563,69 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Integração Fim a Fim dos Prompts Temáticos na Etapa 1 e Etapa 2 */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-teal-300 dark:border-teal-800 bg-teal-50/70 dark:bg-teal-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Integração Cirúrgica Fim a Fim dos Prompts Temáticos (Etapa 1 & Etapa 2)</span>
+                          <span className="bg-teal-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">PROMPTS FIM A FIM</span>
+                        </h3>
+                        <time className="text-xs font-mono text-teal-800 dark:text-teal-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Alinhamento Completo desde o Primeiro Segundo:</strong> O teor integral do prompt temático selecionado no painel pelo assessor agora é injetado diretamente nas diretrizes da <strong>Etapa 1 (Assessor Fático)</strong> e da <strong>Etapa 2 (Juiz Revisor)</strong>.<br />
+                        • <strong>Fim da Triagem às Cegas:</strong> Ao analisar o PDF bruto e extrair pedidos, provas e preliminares, o Assessor Fático já direciona o foco probatório exatamente para as diretrizes e teses do modelo escolhido, assegurando harmonia perfeita de 100% da minuta desde a extração inicial até a redação final do dispositivo.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Blindagem de Adstrição Estrita, Bipartição de Litisconsortes & Anti-Alucinação Numérica */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-cyan-300 dark:border-cyan-800 bg-cyan-50/70 dark:bg-cyan-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Blindagem de Adstrição aos Pedidos, Bipartição de Litisconsortes & Fidelidade Numérica</span>
+                          <span className="bg-cyan-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">CONGRUÊNCIA & PRECISÃO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-cyan-800 dark:text-cyan-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Modo Factual Puro (Temperatura 0.0):</strong> Calibração das duas etapas (Assessor Fático e Juiz Revisor) em temperatura zero absoluta, eliminando desvios probabilísticos, complementações automáticas de padrões ou alucinação de dados.<br />
+                        • <strong>Bipartição Fiel de Litisconsortes (Vedação à Fusão de Polos):</strong> Em petições com requerimentos distintos para réus diferentes (ex: pesquisa cadastral para a PJ e WhatsApp para a PF), o sistema delibera de forma autônoma sobre cada parte, vedada a extensão de meios ou inversão de ordens diretas e subsidiárias.<br />
+                        • <strong>Trava de Fidelidade Alfanumérica Estrita:</strong> Proibição terminante de alterar DDDs, criar números derivados ou adicionar telefones inexistentes na petição. Apenas os terminais literalmente informados constam no dispositivo.<br />
+                        • <strong>Deliberação Específica de Petições Intercorrentes:</strong> Foco exclusivo nos requerimentos da petição em análise (localização e intimação), sem reabertura inócua de ordens de pagamento com multa do art. 523 do CPC já decididas.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Pausa Inteligente, Preservação Total de PDFs & Grandeza nos Modelos Finais */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Pausa Inteligente Preventiva, Otimização de PDFs & Grandeza nos Modelos Finais</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">ROBUSTEZ & QUALIDADE</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Pausa Inteligente Preventiva (1.2s / 1.5s / 3.0s):</strong> Eliminação de retentativas imediatas cegas sob instabilidade transitória do Google (503 / saturação de cluster). O sistema aplica um intervalo suave de resfriamento que permite aos roteadores da Google alocar a requisição para nós livres sem sobrecarga de cota ou bloqueio de conexão.<br />
+                        • <strong>Preservação Integral de PDFs na Segunda Tentativa:</strong> Removida qualquer condensação de miolo ou descarte de anexos em tentativas contingenciais. 100% dos documentos, provas, petições e laudos permanecem íntegros em qualquer contingência ou repetição da esteira.<br />
+                        • <strong>Grandeza Inegociável para Modelos Acionados ao Final (Latest e Lite):</strong> Após esgotar todos os modelos de raciocínio profundo (Flash 3.8, 3.7, 3.6 e 3.5), caso o sistema acione <code>gemini-flash-latest</code> ou variantes <code>lite</code>, é proibida qualquer simplificação ou síntese, exigindo a mesma densidade, os 7 blocos e o piso de 14 a 20+ parágrafos dos modelos titulares.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: 4 Blindagens Anti-Simplificação & Pisos Mínimos de Extensão */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">

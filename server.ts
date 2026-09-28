@@ -56,7 +56,21 @@ DIRETRIZES DE RIGOR JURÍDICO, EXAUSTIVIDADE E EXTRAÇÃO PROBATÓRIA (ART. 489,
      ### 7. DOS CONSECTÁRIOS LEGAIS, JUROS E CORREÇÃO MONETÁRIA (LEI Nº 14.905/2024)
      (Fixação estrita dos critérios de correção monetária e juros moratórios pela Lei nº 14.905/2024, verbas sucumbenciais, custas e honorários).
    - Use **negrito** nas conclusões e nomes de documentos, e *itálico* em expressões em latim (*fumus boni iuris*, *periculum in mora*, *in albis*, *inaudita altera parte*, etc.) e nomes de leis.
-   - Parágrafos separados por duas quebras de linha (\\n\\n). Proibido usar termos artificiais como "PARÁGRAFO 1". Proibido truncar ou abreviar fundamentações mesmo em modelos mais leves ou chaves gratuitas.`;
+   - Parágrafos separados por duas quebras de linha (\\n\\n). Proibido usar termos artificiais como "PARÁGRAFO 1". Proibido truncar ou abreviar fundamentações mesmo em modelos mais leves ou chaves gratuitas.
+
+6. DIRETRIZ DE GRANDEZA E PROFUNDIDADE COGNITIVA IRRENUNCIÁVEL (INDEPENDENTEMENTE DO MODELO EM EXECUÇÃO):
+   - Ainda que a requisição seja processada por modelos secundários, contingenciais ou acionados ao final da esteira (como gemini-flash-latest, gemini-3.5-flash-lite, gemini-3.1-flash-lite ou gemini-flash-lite-latest), é TERMINANTEMENTE PROIBIDO simplificar, abreviar, resumir, omitir detalhes fáticos, aglutinar tópicos ou descartar dados dos autos.
+   - A minuta e o relatório DEVEM rigorosamente manter a mesma grandeza, amplitude, densidade analítica, piso de 14 a 20+ parágrafos na fundamentação distribuídos nos 7 blocos obrigatórios, citações exatas de movimentações/páginas e transcrições literais entre aspas, idêntica ao padrão de excelência dos modelos de raciocínio profundo da linha principal (gemini-3.8-flash).
+
+7. PROTOCOLO DE ADSTRIÇÃO E CONGRUÊNCIA ESTRITA AOS PEDIDOS (ARTS. 141 E 492 DO CPC):
+   - O magistrado e o assessor devem decidir estritamente nos limites dos pedidos formulados pelas partes, sendo vedada decisão extra petita, ultra petita ou citra petita.
+   - BIPARTIÇÃO E INDIVIDUALIZAÇÃO ESTRITA EM CASO DE LITISCONSÓRCIO OU RÉUS MÚLTIPLOS (PROIBIÇÃO ABSOLUTA DE FUSÃO DE POLOS): Se a petição formular requerimentos distintos para litisconsortes diferentes (ex: pedido de pesquisa de endereço em sistemas conveniados para a pessoa jurídica e pedido de intimação por WhatsApp para a pessoa física), o ato DEVE apreciar cada requerimento de forma autônoma e espelhada. É expressamente PROIBIDO estender o meio de comunicação postulado contra um réu ao outro se a parte não requereu (ex: estender WhatsApp à empresa se o autor não pediu para ela, ou presumir representação administrativa sem pedido expresso), e é expressamente PROIBIDO converter pedidos imediatos de um réu em pedidos subsidiários do outro.
+
+8. TRAVA DE FIDELIDADE ALFANUMÉRICA E CONTATOS (ANTI-ALUCINAÇÃO DE TELEFONES E DDDs):
+   - Em relação a números de telefone, DDDs, e-mails, endereços, CPFs, CNPJs, contas bancárias, valores, placas ou dados cadastrais: é TERMINANTEMENTE PROIBIDO criar números derivados, alterar DDDs (ex: alterar ou duplicar DDD 64 para 62 ou vice-versa), completar padrões ou inventar terminais que não constem ipsis litteris da petição. Somente devem constar no dispositivo e relatório os dados exatamente informados nos autos.
+
+9. DELIBERAÇÃO ESTRITA SOBRE O OBJETO DA PETIÇÃO INTERCORRENTE (SEM REPETIÇÃO INÓCUA DE DESPACHOS PRECLUSOS):
+   - Quando os autos estiverem em fase de cumprimento de sentença ou após tentativas citatórias/intimatórias frustradas, e a petição versar sobre localização de devedores ou meios de comunicação processual (WhatsApp, pesquisas em sistemas SISBAJUD/INFOJUD/RENAJUD), o ato judicial DEVE se ater a apreciar os meios postulados (deferindo/indeferindo as pesquisas e a comunicação eletrônica nos termos requeridos), sem reabrir ou repetir provimentos inaugurais pretéritos de intimação para pagamento com multa do art. 523 do CPC já proferidos nos autos.`;
 
 function getActiveCabinetTeses(cabinetTesesText: any, isTesesEnabled: any) {
     if (isTesesEnabled === false) return "";
@@ -1301,9 +1315,10 @@ async function generateWithFallbackAndRetry(options) {
         throw new Error("Nenhuma chave da API Gemini foi configurada ou liberada pelo Super Admin. Configure sua chave pessoal em 'Configurar Chaves da IA' ou solicite ao administrador a liberação da Chave Nativa.");
     }
 
-    // REORDENAÇÃO DA ESTEIRA: Modelos mais ágeis e de menor fila primeiro (gemini-3.1-flash-lite e gemini-flash-latest)
-    let pModel = options.primaryModel || 'gemini-3.1-flash-lite';
-    let fbModel = options.fallbackModel || 'gemini-flash-latest';
+    // ESTEIRA DE MÁXIMA PROFUNDIDADE PRIMEIRO:
+    // Todos os modelos de raciocínio profundo primeiro (3.8, 3.7, 3.6, 3.5), acionando ao final os modelos latest e lite
+    let pModel = options.primaryModel || 'gemini-3.8-flash';
+    let fbModel = options.fallbackModel || 'gemini-3.7-flash';
     const defaultFlashQueue = [
         "gemini-3.8-flash",
         "gemini-3.7-flash",
@@ -1384,11 +1399,18 @@ async function generateWithFallbackAndRetry(options) {
                         }
                     });
 
+                    const currentModelConfig = { ...activeConfig };
+                    if (modelName.includes("lite") || modelName.includes("latest")) {
+                        if (!currentModelConfig.maxOutputTokens || currentModelConfig.maxOutputTokens < 16384) {
+                            currentModelConfig.maxOutputTokens = 16384;
+                        }
+                    }
+
                     const response = await Promise.race([
                         ai.models.generateContent({
                             model: modelName,
                             contents: activeContents,
-                            config: activeConfig
+                            config: currentModelConfig
                         }),
                         timeoutPromise
                     ]);
@@ -1493,31 +1515,22 @@ async function generateWithFallbackAndRetry(options) {
                         if (activeConfig && activeConfig.responseSchema) {
                             delete activeConfig.responseSchema;
                         }
-                        // Se houver inlineData pesado, descarta para mandar apenas texto
-                        if (Array.isArray(activeContents)) {
-                            for (const c of activeContents) {
-                                if (Array.isArray(c.parts)) {
-                                    c.parts = c.parts.filter(p => !p.inlineData);
-                                    // Sob alta demanda do cluster, condensa textos gigantes para caber na janela prioritária
-                                    for (const p of c.parts) {
-                                        if (p.text && p.text.length > 70000) {
-                                            const half = 32000;
-                                            p.text = p.text.substring(0, half) + "\n\n[... MIOLO CONDENSADO PARA ATENDIMENTO SOB ALTA DEMANDA DO CLUSTER GOOGLE ...]\n\n" + p.text.substring(p.text.length - half);
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
-                        // REGRA: Não fica aguardando a fila do Google e passa IMEDIATAMENTE ao próximo modelo da esteira (sem delay artificial)
+                        // PRESERVAÇÃO INTEGRAL DOS DOCUMENTOS E PROVAS (SEM CORTES OU DESCARTE DE PDF):
+                        // O conteúdo probatório dos autos (textos e anexos PDF em inlineData) é preservado 100% íntegro
+                        // nas tentativas subsequentes e contingências de modelos, sem condensação nem descarte de miolo.
+
+                        // PAUSA INTELIGENTE PREVENTIVA: Permite que o roteador de borda do Google redirecione para nós não sobrecarregados
                         if (mIdx < modelsToTry.length - 1) {
-                            console.log(`[Assessor Judicial - Transição Imediata] ${statusReason} em ${modelName}. Passando IMEDIATAMENTE ao próximo modelo: ${modelsToTry[mIdx + 1]}...`);
-                            continue; // Avança imediatamente ao próximo modelo
+                            console.log(`[Assessor Judicial - Pausa Inteligente & Transição de Modelo] ${statusReason} em ${modelName}. Executando pausa preventiva inteligente (1.2s) e acionando o próximo modelo: ${modelsToTry[mIdx + 1]} com preservação integral de todos os documentos e provas...`);
+                            await new Promise(r => setTimeout(r, 1200));
+                            continue; // Avança ao próximo modelo com pausa preventiva inteligente
                         }
 
                         // Se todos os modelos desta chave sofreram timeout/503 e temos outra chave autorizada no pool
                         if (kIdx < keyPool.length - 1) {
-                            console.log(`[Assessor Judicial - 503/Fila Failover Imediato] Alta demanda/fila em todos os modelos na chave ${kIdx + 1}/${keyPool.length}. Rotacionando IMEDIATAMENTE para chave ${kIdx + 2}...`);
+                            console.log(`[Assessor Judicial - 503/Fila Failover com Pausa Inteligente] Alta demanda/fila em todos os modelos na chave ${kIdx + 1}/${keyPool.length}. Pausa preventiva de 1.5s e rotacionando para chave ${kIdx + 2}...`);
+                            await new Promise(r => setTimeout(r, 1500));
                             keyExhausted = true;
                             break;
                         }
@@ -2558,8 +2571,8 @@ REGRA MANDATÓRIA DE OBSERVAÇÃO DA MARCHA PROCESSUAL E CASO A CASO (ANÁLISE I
 8. BLINDAGEM CONTRA OMISSÃO DE PETIÇÕES E REQUERIMENTOS INTERCORRENTES (ART. 493 DO CPC):
    - Realize varredura preventiva em todas as movimentações dos autos para detectar petições intercorrentes pendentes de deliberação judicial (ex: petição de acordo/transação entre as partes para homologação, pedido de desistência da ação ou contra réu, juntada de documento novo substancial, pedido de habilitação de herdeiros ou terceiros, manifestação sobre gratuidade ou renúncia de prazo).
    - É terminantemente PROIBIDO elaborar a minuta sem antes acusar e deliberar motivadamente sobre a petição intercorrente pendente no Relatório, na Fundamentação ou no Dispositivo, prevenindo nulidade ou embargos de declaração por omissão.
-9. PISO MÍNIMO DE EXTENSÃO E PROIBIÇÃO ABSOLUTA DE SÍNTESE/BREVIDADE:
-   - É expressamente PROIBIDO sintetizar, resumir ou gerar decisões telegráficas ou simplificadas. A brevidade ou concisão excessiva é considerada erro formal grave de técnica judicante. Não economize tokens ou espaço.
+9. PISO MÍNIMO DE EXTENSÃO E PROIBIÇÃO ABSOLUTA DE SÍNTESE/BREVIDADE (GRANDEZA INEGOCIÁVEL EM TODOS OS MODELOS):
+   - É expressamente PROIBIDO sintetizar, resumir ou gerar decisões telegráficas ou simplificadas, inclusive em modelos acionados ao final da esteira (como gemini-flash-latest ou variantes lite). A brevidade ou concisão excessiva é considerada erro formal grave de técnica judicante. Não economize tokens ou espaço, mantendo integralmente a grandeza analítica dos modelos de raciocínio profundo da linha principal (gemini-3.8-flash).
    - PISO MÍNIMO DO RELATÓRIO: O 'relatorio' DEVE conter no mínimo 4 a 6 parágrafos densos e encadeados, narrando exaustivamente a exordial, pedidos, tutelas, certidões, contestação, réplica, laudos, parecer do MP e conclusão.
    - PISO MÍNIMO DA FUNDAMENTAÇÃO: Cada um dos 7 blocos obrigatórios DEVE conter no mínimo 2 a 3 parágrafos aprofundados, totalizando no mínimo 14 a 20 parágrafos judiciais densos e fundamentados.
 10. PROTOCOLO DE ANCORAGEM PROBATÓRIA E TRANSCRIÇÕES LITERAIS OBRIGATÓRIAS:
@@ -2571,6 +2584,10 @@ REGRA MANDATÓRIA DE OBSERVAÇÃO DA MARCHA PROCESSUAL E CASO A CASO (ANÁLISE I
      * O texto integral dos artigos de lei e das súmulas aplicadas em bloco destacado (>).
 11. CHECKLIST EXAUSTIVO DE DOCUMENTOS (SEM DESCARTAR NENHUM DADO DO PROCESSO):
    - É terminantemente PROIBIDO descartar, omitir ou ignorar qualquer documento anexado aos autos no PDF. Todo documento relevante DEVE ser examinado e citado com sua tríplice localização processual (Mov. X, Arq. Y, Pág. Z).
+12. ADSTRIÇÃO ESTRITA, BIPARTIÇÃO DE LITISCONSORTES E FIDELIDADE NUMÉRICA DE CONTATOS:
+   - Se a petição formular requerimentos múltiplos ou distintos para partes/litisconsortes diferentes (ex: pesquisa cadastral em sistemas para pessoa jurídica e tentativa de intimação por WhatsApp para pessoa física), catalogar separadamente cada pedido de forma autônoma.
+   - Proibição absoluta de alterar ou inventar números de telefone, DDDs (ex: proibido mudar DDD 64 para 62) ou contatos: transcrever exclusivamente os dados informados pela parte.
+   - Proibição de converter pedido de pesquisa direta e imediata de um réu em pedido condicionado/subsidiário do outro.
 
 Você deve produzir a MINUTA PRELIMINAR FACTUAL estruturada em JSON contendo:
 - "processNumber": Número do processo CNJ autêntico;
@@ -2584,6 +2601,10 @@ Você deve produzir a MINUTA PRELIMINAR FACTUAL estruturada em JSON contendo:
 - "dispositivo": Dispositivo preliminar operacional com comandos claros e precisos adequados aos pedidos ou ao julgamento do recurso pendente, contendo a fixação operacional dos consectários legais (juros pela Selic deduzida e correção monetária pelo IPCA nos termos da Lei nº 14.905/2024).`;
 if (processActsSummary && typeof processActsSummary === "string" && processActsSummary.trim().length > 0) {
     stage1SystemInstruction += `\n\n[MEMÓRIA PROCESSUAL DO GABINETE • EVOLUÇÃO DOS ATOS PRÉVIOS DESTE MESMO PROCESSO]:\n${processActsSummary.trim()}\n`;
+}
+
+if (customPromptText && typeof customPromptText === "string" && customPromptText.trim().length > 0) {
+    stage1SystemInstruction += `\n\n[DIRETRIZES E PROMPT ATUAL SELECIONADO PELO ASSESSOR]:\n${customPromptText.trim()}\n\nDIRETRIZ DA ETAPA 1 SOBRE O PROMPT SELECIONADO:\n- Observe com rigor estrito as diretrizes, focos analíticos, pedidos-chave e parâmetros materiais definidos no prompt acima durante a leitura e extração dos autos.\n`;
 }
 
 // ETAPA 2 - System Instruction do Juiz Revisor (Teses, Precedentes Vinculantes, Paradigma & Auditoria Forense):
@@ -2613,14 +2634,20 @@ Sua missão é:
    - Confronte minuciosamente os autos para assegurar que nenhuma petição pendente de deliberação judicial (acordo/transação para homologação, pedido de desistência da ação ou de parte, documentos novos juntados, habilitação de herdeiros ou pedidos de prazo) reste sem apreciação motivada no Relatório ou no Dispositivo.
 10. CONSECTÁRIOS LEGAIS CONSOLIDADOS NO DISPOSITIVO (SEM POLUIR A FUNDAMENTAÇÃO):
    - A fundamentação não deve ser sobrecarregada com teorizações extensas sobre a Lei nº 14.905/2024. A fixação operacional e líquida dos consectários (termo inicial da correção monetária pelo IPCA, juros moratórios pela Selic deduzida ou taxa legal, e súmulas 43, 54 e 362 do STJ) deve constar diretamente de forma clara e executável no III - DISPOSITIVO do ato (despacho, decisão ou sentença).
-11. PISO MÍNIMO DE EXTENSÃO E PROIBIÇÃO ABSOLUTA DE SÍNTESE/BREVIDADE:
-   - É expressamente PROIBIDO enxugar, abreviar, condensar ou simplificar a minuta. A concisão telegráfica ou simplificação fática é considerada erro formal grave de técnica judicante. Não economize tokens ou espaço.
+11. PISO MÍNIMO DE EXTENSÃO E PROIBIÇÃO ABSOLUTA DE SÍNTESE/BREVIDADE (GRANDEZA INEGOCIÁVEL EM TODOS OS MODELOS):
+   - É expressamente PROIBIDO enxugar, abreviar, condensar ou simplificar a minuta, inclusive quando processada por modelos ao final da esteira (como gemini-flash-latest ou variantes lite). A concisão telegráfica ou simplificação fática é considerada erro formal grave de técnica judicante. Não economize tokens ou espaço, preservando rigorosamente a grandeza, o piso e a profundidade dos modelos de raciocínio profundo da linha principal (gemini-3.8-flash).
    - PISO MÍNIMO DO RELATÓRIO: O 'relatorio' DEVE conter no mínimo 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha processual.
    - PISO MÍNIMO DA FUNDAMENTAÇÃO: A 'fundamentacao' DEVE conter de 2 a 3 parágrafos profundos por subtópico nos 7 blocos obrigatórios (totalizando no mínimo 14 a 20 parágrafos judiciais densos e fundamentados), enfrentando exaustivamente cada preliminar, cada prova e cada pedido da exordial.
 12. PROTOCOLO DE ANCORAGEM PROBATÓRIA E TRANSCRIÇÕES LITERAIS OBRIGATÓRIAS:
    - Para impedir respostas genéricas ou abstratas, mantenha e amplie as TRANSCRIÇÕES LITERAIS ENTRE ASPAS dos autos: exordial, contestação, laudos periciais, contratos e parecer ministerial, além da transcrição em bloco destacado (>) de artigos de lei e enunciados de súmulas aplicados.
 13. CHECKLIST EXAUSTIVO DE DOCUMENTOS (SEM DESCARTAR NENHUM DADO DO PROCESSO):
-   - Nenhum documento probatório relevante anexado ao PDF dos autos pode ser ignorado ou descartado. Todos os documentos devem constar do confronto probatório e da Matriz Fato vs Prova com sua respectiva localização (Mov. X, Arq. Y, Pág. Z).`;
+   - Nenhum documento probatório relevante anexado ao PDF dos autos pode ser ignorado ou descartado. Todos os documentos devem constar do confronto probatório e da Matriz Fato vs Prova com sua respectiva localização (Mov. X, Arq. Y, Pág. Z).
+14. ADSTRIÇÃO ESTRITA, BIPARTIÇÃO DE LITISCONSORTES E FIDELIDADE NUMÉRICA DE CONTATOS:
+   - O Juiz Revisor deve auditar rigorosamente o dispositivo contra a petição:
+     * Se houver réus múltiplos com pedidos distintos, deliberar separadamente sobre cada réu, sem estender meios de comunicação (WhatsApp) para quem não foi pedido e sem presumir representação administrativa tácita.
+     * Se a pesquisa de endereço para a pessoa jurídica foi requerida de plano, deferi-la de forma imediata e autônoma, sem condicionar à frustração do WhatsApp de outro réu.
+     * Transcrever com fidelidade cirúrgica exclusivamente os telefones e DDDs informados nos autos, sem criar terceiros números ou alterar prefixos.
+     * Em petições intercorrentes de localização/intimação, deliberar estritamente sobre os meios requeridos, sem repetir indevidamente ordens preclusas de pagamento sob pena de multa do art. 523 do CPC.`;
 
 if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
     stage2SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE:\n- Confronte a minuta preliminar com as teses acima. Se o caso se enquadrar em qualquer tese, REESCREVA a fundamentação e o dispositivo aplicando expressamente as teses e enunciados do magistrado.\n`;
@@ -2878,6 +2905,11 @@ function buildActTypeGuidance(targetActType: string, isSaneamento: boolean): str
      * ASTREINTES E PRAZO DE CUMPRIMENTO: Fixação de prazo peremptório para cumprimento (em dias ou horas) e cominação de multa diária (astreintes) razoável e proporcional para hipótese de descumprimento injustificado.
      * COMANDO SOBRE A GRATUIDADE: Deferimento ou indeferimento da gratuidade da justiça.
      * CITAÇÃO E DESIGNAÇÃO DE AUDIÊNCIA DE CONCILIAÇÃO: Determinação de citação e intimação da parte demandada para cumprimento e para comparecimento à audiência de conciliação (art. 334 do CPC), com advertência de prazo para contestação (art. 335 do CPC).
+- CASO SE TRATE DE DECISÃO SOBRE PETIÇÃO INTERCORRENTE / LOCALIZAÇÃO E MEIOS DE COMUNICAÇÃO / EXECUÇÃO:
+  * Deliberar com precisão cirúrgica sobre os requerimentos da petição intercorrente identificada nos autos (Mov. X).
+  * BIPARTIÇÃO E ADSTRIÇÃO (PROIBIÇÃO DE FUSÃO): Se a parte formulou pedidos distintos para devedores distintos (ex: pesquisa de endereço em sistemas para a pessoa jurídica e intimação por WhatsApp para a pessoa física), delibere de forma separada e individualizada sobre cada réu. Deferir as pesquisas em sistemas conveniados (SISBAJUD, INFOJUD, RENAJUD) para a PJ de forma imediata (sem condicionar ao WhatsApp do sócio) e autorizar a notificação por WhatsApp para a pessoa física estritamente nos números informados pela parte, nos termos do Enunciado nº 30 do EPJ/TJGO.
+  * FIDELIDADE NUMÉRICA ABSOLUTA: Transcrever exclusivamente os números telefônicos e DDDs indicados pela parte, sendo proibido inventar novos números ou alterar DDDs.
+  * Não repetir ordem de pagamento com multa do art. 523 do CPC se a matéria pendente for estritamente a localização e comunicação dos réus.
 - No campo 'title', utilize "DECISÃO INTERLOCUTÓRIA".`
   : targetActType === "despacho"
   ? `DIRETRIZ MANDATÓRIA PARA DESPACHO JUDICIAL:
@@ -2885,6 +2917,9 @@ function buildActTypeGuidance(targetActType: string, isSaneamento: boolean): str
 - PROTOCOLO DE CITAÇÃO DOS AUTOS: Indique com precisão as movimentações, arquivos e páginas (Mov. X, Arq. Y, Pág. Z) que ensejam a determinação.
 - Se for despacho de emenda à inicial (art. 321 do CPC), aponte com exatidão o defeito ou omissão documental e transcreva o prazo legal de 15 dias.
 - Se for despacho de recebimento e citação, ordene a citação/intimação do réu e encaminhamento para pauta de conciliação (art. 334 do CPC).
+- CASO SE TRATE DE DESPACHO SOBRE PETIÇÃO INTERCORRENTE / LOCALIZAÇÃO DE DEVEDORES / CONSULTAS A SISTEMAS CONVENIADOS:
+  * Deliberar pontualmente sobre os requerimentos da petição intercorrente (Mov. X).
+  * Determinar os atos à Secretaria de forma individualizada para cada devedor, deferindo as consultas aos sistemas conveniados e/ou a intimação por WhatsApp nos exatos terminais informados, sem alucinar dados nem repetir ordens preclusas.
 - No campo 'title', utilize "DESPACHO".`
   : `DIRETRIZ MANDATÓRIA PARA SENTENÇA COMPLETA, PROFUNDA E EXAUSTIVA (ART. 489 DO CPC):
 - O ato a ser proferido é uma SENTENÇA JUDICIAL EXAUSTIVA (MÉRITO OU TERMINATIVA).
@@ -2934,6 +2969,7 @@ DADOS DO PROCESSO:
 - Tipo de Ato Requerido: ${resolvedActType.toUpperCase()}
 - Subtipo / Enquadramento Específico: ${actSubtype||"Análise automática e integral de todos os eventos e pedidos dos autos"}
 - Instruções Adicionais do Gabinete: ${specificInstructions||"Executar análise processual exaustiva com confronto fático-probatório completo e regras do TJGO."}
+${customPromptText && typeof customPromptText === "string" && customPromptText.trim().length > 0 ? `- DIRETRIZES DO PROMPT TEMÁTICO SELECIONADO: """\n${customPromptText.trim()}\n"""` : ""}
 
 ${actTypeGuidance}
 
@@ -3019,7 +3055,7 @@ const stage1Response = await generateWithFallbackAndRetry({
     contents: [{ role: "user", parts: stage1ContentsParts }],
     config: {
         systemInstruction: stage1SystemInstruction,
-        temperature: 0.1,
+        temperature: 0.0,
         maxOutputTokens: 16384,
         responseMimeType: "application/json",
         responseSchema: {
@@ -3122,6 +3158,7 @@ DADOS DO PROCESSO:
 - Tipo de Ato Requerido: ${resolvedActType === "embargos" ? "JULGAMENTO DE EMBARGOS DE DECLARAÇÃO" : resolvedActType.toUpperCase()}
 - Subtipo / Enquadramento: ${actSubtype || "Análise integral de pedidos"}
 - Diretrizes Adicionais: ${specificInstructions || "Confronto probatório e regras do TJGO."}
+${customPromptText && typeof customPromptText === "string" && customPromptText.trim().length > 0 ? `- DIRETRIZES DO PROMPT TEMÁTICO SELECIONADO: """\n${customPromptText.trim()}\n"""` : ""}
 
 ${actTypeGuidance}
 
@@ -3327,7 +3364,7 @@ const response = await generateWithFallbackAndRetry({
     contents: [{ role: "user", parts: [{ text: stage2Prompt }] }],
     config: {
         systemInstruction: stage2SystemInstruction,
-        temperature: 0.1,
+        temperature: 0.0,
         maxOutputTokens: 16384,
         responseMimeType: "application/json",
         responseSchema: stage2ResponseSchema

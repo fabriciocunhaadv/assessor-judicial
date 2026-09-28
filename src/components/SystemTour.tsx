@@ -70,7 +70,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Passo 3: Seletor de Tipo de Minuta & Inserção dos Autos</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Utilize o seletor interativo para escolher o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão, Despacho ou Embargos)</strong>. No modo <em>Auto-Detectar</em>, a inteligência analisa caso a caso a linha do tempo do PDF de ponta a ponta (identificando se o processo superou saneamento/instrução e está maduro para sentença, ou se demanda saneamento pelo art. 357 do CPC, liminar ou despacho), sem tabelas rígidas automáticas e sem enquadrar indevidamente os autos como embargos. Em qualquer processo com parecer ministerial (Família, Infância, Fazenda, Cível etc.), o parecer é transcrito fielmente e, se de mérito, firma a causa madura para sentença. A escolha manual do magistrado é sempre soberana e respeitada integralmente.
+            Utilize o seletor interativo para escolher o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão, Despacho ou Embargos)</strong>. No modo <em>Auto-Detectar</em>, a inteligência analisa caso a caso a linha do tempo do PDF de ponta a ponta (identificando se o feito está maduro para sentença, saneamento, liminar ou despacho), sem tabelas cegas. O motor opera com <strong>temperatura zero e blindagem de adstrição estrita aos pedidos (arts. 141 e 492 do CPC)</strong>: em litisconsórcios com pedidos múltiplos, delibera de forma autônoma sobre cada devedor, preservando com fidelidade cirúrgica os telefones e DDDs informados, sem alucinações ou fusões indevidas.
           </p>
         </div>
       ),
@@ -161,10 +161,10 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       content: (
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800 flex items-center gap-1.5">
-            <span>Chave de API, Pool Inteligente & Cascata Estendida Flash 🔑⚡</span>
+            <span>Chave de API, Pool Inteligente, Pausa Preventiva & Grandeza Flash 🔑⚡</span>
           </h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            O sistema gerencia com rigor o acesso à IA: a <strong>Chave Nativa</strong> é governada com exclusividade pelo <strong>Super Admin</strong>, ativada somente para usuários expressamente autorizados no painel executivo. Quando desativada, o usuário opera exclusivamente com suas próprias chaves gratuitas do Google AI Studio cadastradas no seu <strong>Pool Inteligente</strong> de forma 100% blindada e isolada. A esteira prioriza <strong>todos os modelos de raciocínio profundo e capacidade integral primeiro (Gemini 3.8 ➔ 3.7 ➔ 3.6 ➔ 3.5 ➔ Flash-Latest)</strong> antes de recorrer a versões Lite de contingência, assegurando máxima cognição jurídica e failover automático instantâneo sem travamentos.
+            O sistema gerencia com rigor o acesso à IA: a <strong>Chave Nativa</strong> é governada com exclusividade pelo <strong>Super Admin</strong>, ativada somente para usuários autorizados. Quando desativada, o usuário opera exclusivamente com suas chaves gratuitas do Google AI Studio cadastradas no seu <strong>Pool Inteligente</strong> de forma blindada. A esteira prioriza <strong>todos os modelos de raciocínio profundo primeiro (Gemini 3.8 ➔ 3.7 ➔ 3.6 ➔ 3.5)</strong> e aciona ao final os modelos <strong>Latest e Lite</strong>, acompanhados de <strong>pausas inteligentes preventivas</strong>, preservação total de PDFs e provas na segunda tentativa e <strong>garantia inegociável de grandeza cognitiva</strong> (piso de 14 a 20+ parágrafos sem qualquer simplificação).
           </p>
         </div>
       ),
@@ -451,7 +451,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Criar Novo Prompt Personalizado ✏️</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Crie novos modelos de análise ou atos judiciais específicos para sua comarca, definindo fase processual, formato e diretrizes.
+            Crie novos modelos de análise ou atos judiciais específicos para sua comarca, definindo fase processual, formato e diretrizes. As diretrizes do prompt selecionado são integradas fim a fim em todas as etapas (Etapa 1 - Assessor Fático para extração dos autos e Etapa 2 - Juiz Revisor para redação final).
           </p>
         </div>
       ),
