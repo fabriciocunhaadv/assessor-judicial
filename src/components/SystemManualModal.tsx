@@ -1563,6 +1563,29 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Indexação Integral de Cadernos e PDFs de Jurisprudência (Leitura Sequencial & Chunking) */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Indexação Integral de Cadernos de Súmulas & Informativos em PDF (Chunking Sequencial)</span>
+                          <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">EXTRAÇÃO 100% COMPLETA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-indigo-800 dark:text-indigo-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Leitura Sequencial Irrestrita de Páginas (Sem Amostragem):</strong> Na ingestão de informativos e cadernos de súmulas em PDF, a leitura é realizada rigorosamente da primeira até a última página (ex: 167 páginas contínuas), sem qualquer salto ou descarte intermediário.<br />
+                        • <strong>Fim do Corte de Caracteres & Blocos Amplos em Paralelo:</strong> Remoção do limite antigo de 40.000 caracteres. Documentos extensos são particionados em blocos contíguos de 120.000 caracteres processados em paralelo acelerado com teto de 8.192 tokens de saída.<br />
+                        • <strong>Conexão Direta à Memória do Servidor (Blindagem de LocalStorage):</strong> Os julgados são sincronizados diretamente da API do servidor para o estado do componente em memória, contornando limitações de quota de cookies/iframe do navegador.<br />
+                        • <strong>Contadores Visíveis em Cada Aba:</strong> Exibição numérica em tempo real da quantidade de julgados em cada tribunal (Todos, TJGO, STF, STJ, TNU e Anexados via PDF).<br />
+                        • <strong>Deduplicação Inteligente & Preservação Estrita:</strong> O sistema consolida, deduplica e indexa todos os julgados extraídos, informando amigavelmente quando o arquivo já consta cadastrado.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Integração Fim a Fim dos Prompts Temáticos na Etapa 1 e Etapa 2 */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">

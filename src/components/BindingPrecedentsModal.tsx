@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   X,
   Scale,
@@ -59,17 +59,19 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
   const [lastSyncDate, setLastSyncDate] = useState<number>(() => getLastPrecedentsSync());
   const [isUploadingPdf, setIsUploadingPdf] = useState<boolean>(false);
   const [pdfUploadStatus, setPdfUploadStatus] = useState<string | null>(null);
+  const [serverPrecedents, setServerPrecedents] = useState<BindingPrecedent[]>([]);
   const itemsPerPage = 5;
 
   // Carregamento e checagem da rotina de sincronização automática semanal (1 vez por semana)
   useEffect(() => {
     if (!isOpen) return;
 
-    // Buscar precedentes customizados do servidor
+    // Buscar precedentes customizados do servidor diretamente para memória do componente
     fetch("/api/custom-precedents")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.precedents) && data.precedents.length > 0) {
+          setServerPrecedents(data.precedents);
           addCustomBindingPrecedents(data.precedents);
           setPrecedentsVersion((v) => v + 1);
         }
@@ -110,6 +112,7 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
         setLastPrecedentsSync(now);
         setLastSyncDate(now);
         if (Array.isArray(data.precedents) && data.precedents.length > 0) {
+          setServerPrecedents(data.precedents);
           addCustomBindingPrecedents(data.precedents);
           setPrecedentsVersion((v) => v + 1);
         }
@@ -137,12 +140,19 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
     setPdfUploadStatus("Lendo e extraindo conteúdo textual do PDF...");
 
     try {
-      const extracted = await extractTextFromPdf(file);
+      const extracted = await extractTextFromPdf(
+        file,
+        (curr, total) => {
+          setPdfUploadStatus(`Lendo páginas do documento (${curr} de ${total})...`);
+        },
+        { fullSequential: true }
+      );
       if (!extracted || !extracted.text || extracted.text.trim().length < 30) {
-        throw new Error("Não foi possível extrair texto legível deste documento em PDF.");
+        throw new Error("Não foi possível extrair texto legível deste documento em PDF. Verifique se o arquivo possui camada de texto pesquisável (OCR) ou se é uma imagem digitalizada.");
       }
 
-      setPdfUploadStatus("Indexando teses, súmulas e informativos com IA no repositório...");
+      const estimatedBlocks = Math.ceil(extracted.text.length / 120000) || 1;
+      setPdfUploadStatus(`Indexando ${extracted.pageCount} páginas com IA (${estimatedBlocks} ${estimatedBlocks === 1 ? 'bloco' : 'blocos em paralelo'})...`);
       const res = await fetch("/api/parse-precedents-pdf", {
         method: "POST",
         headers: getApiHeaders(),
@@ -152,30 +162,105 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
         }),
       });
 
-      const data = await res.json();
-      if (data.success && Array.isArray(data.precedents) && data.precedents.length > 0) {
-        addCustomBindingPrecedents(data.precedents);
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Resposta inválida do servidor (Status ${res.status}).`);
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || data.message || `Erro na indexação (Status ${res.status}).`);
+      }
+
+      // Se o documento já estava previamente indexado no banco do servidor
+      if (data.alreadyIndexed) {
+        if (data.allPrecedents && Array.isArray(data.allPrecedents)) {
+          setServerPrecedents(data.allPrecedents);
+        }
         setPrecedentsVersion((v) => v + 1);
         setSelectedTribunal("CUSTOM");
         setCurrentPage(1);
-        setPdfUploadStatus(`🎉 Sucesso! ${data.count} precedente(s) extraído(s) e indexado(s) a partir de "${file.name}".`);
-        setTimeout(() => setPdfUploadStatus(null), 6000);
-      } else {
-        setPdfUploadStatus(data.message || "Nenhuma tese estruturada identificada no documento.");
-        setTimeout(() => setPdfUploadStatus(null), 5000);
+        setPdfUploadStatus(`ℹ️ ${data.message || 'Este documento já foi indexado anteriormente e seus julgados estão disponíveis.'}`);
+        setTimeout(() => setPdfUploadStatus(null), 8000);
+        return;
       }
+
+      if (data.allPrecedents && Array.isArray(data.allPrecedents)) {
+        setServerPrecedents(data.allPrecedents);
+        addCustomBindingPrecedents(data.allPrecedents);
+      } else if (Array.isArray(data.precedents) && data.precedents.length > 0) {
+        setServerPrecedents((prev) => [...data.precedents, ...prev]);
+        addCustomBindingPrecedents(data.precedents);
+      }
+
+      setPrecedentsVersion((v) => v + 1);
+      setSelectedTribunal("CUSTOM");
+      setCurrentPage(1);
+      setPdfUploadStatus(`🎉 Sucesso! ${data.count} precedente(s)/julgado(s) extraído(s) e indexado(s) a partir de "${file.name}" (${extracted.pageCount} páginas lidas na íntegra).`);
+      setTimeout(() => setPdfUploadStatus(null), 8000);
     } catch (err: any) {
       setPdfUploadStatus(`❌ Falha na importação: ${err?.message || "Erro desconhecido"}`);
-      setTimeout(() => setPdfUploadStatus(null), 6000);
+      setTimeout(() => setPdfUploadStatus(null), 8000);
     } finally {
       setIsUploadingPdf(false);
       if (e.target) e.target.value = "";
     }
   };
 
-  if (!isOpen) return null;
+  // Combina precedentes nativos com os precedentes do servidor em memória + localStorage de forma resiliente
+  const allCombinedPrecedents = useMemo(() => {
+    const fromStorage = getCustomBindingPrecedents();
+    const map = new Map<string, BindingPrecedent>();
+    
+    // 1. Precedentes do servidor em memória (prioritários)
+    for (const p of serverPrecedents) {
+      if (p && p.id) map.set(p.id, p);
+    }
+    // 2. Precedentes do localStorage
+    for (const p of fromStorage) {
+      if (p && p.id && !map.has(p.id)) map.set(p.id, p);
+    }
+    // 3. Precedentes nativos do sistema
+    for (const p of CORE_BINDING_PRECEDENTS) {
+      if (p && p.id && !map.has(p.id)) map.set(p.id, p);
+    }
+    return Array.from(map.values());
+  }, [serverPrecedents, precedentsVersion]);
 
-  const filteredPrecedents = searchBindingPrecedents(searchQuery, selectedTribunal);
+  // Contadores dinâmicos para cada aba
+  const counts = useMemo(() => {
+    return {
+      ALL: allCombinedPrecedents.length,
+      TJGO: allCombinedPrecedents.filter(p => p.tribunal === "TJGO").length,
+      STF: allCombinedPrecedents.filter(p => p.tribunal === "STF").length,
+      STJ: allCombinedPrecedents.filter(p => p.tribunal === "STJ").length,
+      TNU: allCombinedPrecedents.filter(p => p.tribunal === "TNU").length,
+      CUSTOM: allCombinedPrecedents.filter(p => (p as any).sourceFile || p.id.startsWith("custom-")).length,
+    };
+  }, [allCombinedPrecedents]);
+
+  const filteredPrecedents = useMemo(() => {
+    const q = (searchQuery || "").trim().toLowerCase();
+    return allCombinedPrecedents.filter((item) => {
+      if (selectedTribunal === "CUSTOM") {
+        if (!(item as any).sourceFile && !item.id.startsWith("custom-")) {
+          return false;
+        }
+      } else if (selectedTribunal !== "ALL" && item.tribunal !== selectedTribunal) {
+        return false;
+      }
+      if (!q) return true;
+      return (
+        item.number.toLowerCase().includes(q) ||
+        item.title.toLowerCase().includes(q) ||
+        item.statement.toLowerCase().includes(q) ||
+        item.tags.some((t) => t.toLowerCase().includes(q)) ||
+        item.area.toLowerCase().includes(q)
+      );
+    });
+  }, [allCombinedPrecedents, searchQuery, selectedTribunal]);
+
   const totalPages = Math.ceil(filteredPrecedents.length / itemsPerPage) || 1;
   const paginatedPrecedents = filteredPrecedents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -185,6 +270,8 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
     setCopiedId(item.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
@@ -374,7 +461,7 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
               <button
                 key={trib}
                 onClick={() => setSelectedTribunal(trib)}
-                className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap ${
+                className={`px-2.5 sm:px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                   selectedTribunal === trib
                     ? trib === "TJGO" 
                       ? "bg-emerald-600 text-white shadow-xs" 
@@ -384,7 +471,16 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
                     : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                 }`}
               >
-                {trib === "ALL" ? "Todos os Tribunais" : trib === "TJGO" ? "TJGO (Goiás)" : trib === "CUSTOM" ? "📄 Anexados via PDF" : trib}
+                <span>
+                  {trib === "ALL" ? "Todos os Tribunais" : trib === "TJGO" ? "TJGO (Goiás)" : trib === "CUSTOM" ? "📄 Anexados via PDF" : trib}
+                </span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                  selectedTribunal === trib 
+                    ? "bg-white/20 text-white" 
+                    : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold"
+                }`}>
+                  {counts[trib] || 0}
+                </span>
               </button>
             ))}
           </div>

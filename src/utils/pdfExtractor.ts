@@ -96,7 +96,8 @@ async function extractViaServer(file: File): Promise<ExtractedPdfResult | null> 
 
 export async function extractTextFromPdf(
   file: File,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  options?: { fullSequential?: boolean }
 ): Promise<ExtractedPdfResult> {
   let pdf: any = null;
   try {
@@ -153,7 +154,7 @@ export async function extractTextFromPdf(
     // 2. Final 70 pages (Contestação, réplica, laudos periciais, manifestações finais, saneador)
     // 3. Any intermediate page that contains legal markers (Petição, Contestação, Laudo, Decisão, etc.)
     const pagesToRead: number[] = [];
-    if (numPages <= 160) {
+    if (options?.fullSequential || numPages <= 160) {
       for (let i = 1; i <= numPages; i++) pagesToRead.push(i);
     } else {
       // Mammoth dossier (e.g. 484 pages):

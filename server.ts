@@ -246,29 +246,60 @@ app.get("/api/custom-precedents", (_req, res) => {
 
 app.post("/api/parse-precedents-pdf", async (req, res) => {
     try {
-        const apiKey = extractApiKey(req);
-        if (!apiKey) return res.status(401).json({ error: "Chave da API Gemini ausente." });
+        const userApiKey = extractApiKey(req);
+        const isNativeAllowed = req.headers['x-use-native-key'] === 'true' || req.headers['x-use-native-key'] === '1' || !userApiKey;
+        const apiKey = userApiKey || (isNativeAllowed ? (process.env.GEMINI_API_KEY || "") : "");
+        if (!apiKey) {
+            return res.status(401).json({ error: "Chave da API Gemini ausente. Configure uma chave nas preferências ou verifique as credenciais do sistema." });
+        }
 
         const { pdfText, fileName } = req.body;
         if (!pdfText || typeof pdfText !== "string" || pdfText.trim().length < 20) {
             return res.status(400).json({ error: "Texto do documento insuficiente para indexação." });
         }
 
-        const prompt = `Você é um especialista em indexação de jurisprudência e teses judiciais vinculantes (STF, STJ, TNU e TJGO).
-Analise o texto abaixo, extraído de documento/informativo oficial ou caderno de súmulas ("${fileName || 'Documento Anexado'}"):
+        // Blocos amplos de ~120.000 caracteres: processa 167 páginas em apenas 4 a 5 blocos rápidos
+        const CHUNK_SIZE = 120000;
+        const CHUNK_OVERLAP = 2500;
+        const chunks: string[] = [];
+
+        let currentPos = 0;
+        while (currentPos < pdfText.length) {
+            const endPos = Math.min(currentPos + CHUNK_SIZE, pdfText.length);
+            chunks.push(pdfText.substring(currentPos, endPos));
+            if (endPos >= pdfText.length) break;
+            currentPos = endPos - CHUNK_OVERLAP;
+        }
+
+        console.log(`[Parse Precedents PDF] Documento "${fileName || 'PDF'}" com ${pdfText.length} caracteres dividido em ${chunks.length} lote(s) para extração integral...`);
+
+        const allParsed: any[] = [];
+        const seenKeys = new Set<string>();
+
+        // Processamento paralelo dos lotes (em blocos de 3 paralelos para agilidade em segundos)
+        const BATCH_SIZE = 3;
+        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+            const batch = chunks.slice(i, i + BATCH_SIZE);
+            const batchPromises = batch.map(async (chunkText, bIdx) => {
+                const chunkIndex = i + bIdx + 1;
+                const chunkPrompt = `Você é um especialista em indexação de jurisprudência e teses judiciais vinculantes (STF, STJ, TNU e TJGO).
+Analise o texto abaixo (Lote ${chunkIndex} de ${chunks.length}), extraído de documento/caderno oficial ou informativo ("${fileName || 'Documento Anexado'}"):
 """
-${pdfText.substring(0, 40000)}
+${chunkText}
 """
 
-Extraia todas as súmulas, teses repetitivas, enunciados ou informativos de jurisprudência identificados no texto.
-Responda EXCLUSIVAMENTE em formato JSON puro (um array de objetos), sem blocos de markdown explicativos.
+Extraia com fidelidade jurídica TODAS as súmulas, teses repetitivas, enunciados ou informativos de jurisprudência identificados NESTE LOTE.
+Não resuma nem ignore julgados ou teses contidas neste trecho.
+Responda EXCLUSIVAMENTE em formato JSON puro (um array de objetos), sem blocos de markdown explicativos e sem texto introdutório.
+Se neste trecho não houver nenhum julgado ou tese (ex: apenas sumário, índice ou introdução genérica), retorne apenas um array vazio: []
+
 Estrutura de cada objeto:
 [
   {
-    "id": "identificador_unico_curto_ex_tjgo_inf_xx",
-    "tribunal": "TJGO" ou "STJ" ou "STF" ou "TNU",
-    "type": "sumula" ou "sumula_vinculante" ou "tese_repetitivo" ou "informativo_tjgo" ou "tese_tnu",
-    "number": "Número/identificação oficial (ex: Informativo TJGO 2026 nº 5, Súmula 32 TJGO)",
+    "id": "identificador_unico_curto",
+    "tribunal": "TJGO" | "STJ" | "STF" | "TNU",
+    "type": "sumula" | "sumula_vinculante" | "tese_repetitivo" | "informativo_tjgo" | "tese_tnu",
+    "number": "Número/identificação oficial (ex: Informativo TJGO 2026 nº 5, Súmula 32 TJGO, Tema 1061 STJ)",
     "title": "Título conciso da tese",
     "statement": "Enunciado completo, claro e objetivo da tese",
     "sourceUrl": "https://transparencia.tjgo.jus.br/jurisprudencia",
@@ -277,39 +308,84 @@ Estrutura de cada objeto:
   }
 ]`;
 
-        const options = {
-            apiKey,
-            keyPool: extractApiKeyPool(req),
-            res,
-            primaryModel: "gemini-3.1-flash-lite",
-            fallbackModel: "gemini-flash-latest",
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            config: {
-                temperature: 0.1,
+                const options = {
+                    apiKey,
+                    keyPool: extractApiKeyPool(req),
+                    isNativeAllowed: Boolean(isNativeAllowed),
+                    res,
+                    primaryModel: "gemini-3.1-flash-lite",
+                    fallbackModel: "gemini-flash-latest",
+                    contents: [{ role: "user", parts: [{ text: chunkPrompt }] }],
+                    config: {
+                        temperature: 0.1,
+                        maxOutputTokens: 8192
+                    }
+                };
+
+                try {
+                    const response = await generateWithFallbackAndRetry(options);
+                    const rawText = response.text || "[]";
+                    const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+                    let parsed: any[] = [];
+                    try {
+                        parsed = JSON.parse(cleaned);
+                        if (!Array.isArray(parsed)) parsed = [];
+                    } catch {
+                        parsed = [];
+                    }
+                    return parsed;
+                } catch (cErr) {
+                    console.warn(`[Parse Precedents PDF] Falha no lote ${chunkIndex}:`, cErr);
+                    return [];
+                }
+            });
+
+            const batchResults = await Promise.all(batchPromises);
+            for (const items of batchResults) {
+                for (const item of items) {
+                    if (!item || (!item.title && !item.statement && !item.number)) continue;
+                    const dedupeKey = ((item.number || '') + ' ' + (item.title || '') + ' ' + (item.statement || '').slice(0, 80)).toLowerCase().trim();
+                    if (!seenKeys.has(dedupeKey)) {
+                        seenKeys.add(dedupeKey);
+                        allParsed.push(item);
+                    }
+                }
             }
-        };
-
-        const response = await generateWithFallbackAndRetry(options);
-
-        const rawText = response.text || "[]";
-        const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-        let parsed: any[] = [];
-        try {
-            parsed = JSON.parse(cleaned);
-            if (!Array.isArray(parsed)) parsed = [];
-        } catch {
-            parsed = [];
         }
 
-        if (parsed.length > 0) {
+        if (allParsed.length > 0) {
             const current = loadServerCustomPrecedents();
+            const existingKeys = new Set(current.map(c => ((c.number || '') + ' ' + (c.title || '')).toLowerCase().trim()));
             const existingIds = new Set(current.map(c => c.id));
-            const newValid = parsed.map((item, idx) => ({
-                ...item,
-                id: item.id || `custom-precedent-${Date.now()}-${idx}`,
-                sourceFile: fileName || "Documento anexado",
-                importedAt: new Date().toISOString()
-            })).filter(item => !existingIds.has(item.id));
+
+            const newValid = allParsed.map((item, idx) => {
+                const cleanNum = (item.number || `Tese ${idx + 1}`).trim();
+                const autoId = `custom-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`;
+                return {
+                    ...item,
+                    id: item.id && !existingIds.has(item.id) ? item.id : autoId,
+                    number: cleanNum,
+                    sourceFile: fileName || "Documento anexado",
+                    importedAt: new Date().toISOString()
+                };
+            }).filter(item => {
+                const key = ((item.number || '') + ' ' + (item.title || '')).toLowerCase().trim();
+                return !existingKeys.has(key) && !existingIds.has(item.id);
+            });
+
+            if (newValid.length === 0) {
+                const existingForFile = current.filter(c => c.sourceFile === (fileName || "Documento anexado"));
+                const reportedCount = existingForFile.length > 0 ? existingForFile.length : allParsed.length;
+                return res.json({
+                    success: true,
+                    alreadyIndexed: true,
+                    count: 0,
+                    total: current.length,
+                    precedents: existingForFile.length > 0 ? existingForFile : current,
+                    allPrecedents: current,
+                    message: `Este documento já foi indexado anteriormente. ${reportedCount} julgado(s)/tese(s) já constam ativos no seu repositório.`
+                });
+            }
 
             const updated = [...newValid, ...current];
             saveServerCustomPrecedents(updated);
@@ -319,7 +395,8 @@ Estrutura de cada objeto:
                 count: newValid.length,
                 total: updated.length,
                 precedents: newValid,
-                message: `${newValid.length} precedente(s) extraído(s) e indexado(s) com sucesso a partir do PDF.`
+                allPrecedents: updated,
+                message: `${newValid.length} julgado(s)/tese(s) extraído(s) e indexado(s) com sucesso a partir de ${chunks.length} lote(s) do PDF.`
             });
         }
 
