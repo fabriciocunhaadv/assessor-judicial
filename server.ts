@@ -2049,14 +2049,24 @@ function extractSafeString(val: any, fallback: string = ""): string {
 
 function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string, actType: string, processInfo: any) {
     let parsed = rawParsed;
+    if (Array.isArray(parsed)) {
+        parsed = parsed.find(item => item && typeof item === 'object' && (item.minute || item.sentence || item.fundamentacao || item.relatorio)) || parsed[0] || {};
+    }
     if (!parsed || typeof parsed !== 'object') {
         parsed = safeParseJson(rawOutputText) || {};
+        if (Array.isArray(parsed)) {
+            parsed = parsed.find(item => item && typeof item === 'object' && (item.minute || item.sentence || item.fundamentacao || item.relatorio)) || parsed[0] || {};
+        }
     }
 
     // Se a fundamentação ou minute for uma string JSON embutida
     const checkJson = (str: any) => {
-        if (typeof str === 'string' && str.trim().startsWith('{') && (str.includes('"sentence"') || str.includes('"report"') || str.includes('"foundation"') || str.includes('"court"') || str.includes('"auditAnalysis"'))) {
-            return safeParseJson(str);
+        if (typeof str === 'string') {
+            const trimmed = str.trim();
+            if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && (trimmed.includes('"sentence"') || trimmed.includes('"report"') || trimmed.includes('"foundation"') || trimmed.includes('"court"') || trimmed.includes('"auditAnalysis"') || trimmed.includes('"title"'))) {
+                const res = safeParseJson(trimmed);
+                return Array.isArray(res) ? (res[0] || null) : res;
+            }
         }
         return null;
     };
@@ -2081,7 +2091,7 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
         const t = val.trim();
         if (t.length <= 4) return false;
         if (t === '"' || t === '""' || t === '\"' || t === "''") return false;
-        if (t.startsWith('{"') || t.startsWith('{')) return false;
+        if (t.startsWith('{"') || t.startsWith('{') || t.startsWith('[') || t.startsWith('[{')) return false;
         return true;
     };
 
@@ -2091,10 +2101,11 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
     let dispositivo = mContainer.dispositivo || mContainer.dispositive || parsed.dispositivo || parsed.dispositive || parsed.sentence?.dispositive || parsed.sentenca?.dispositivo || mContainer.conclusao || parsed.conclusao || "";
 
     // Se fundamentacao ainda contiver JSON serializado, desempacota novamente
-    if (typeof fundamentacao === 'string' && (fundamentacao.trim().startsWith('{') || fundamentacao.includes('"sentence"') || fundamentacao.includes('"report"'))) {
-        const parsedAgain = safeParseJson(fundamentacao);
-        if (parsedAgain) {
-            const innerSentence = parsedAgain.sentence || parsedAgain;
+    if (typeof fundamentacao === 'string' && (fundamentacao.trim().startsWith('{') || fundamentacao.trim().startsWith('[') || fundamentacao.includes('"sentence"') || fundamentacao.includes('"report"') || fundamentacao.includes('"title"'))) {
+        const parsedAgainRaw = safeParseJson(fundamentacao);
+        const parsedAgain = Array.isArray(parsedAgainRaw) ? parsedAgainRaw[0] : parsedAgainRaw;
+        if (parsedAgain && typeof parsedAgain === 'object') {
+            const innerSentence = parsedAgain.minute || parsedAgain.sentence || parsedAgain;
             if (innerSentence.report || innerSentence.relatorio) relatorio = innerSentence.report || innerSentence.relatorio;
             if (innerSentence.foundation || innerSentence.fundamentacao) fundamentacao = innerSentence.foundation || innerSentence.fundamentacao;
             if (innerSentence.dispositive || innerSentence.dispositivo) dispositivo = innerSentence.dispositive || innerSentence.dispositivo;
@@ -2113,7 +2124,7 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
             ? parsed.fullFormattedText
             : "";
 
-    const textToExtractFrom = candidateFullText || (rawOutputText && !rawOutputText.trim().startsWith('{') ? rawOutputText : "");
+    const textToExtractFrom = candidateFullText || (rawOutputText && !rawOutputText.trim().startsWith('{') && !rawOutputText.trim().startsWith('[') ? rawOutputText : "");
 
     if ((!relatorio || !fundamentacao || !dispositivo) && textToExtractFrom) {
         const unescaped = textToExtractFrom.replace(/\\n/g, '\n');
@@ -2126,23 +2137,39 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
         if (dispMatch && dispMatch[1] && !dispositivo) dispositivo = dispMatch[1].trim();
     }
 
+    // Helper para limpar artefatos residuais de JSON vazado
+    const cleanLeakedJsonArtifacts = (val: string): string => {
+        if (!val || typeof val !== 'string') return "";
+        let s = val;
+        // Corta se vazou bloco de auditAnalysis
+        const auditIdx = s.search(/(?:,?\s*"?auditAnalysis"?\s*:\s*\{)/i);
+        if (auditIdx !== -1) {
+            s = s.substring(0, auditIdx).trim();
+        }
+        // Corta se vazou closing ou fullFormattedText
+        const closingIdx = s.search(/(?:,?\s*"(?:closing|fullFormattedText|indicacaoTpuCnj)"\s*:)/i);
+        if (closingIdx !== -1) {
+            s = s.substring(0, closingIdx).trim();
+        }
+        // Remove trailing quotes e chaves/colchetes
+        s = s.replace(/[\}\]\"]+\s*$/, '').trim();
+        return s;
+    };
+
     // Sanitize dispositivo: se ele vazou conteúdo do JSON (ex: "closing":, "fullFormattedText":, "auditAnalysis":)
     if (typeof dispositivo === 'string') {
-        const jsonArtifactIndex = dispositivo.search(/(?:"(?:closing|fullFormattedText|auditAnalysis|indicacaoTpuCnj)"\s*:)/i);
-        if (jsonArtifactIndex !== -1) {
-            dispositivo = dispositivo.substring(0, jsonArtifactIndex).trim();
-        }
-        // Remove trailing quotes e chaves
-        dispositivo = dispositivo.replace(/[\}\"\,]+$/, '').trim();
+        dispositivo = cleanLeakedJsonArtifacts(dispositivo);
     }
 
     // Sanitize relatorio e fundamentacao
     if (typeof relatorio === 'string') {
+        relatorio = cleanLeakedJsonArtifacts(relatorio);
         relatorio = relatorio.replace(/^["'\s]+|["'\s]+$/g, '').trim();
     }
     if (typeof fundamentacao === 'string') {
+        fundamentacao = cleanLeakedJsonArtifacts(fundamentacao);
         fundamentacao = fundamentacao.replace(/^["'\s]+|["'\s]+$/g, '').trim();
-        if (fundamentacao.startsWith('{')) {
+        if (fundamentacao.startsWith('{') || fundamentacao.startsWith('[')) {
             fundamentacao = "Conforme fundamentação e razões de decidir constantes dos autos.";
         }
     }
@@ -3348,7 +3375,14 @@ DIRETRIZES DE REDAÇÃO DA MINUTA:
 
 3. DISPOSITIVO: Comandos judiciais completos, claros e exaurientes (procedência, procedência parcial, improcedência ou extinção, tutelas deferidas/indeferidas, deliberação sobre acordos/desistências/habilitações intercorrentes se houver, fixação operacional de juros pela Selic deduzida e correção pelo IPCA nos termos da Lei 14.905/2024, condenações pecuniárias líquidas ou parâmetros de liquidação, custas e honorários advocatícios ou isenção em Juizados).
 
-4. MARCHA PROCESSUAL, PRECLUSÃO PRO JUDICATO & PROTOCOLO DO FIO DA MEADA: Siga a ordem lógica do processo. Não reabra discussões sobre matérias já decididas nos autos (arts. 505 e 507 do CPC) e não regrida aos primeiros atos para apreciar liminares superadas. Se o feito estiver em curso de prazo decorrente de intimação recente sem conclusão ou decurso de prazo certificado, aponte expressamente no relatório que o processo aguarda cumprimento de prazo e registre os caminhos futuros cabíveis.
+4. MARCHA PROCESSUAL COMPLETA & COERÊNCIA DECISÓRIA COM O ANDAMENTO ATUAL DOS AUTOS:
+   - A IA deve examinar a MARCHA PROCESSUAL POR INTEIRO (do início ao fim, abrangendo a petição inicial, contestações, laudos, decisões interlocutórias e todas as movimentações supervenientes).
+   - A decisão a ser proferida DEVE SER ESTRITAMENTE COERENTE COM O ANDAMENTO REAL DO PROCESSO:
+     * SE O FEITO ESTÁ EM FASE DE CUMPRIMENTO DE SENTENÇA OU EXECUÇÃO (ex: Mov. 89): Dar continuidade lógica aos atos executórios ou deliberar sobre os comandos pendentes (ex: apreciar emenda de cálculos, manifestação das partes, constrição/bloqueio de ativos ou extinção da execução);
+     * SE O PROCESSO ESTÁ MADURO PARA SENTENÇA: Proferir a Sentença exauriente de mérito;
+     * SE HÁ DECISÃO INTERLOCUTÓRIA RECENTE DETERMINANDO ATOS: Dar continuidade ao que foi ordenado ou decidir sobre o cumprimento/descumprimento ou decurso de prazo;
+     * SE HÁ PEDIDO INTERCORRENTE PENDENTE DE APRECIAÇÃO: Deliberar pontualmente sobre a matéria controvertida pendente no momento presente;
+     * EM QUALQUER CASO, O ATO JUDICIAL DEVE FAZER SENTIDO ESTRITO COM O ESTÁGIO PRESENTE DA MARCHA, sendo TERMINANTEMENTE PROIBIDO regredir a fases superadas ou preclusas (como deferir tutela liminar da inicial em processo já sentenciado ou em fase de cumprimento de sentença - arts. 505 e 507 do CPC).
 5. BLINDAGEM CONTRA OMISSÃO: Se houver qualquer requerimento ou petição intercorrente pendente (acordo, desistência, documento novo, habilitação), delibere expressamente sobre ela.
 
 6. RIGOR MAGISTRAL E PROFUNDIDADE TOTAL: Dedique a totalidade da sua capacidade e volume de tokens à redação jurídica exaustiva da decisão (I - RELATÓRIO, II - FUNDAMENTAÇÃO e III - DISPOSITIVO). Enfrente minuciosamente cada documento, alegação e prova, e aplique com rigor absoluto as diretrizes do Caderno de Teses do Gabinete e súmulas vigentes do TJGO/STJ.
@@ -3540,6 +3574,7 @@ COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
 1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL (PISO DE DENSIDADE E PROIBIÇÃO DE BREVIDADE):
    - Leia atentamente o Relatório e a Fundamentação Preliminar;
    - Confronte com o Caderno de Teses do Gabinete, Súmulas Vinculantes, Jurisprudência e Minuta Paradigma (se ativada);
+   - COERÊNCIA COM A MARCHA PROCESSUAL: A decisão deve ser estritamente coerente com o andamento do processo (dar continuidade às últimas decisões, resolver incidentes pendentes ou sentenciar o mérito se maduro, sem nunca regredir a liminares do início da lide);
    - É expressamente PROIBIDO resumir, sintetizar, enxugar ou condensar. Aprofunde, adense e expanda a minuta:
      * 'relatorio': Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z);
      * 'fundamentacao': Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);
@@ -3811,9 +3846,13 @@ if (stage2Failed || !outputText) {
     };
 } else {
     parsed = safeParseJson(outputText);
+    if (Array.isArray(parsed)) {
+        parsed = parsed.find(item => item && typeof item === 'object' && (item.minute || item.sentence || item.fundamentacao || item.relatorio)) || parsed[0] || {};
+    }
 }
 if (!parsed || typeof parsed !== 'object') {
     console.warn("[Assessor Judicial] safeParseJson retornou nulo na Etapa 2. Construindo estrutura resiliente de contingência...");
+    const safeOutputFallback = (!outputText.trim().startsWith('{') && !outputText.trim().startsWith('[')) ? outputText : "";
     parsed = {
         minute: {
             title: defaultFallbackTitle,
@@ -3824,17 +3863,18 @@ if (!parsed || typeof parsed !== 'object') {
             },
             judicialUnit: stage1Json?.judicialUnit || processInfo?.comarca || "",
             relatorio: stage1Json?.relatorio || "",
-            fundamentacao: stage1Json?.fundamentacao || outputText || "",
+            fundamentacao: stage1Json?.fundamentacao || safeOutputFallback || "Fundamentação jurídica nos autos.",
             dispositivo: stage1Json?.dispositivo || ""
         },
         auditAnalysis: {}
     };
 }
 if (!parsed.minute || typeof parsed.minute !== 'object') {
+    const safeOutputFallback = (!outputText.trim().startsWith('{') && !outputText.trim().startsWith('[')) ? outputText : "";
     parsed.minute = {
         title: defaultFallbackTitle,
         relatorio: stage1Json?.relatorio || "",
-        fundamentacao: stage1Json?.fundamentacao || outputText || "",
+        fundamentacao: stage1Json?.fundamentacao || safeOutputFallback || "Fundamentação jurídica nos autos.",
         dispositivo: stage1Json?.dispositivo || ""
     };
 }
@@ -3851,8 +3891,11 @@ if ((!parsed.minute.dispositivo || parsed.minute.dispositivo.length < 30) && sta
 // Blindagem intrínseca de densidade para chaves gratuitas e modelos ágeis (Flash-Lite):
 // Se a fundamentação da Etapa 2 ficou muito sucinta (menos de 650 caracteres), mas a Etapa 1 extraiu densidade fática substancial
 if (parsed.minute.fundamentacao && stage1Json?.fundamentacao && parsed.minute.fundamentacao.length < 650 && stage1Json.fundamentacao.length > 500) {
-    console.log("[Assessor Judicial] Fundamentação sucinta detectada na Etapa 2. Integrando acervo fático-probatório da Etapa 1 para assegurar os 7 blocos obrigatórios...");
-    parsed.minute.fundamentacao = `${stage1Json.fundamentacao}\n\n${parsed.minute.fundamentacao}`;
+    const sample = stage1Json.fundamentacao.substring(0, Math.min(60, stage1Json.fundamentacao.length)).trim();
+    if (!sample || !parsed.minute.fundamentacao.includes(sample)) {
+        console.log("[Assessor Judicial] Fundamentação sucinta detectada na Etapa 2. Integrando acervo fático-probatório da Etapa 1 para assegurar os 7 blocos obrigatórios...");
+        parsed.minute.fundamentacao = `${stage1Json.fundamentacao}\n\n${parsed.minute.fundamentacao}`;
+    }
 }
 
 const normalized = normalizeGeneratedMinuteAndAudit(parsed, outputText, resolvedActType, processInfo);

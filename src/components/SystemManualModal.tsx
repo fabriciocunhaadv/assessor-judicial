@@ -1564,6 +1564,27 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Leitura Integral da Marcha Processual & Coerência Decisória Contemporânea */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Leitura Integral da Marcha & Coerência Decisória</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">MARCHA COMPLETA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Leitura Sequencial de Toda a Marcha (até 500 páginas):</strong> O extrator de PDF agora percorre integral e sequencialmente todas as páginas dos autos, sem supressão de eventos intermediários, assegurando a leitura do início, meio e das últimas movimentações.<br />
+                        • <strong>Coerência Decisória com o Andamento Atual:</strong> O motor de IA foi instruído a proferir decisões estritamente coerentes com a fase contemporânea do processo (dar seguimento às últimas decisões, como Mov. 89, deliberar sobre incidentes e cálculos de cumprimento de sentença, ou julgar o mérito se maduro), sem jamais regredir a liminares do início da lide.<br />
+                        • <strong>Sanitização Antirruído de JSON:</strong> Desempacotamento robusto de estruturas JSON em array e eliminação de resíduos técnicos no texto, garantindo minutas limpas e sem duplicidade.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Extração Prioritária da Capa do Processo (1ª Página) & Diretrizes de Linguagem Simples (TJGO) */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
