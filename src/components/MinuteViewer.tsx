@@ -339,7 +339,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
     if (!val || typeof val !== "string") return true;
     const lower = val.trim().toLowerCase();
     const normalized = lower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    if (lower.length < 3 || lower.length > 90) return true;
+    if (lower.length < 3 || lower.length > 165) return true;
     if (
       lower.includes("parte autora") ||
       lower.includes("parte re") ||
@@ -354,7 +354,66 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
       lower.includes("extrair") ||
       lower.includes("nao informado") ||
       lower.includes("não informado") ||
+      lower.includes("identificado na") ||
+      lower.includes("identificado no") ||
+      lower.includes("identificado nos") ||
+      lower.includes("conforme inicial") ||
       lower.includes("autos do processo")
+    ) {
+      return true;
+    }
+
+    // Expressões genéricas de suposta autoria, delitos ou narrativa fática
+    if (
+      normalized.includes("suposto autor") ||
+      normalized.includes("suposta autora") ||
+      normalized.includes("suposto infrator") ||
+      normalized.includes("suposta autoria") ||
+      normalized.includes("pela pratica") ||
+      normalized.includes("pelo delito") ||
+      normalized.includes("pelo crime") ||
+      normalized.includes("pela conduta") ||
+      normalized.includes("pelo cometimento") ||
+      normalized.includes("pelo fato") ||
+      normalized.includes("do delito") ||
+      normalized.includes("do crime") ||
+      normalized.includes("da conduta") ||
+      normalized.includes("da infracao") ||
+      normalized.includes("termo circunstanciado") ||
+      normalized.includes("inquerito") ||
+      normalized.includes("boletim de ocorrencia") ||
+      normalized.includes("registro de atendimento") ||
+      normalized.includes("a apurar") ||
+      normalized.includes("em apuracao") ||
+      normalized.includes("nao identificado") ||
+      normalized.includes("desconhecid") ||
+      normalized.includes("fato delituoso") ||
+      normalized.includes("imobiliari") ||
+      normalized.includes("individualizad") ||
+      normalized.includes("benfeitori") ||
+      normalized.includes("fracao ideal") ||
+      normalized.includes("fracoes ideais") ||
+      normalized.includes("loteamento") ||
+      normalized.includes("matricula") ||
+      normalized.includes("usucapiao") ||
+      normalized.includes("reintegracao") ||
+      normalized.includes("interdito proibitorio") ||
+      normalized.includes("despejo") ||
+      normalized.includes("danos morais") ||
+      normalized.includes("danos materiais") ||
+      normalized.includes("lucros cessantes") ||
+      normalized.includes("obrigacao de fazer") ||
+      normalized.includes("cobranca de") ||
+      normalized.includes("declaratoria de")
+    ) {
+      return true;
+    }
+
+    // Rejeição estrita de andamentos processuais e peticionamentos de eventos
+    if (
+      /\b(?:apresentou|peticionou|juntou|manifestou|manifestação|manifestacao|requereu|informou|protocolou|cadastrou|expediu|certificou|intimou|citou)\b/i.test(normalized) ||
+      /\b(?:no\s+mov|na\s+mov|no\s+evento|no\s+arq|mov\b|evento\b)\b/i.test(normalized) ||
+      /(?:apresentou\s+manifesta|peticionou\s+no|juntou\s+peti|em\s+curso\s+de\s+prazo|aguardando\s+cumprimento|aguardando\s+decurso)/i.test(normalized)
     ) {
       return true;
     }
@@ -414,11 +473,22 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
       return minute!.parties.author.trim();
     }
     const rel = [minute?.relatorio, minute?.fullFormattedText, minute?.fundamentacao].filter(Boolean).join("\n");
-    const m = rel.match(/(?:instaurad[oa]|propost[oa]|ajuizad[oa]|promovid[oa]|movid[oa])\s+por\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s+em\s+face|\s+contra|\s+desfavor)/i)
-      || rel.match(/(?:polo\s+ativo|promovente|requerente|exequente)\s*[:\-]?\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s+em\s+face|\s+contra)/i)
-      || rel.match(/(?:autor(?:a)?)\s*:\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s+em\s+face|\s+contra)/i);
+    const m = rel.match(/(?:polo\s+ativo|promovente|requerente|exequente|embargante|impetrante|v[ií]tima|ofendid[oa]|noticiante|comunicante|querelante)(?:\s*\([^\)]+\))?\s*[:\-\n]+\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,120}?)(?=\s*(?:\n|promovid|requerid|réu|ré|polo\s+passivo|embargad|executad|autor\s+do\s+fato|infrator|investigado|acusado|cpf|cnpj|advogad|procurad|ação|autos|juiz|segredo|valor|classe|assunto|$))/i)
+      || rel.match(/(?:promovente|requerente|autor(?:a)?|v[ií]tima|ofendid[oa]|noticiante|comunicante|querelante)(?:\s*\([^\)]+\))?\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,120})/i)
+      || rel.match(/(?:polo\s+ativo|promovente|requerente|autor(?:a)?)\s*[:\-]?\s*(Minist[eé]rio\s+P[uú]blico(?:\s+do\s+Estado\s+de\s+[A-Za-zÁ-Úá-ú]+|\s+Federal)?|Justi[cç]a\s+P[uú]blica)/i)
+      || rel.match(/(?:instaurad[oa]|propost[oa]|ajuizad[oa]|promovid[oa]|movid[oa])\s+por\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,100}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s+em\s+face|\s+contra|\s+desfavor)/i)
+      || rel.match(/(?:polo\s+ativo|promovente|requerente|exequente)\s*[:\-]?\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,100}?)(?:[,\.\n]|\s+em\s+face|\s+contra)/i)
+      || rel.match(/(?:autor(?:a)?)\s*:\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,100}?)(?:[,\.\n]|\s+em\s+face|\s+contra)/i);
     if (m && m[1] && !isInvalidPartyText(m[1].trim())) {
-      return m[1].replace(/[\*\_]/g, "").trim();
+      let clean = m[1].replace(/[\*\_]/g, "").trim();
+      clean = clean.replace(/^(?:o\s+|a\s+|os\s+|as\s+)?(?:autor(?:a)?|promovente|requerente|embargante|exequente|v[ií]tima|ofendid[oa]|noticiante|comunicante)\s*[:\-]?\s*/i, "").trim();
+      if (!isInvalidPartyText(clean)) return clean;
+    }
+    const isCriminalOrTco = /(?:termo\s+circunstanciado|tco\b|inqu[eé]rito|a[cç][aã]o\s+penal|jecrim|juizado\s+especial\s+criminal|delito|infração\s+penal)/i.test(rel);
+    if (isCriminalOrTco) {
+      return /Minist[eé]rio\s+P[uú]blico\s+do\s+Estado\s+de\s+Goi[aá]s|MPGO/i.test(rel)
+        ? "Ministério Público do Estado de Goiás"
+        : (/Justi[cç]a\s+P[uú]blica/i.test(rel) ? "Justiça Pública" : "Ministério Público do Estado de Goiás");
     }
     return minute?.parties?.author && !isInvalidPartyText(minute.parties.author) ? minute.parties.author : "Parte Autora";
   }, [minute?.parties?.author, minute?.relatorio, minute?.fullFormattedText, minute?.fundamentacao]);
@@ -428,12 +498,17 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
       return minute!.parties.defendant.trim();
     }
     const rel = [minute?.relatorio, minute?.dispositivo, minute?.fullFormattedText, minute?.fundamentacao].filter(Boolean).join("\n");
-    const m = rel.match(/(?:em\s+face\s+d[eao]s?|contra\s+(?:o|a)?|desfavor\s+d[eao]s?)\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s*,\s*tombad|\s*,\s*todos|[,\.\n]|\s+visando|\s+pretendendo)/i)
-      || rel.match(/(?:polo\s+passivo|promovid[oa]|requerid[oa]|executad[oa])\s*[:\-]?\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s*,\s*qualificad)/i)
-      || rel.match(/(?:réu|ré)\s*:\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:[,\.\n]|\s*,\s*qualificad)/i)
-      || rel.match(/(?:condenar\s+(?:o|a)?\s+(?:requerid[oa]|promovid[oa]|demandad[oa]|executad[oa]|réu|ré)?\s*)([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s+(?:a|ao|para|em)\s+pagar|\s*,\s*a\s+pagar|[,\.\n])/i);
+    const m = rel.match(/(?:autor(?:a)?\s+do\s+fato|supost[oa]\s+autor(?:a)?(?:\s+do\s+fato)?|infrator(?:a)?|noticiad[oa]|indiciad[oa]|investigad[oa]|acusad[oa]|denunciad[oa]|querelad[oa]|envolvido(?:\s*\(autor\s+do\s+fato\))?)(?:\s*\([^\)]+\))?\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,140}?)(?=\s*(?:\n|v[ií]tima|ofendid|noticiante|comunicante|promovente|cpf|cnpj|advogad|autos|$))/i)
+      || rel.match(/(?:polo\s+passivo|promovid[oa]|requerid[oa]|executad[oa]|embargad[oa]|impetrad[oa]|autor(?:a)?\s+do\s+fato|infrator(?:a)?|acusad[oa]|investigad[oa]|réu|ré)(?:\s*\([^\)]+\))?\s*[:\-\n]+\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,150}?)(?=\s*(?:\n\s*(?:polo\s+ativo|promovente|requerente|autor|embargante|executado|v[ií]tima|ofendid|cpf|cnpj|advogad|procurad|ação|autos|juiz|segredo|valor|classe|assunto|3\.|4\.|advogado|oab)|$))/i)
+      || rel.match(/(?:promovid[oa]|requerid[oa]|réu|ré)(?:\s*\([^\)]+\))?\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,150})/i)
+      || rel.match(/(?:em\s+face\s+d[eao]s?|contra\s+(?:o|a)?|desfavor\s+d[eao]s?)\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,150}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s*,\s*tombad|\s*,\s*todos|[,\.\n]|\s+visando|\s+pretendendo)/i)
+      || rel.match(/(?:polo\s+passivo|promovid[oa]|requerid[oa]|executad[oa])\s*[:\-]?\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,150}?)(?:[,\.\n]|\s*,\s*qualificad)/i)
+      || rel.match(/(?:réu|ré)\s*:\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,150}?)(?:[,\.\n]|\s*,\s*qualificad)/i)
+      || rel.match(/(?:condenar\s+(?:o|a)?\s+(?:requerid[oa]|promovid[oa]|demandad[oa]|executad[oa]|réu|ré)?\s*)([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/\(\)]{3,150}?)(?:\s+(?:a|ao|para|em)\s+pagar|\s*,\s*a\s+pagar|[,\.\n])/i);
     if (m && m[1] && !isInvalidPartyText(m[1].trim())) {
-      return m[1].replace(/[\*\_]/g, "").trim();
+      let clean = m[1].replace(/[\*\_]/g, "").trim();
+      clean = clean.replace(/^(?:o\s+|a\s+|os\s+|as\s+)?(?:promovid[oa]|requerid[oa]|executad[oa]|embargad[oa]|r[eé]u|r[eé]|autor(?:a)?\s+do\s+fato|supost[oa]\s+autor(?:a)?(?:\s+do\s+fato)?|infrator(?:a)?|investigad[oa]|indiciad[oa]|acusad[oa]|noticiad[oa])\s*[:\-]?\s*/i, "").trim();
+      if (!isInvalidPartyText(clean)) return clean;
     }
     return minute?.parties?.defendant && !isInvalidPartyText(minute.parties.defendant) ? minute.parties.defendant : "Parte Ré";
   }, [minute?.parties?.defendant, minute?.relatorio, minute?.dispositivo, minute?.fullFormattedText, minute?.fundamentacao]);

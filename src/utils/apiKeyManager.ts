@@ -11,7 +11,7 @@ const API_BANNER_DISMISSED_KEY = "agaia_api_key_banner_dismissed";
 
 const activeKeyMemoryCache: Record<string, string | null> = {};
 const activeStateMemoryCache: Record<string, boolean> = {};
-let currentCanUseNativeKey: boolean = false;
+let currentCanUseNativeKey: boolean | null = null;
 
 export function setNativeKeyAccessState(canUse: boolean, explicitUid?: string): void {
   currentCanUseNativeKey = canUse;
@@ -24,12 +24,15 @@ export function setNativeKeyAccessState(canUse: boolean, explicitUid?: string): 
 }
 
 export function isNativeKeyAllowed(): boolean {
-  if (currentCanUseNativeKey) return true;
+  if (currentCanUseNativeKey !== null && currentCanUseNativeKey !== undefined) {
+    return currentCanUseNativeKey;
+  }
   const uid = auth.currentUser?.uid;
   if (uid) {
     try {
-      if (localStorage.getItem("agaia_native_key_allowed_" + uid) === "true") {
-        return true;
+      const stored = localStorage.getItem("agaia_native_key_allowed_" + uid);
+      if (stored !== null) {
+        return stored === "true";
       }
     } catch {}
   }
@@ -392,6 +395,9 @@ export function syncApiKeyWithUserProfile(userProfile: UserProfile | null, uid?:
 
   if (userProfile.canUseNativeKey !== undefined) {
     currentCanUseNativeKey = Boolean(userProfile.canUseNativeKey);
+    try {
+      localStorage.setItem("agaia_native_key_allowed_" + currentUid, userProfile.canUseNativeKey ? "true" : "false");
+    } catch {}
   }
 
   // 3. Try to sync to local storage (ignoring quota errors if they happen)
@@ -634,19 +640,29 @@ export function getApiHeaders(extraHeaders: Record<string, string> = {}): Record
     ...extraHeaders,
   };
 
-  // Envia a chave personalizada e o pool de chaves do usuário se configurados
-  const customKey = getCustomApiKey();
-  if (customKey) {
-    headers["x-gemini-api-key"] = customKey;
-  }
-  const pool = getCustomApiKeyPool();
-  if (pool.length > 0) {
-    headers["x-gemini-api-key-pool"] = JSON.stringify(pool);
-  }
-
   const nativeAllowed = isNativeKeyAllowed();
   if (nativeAllowed) {
     headers["x-use-native-key"] = "true";
+  }
+
+  // Envia a chave personalizada e o pool de chaves do usuário
+  const customKey = getCustomApiKey();
+  const pool = getCustomApiKeyPool();
+  if (nativeAllowed) {
+    // Quando a Chave Nativa corporativa está autorizada, ela SOBREPÕE as chaves pessoais.
+    // As chaves particulares cadastradas pelo usuário entram como pool de reserva/contingência.
+    const combinedPool = pool.length > 0 ? pool : (customKey ? [customKey] : []);
+    if (combinedPool.length > 0) {
+      headers["x-gemini-api-key-pool"] = JSON.stringify(combinedPool);
+    }
+  } else {
+    // Quando a Chave Nativa NÃO estiver liberada, opera com a chave pessoal do usuário
+    if (customKey) {
+      headers["x-gemini-api-key"] = customKey;
+    }
+    if (pool.length > 0) {
+      headers["x-gemini-api-key-pool"] = JSON.stringify(pool);
+    }
   }
 
   if (auth.currentUser) {
@@ -732,7 +748,14 @@ try {
                 headers.set('x-gemini-api-key-pool', JSON.stringify(pool));
               }
             } else {
-              if (!headers.has('x-use-native-key')) headers.set('x-use-native-key', 'true');
+              headers.set('x-use-native-key', 'true');
+              headers.delete('x-gemini-api-key');
+              const pool = getCustomApiKeyPool();
+              const customKey = getCustomApiKey();
+              const combinedPool = pool.length > 0 ? pool : (customKey ? [customKey] : []);
+              if (combinedPool.length > 0 && !headers.has('x-gemini-api-key-pool')) {
+                headers.set('x-gemini-api-key-pool', JSON.stringify(combinedPool));
+              }
             }
             options.headers = headers;
             args[1] = options;

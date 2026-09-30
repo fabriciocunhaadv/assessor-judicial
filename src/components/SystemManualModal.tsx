@@ -41,6 +41,7 @@ import {
   RefreshCw,
   Coins,
   BarChart3,
+  Cpu,
 } from "lucide-react";
 
 interface SystemManualModalProps {
@@ -1563,6 +1564,135 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Extração Prioritária da Capa do Processo (1ª Página) & Diretrizes de Linguagem Simples (TJGO) */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Extração Prioritária da Capa do Processo (1ª Página) & TJGO Simples</span>
+                          <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">CAPA 1ª PÁGINA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-indigo-800 dark:text-indigo-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Extração de Precisão da Capa Oficial (1ª Página):</strong> Leitura dedicada e prioritária da folha de rosto dos autos judiciais (TJGO / Projudi / PJe), capturando fielmente <em>Polo Ativo (Autor)</em>, <em>Polo Passivo (Réu)</em>, <em>Juízo/Vara</em> e <em>Número do Processo</em> diretamente dos blocos de qualificação em qualquer layout (colunas lado a lado, linhas com pontilhados, cabeçalhos discretos ou markdown), eliminando a captura indevida de termos descritivos da petição inicial (ex: frações ideais ou bens imobiliários).<br />
+                        • <strong>Sincronização em Tempo Real na Minuta e no Histórico:</strong> Propagação automática dos dados das partes para os metadados do processo, identificação da minuta judicial (MinuteViewer) e dossiês/cartões do Histórico de Atos.<br />
+                        • <strong>Blindagem de Polos Cíveis e Penais:</strong> Mapeamento integral para processos de conhecimento, execução, família e TCO/criminal (Autor do Fato, Infrator, Vítima e Ministério Público).<br />
+                        • <strong>Guia Simples e Fácil do TJGO:</strong> Calibragem do motor de inteligência artificial alinhada às diretrizes do Tribunal de Justiça de Goiás e ao Pacto Nacional do Judiciário pela Linguagem Simples (STF/CNJ): banimento de "latinórios" (expressões em latim) e de juridiquês anacrônico, em prol de redações com ordem direta, períodos concisos e clareza cidadã.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Item: Controle Dinâmico e Desbloqueio da Chave Nativa para Todas as Contas */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Controle Dinâmico da Chave Nativa (Super Admin & Equipe)</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">GOVERNANÇA TOTAL</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Fim das Travas Engessadas:</strong> Removido o bloqueio estático que forçava a Chave Nativa como sempre ativa para a conta principal. O Super Admin agora tem liberdade absoluta para ativar ou desativar o uso da Chave Nativa tanto para si mesmo quanto para qualquer membro da equipe.<br />
+                        • <strong>Sincronização Fiel de Cache:</strong> O estado de permissão da chave nativa é sincronizado instantaneamente em tempo real entre o Firestore, a memória e o armazenamento local do navegador, eliminando resíduos de cache.<br />
+                        • <strong>Alternância Imediata no Gerenciador:</strong> O botão de alternância reflete de imediato na interface, alternando com precisão entre o modo nativo institucional e o modo com chave pessoal.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Item: Proteção Ativa contra Perda de Créditos Faturados & Pausa Inteligente Anti-Rate Limit */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Proteção Ativa contra Perda de Créditos Faturados & Salvaguarda da Etapa 1</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">CRÉDITOS BLINDADOS</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Salvaguarda Imediata da Etapa Fática:</strong> Sempre que a Etapa 1 (Assessor Fático) for processada e faturada pelo Google, seu resultado é preservado com segurança máxima. Caso a Etapa 2 sofra oscilação transitória de taxa/cota no cluster do Google, o sistema entrega imediatamente a minuta fática completa na tela, impedindo que créditos pagos sejam desperdiçados.<br />
+                        • <strong>Pausa Preventiva Inteligente (2.5s):</strong> Adicionado intervalo técnico de recomposição de tokens por minuto (TPM) entre a Etapa 1 e a Etapa 2, prevenindo estouro de limites na mesma sessão.<br />
+                        • <strong>Garantia de Entrega com Formatação Integral:</strong> O usuário nunca fica sem a minuta estruturada na tela após o processamento da Etapa 1.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Item: Blindagem contra Abandono Prematuro da Chave Nativa */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Blindagem contra Abandono Prematuro da Chave Nativa</span>
+                          <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">ESTEIRA TOTAL</span>
+                        </h3>
+                        <time className="text-xs font-mono text-indigo-800 dark:text-indigo-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Esteira Completa com Chave Nativa:</strong> A Chave Nativa Corporativa não é mais abandonada para chaves pessoais gratuitas em caso de oscilação momentânea de taxa/cota em um modelo específico. Ela agora percorre com exclusividade todos os modelos da esteira (Gemini 3.8 ➔ 3.7 ➔ 3.6 ➔ 3.5 Flash ➔ Latest ➔ Lite) utilizando sua alta capacidade institucional.<br />
+                        • <strong>Reserva Estrita de Contingência:</strong> Chaves pessoais cadastradas pelo usuário atuam estritamente como reserva secundária ou quando a Chave Nativa estiver expressamente desativada pelo Super Admin.<br />
+                        • <strong>Mensagens de Erro Confiáveis:</strong> Diferenciação clara entre picos transitórios da infraestrutura corporativa e limites de cotas gratuitas pessoais.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Comportamento Limpo e Coerente dos Modais de Chave de API */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Comportamento Limpo e Coerente dos Modais de Chaves de IA</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">INTERFACE COERENTE</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Coerência Estrita de Alertas e Banners:</strong> Quando a Chave Nativa corporativa está ativa para o usuário, o modal não exibe mais alertas contraditórios de cota gratuita (429), esclarecendo que a infraestrutura corporativa do gabinete assume a execução em prioridade e as chaves pessoais atuam estritamente em reserva de contingência.<br />
+                        • <strong>Modo com Chave Pessoal (Nativa Desativada):</strong> Quando a Chave Nativa estiver desativada pelo Super Admin, o modal orienta com exatidão que o usuário está operando com sua própria cota gratuita do Google AI Studio, permitindo ativar, cadastrar ou rotacionar chaves pessoais sem ruído.<br />
+                        • <strong>Botão de Fechamento de Alertas:</strong> Inclusão de dispensador rápido para avisos transitórios dentro do gerenciador de chaves.<br />
+                        • <strong>Identificação Precisa nas Listas:</strong> Distinção visual límpida entre chaves principais ativas, chaves em repouso e chaves em reserva de contingência.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Sobreposição Absoluta da Chave Nativa Corporativa & Resolução Definitiva de Limitação/Cotas */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Sobreposição Absoluta da Chave Nativa Corporativa & Fim de Limitações de Cota</span>
+                          <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">PRIORIDADE CORPORATIVA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Sobreposição Real e Irrestrita no Servidor:</strong> Quando o Super Admin autoriza a Chave Nativa corporativa para um usuário, o backend assume com prioridade máxima a infraestrutura corporativa do servidor em todas as requisições (minutas, auditoria, chat e mesa de audiência), impedindo que chaves pessoais gratuitas antigas sejam acionadas involuntariamente.<br />
+                        • <strong>Eliminação de Gargalos de Rate Limit (Erro 429):</strong> A pesquisa jurisprudencial ao vivo (Grounding) e a triagem em larga escala passam a operar diretamente na cota de alta capacidade corporativa, eliminando quedas por limite por minuto (RPM/TPM).<br />
+                        • <strong>Preservação das Chaves Pessoais como Contingência:</strong> As chaves particulares cadastradas pelo usuário são preservadas com segurança no pool de reserva para atuar estritamente em caso de oscilação momentânea.<br />
+                        • <strong>Sincronização Estável no Login:</strong> Blindagem do contexto de autenticação para manter a permissão ativa sem reinicializações transitórias no cache local durante o carregamento de perfis.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Indexação Integral de Cadernos e PDFs de Jurisprudência (Leitura Sequencial & Chunking) */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
@@ -4441,6 +4571,38 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                         Liberação integral da <strong>Auditoria Ouro (Lupa do Magistrado & Auditor de Minutas / Bancada de Tripla Conferência)</strong> para usuários com a atribuição de <strong>Juiz Ativo / Magistrado Titular</strong>. O acesso agora está disponível no Banner Nobre do Magistrado, na Barra Lateral e no menu superior.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item Extração Canônica de Polos e CNJ (Blindagem Projudi / TJGO) */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <FileSignature className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/40 dark:bg-violet-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200">Extração Canônica de Polos e CNJ (Blindagem Projudi / TJGO)</h3>
+                        <time className="text-xs font-mono text-violet-600 dark:text-violet-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Calibragem na identificação de metadados processuais: suporte nativo à leitura dos cabeçalhos do TJGO/Projudi com flexão 'Promovente(s):' e 'Promovido(s):', tolerância expandida para pessoas jurídicas e autarquias estaduais extensas (ex: IPASGO Saúde) e preservação do CNJ autêntico em carimbos de página. Eliminação de falsos positivos que capturavam andamentos processuais (ex: 'apresentou manifestação no Mov', 'peticionou no Mov') como partes da lide.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item Protocolo do Fio da Meada e Calibragem Cronológica da Marcha */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200">Protocolo do Fio da Meada & Preclusão Decisória (Art. 505/507 CPC)</h3>
+                        <time className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Implementação do <strong>Protocolo do Fio da Meada</strong> no motor de inteligência processual: a IA agora encadeia a cognição em quatro pontos estruturados — <em>1) O Início (gênese da causa, partes e pedidos originários)</em>, <em>2) Cadeia das Últimas Decisões (decisões recentes que fixaram as balizas e comandos do juízo)</em>, <em>3) Atos Subsequentes (reação das partes, certidões e intimações recentes)</em> e <em>4) Estado Atual</em>. Eliminação do viés de "fase inicial presumida" em autos volumosos sem contestação formal (ex: execuções ou feitos em citação). Salvaguarda contra decisões prematuras: quando os autos estiverem aguardando cumprimento de prazo de intimação recente, o sistema acusa o feito em curso de prazo, impedindo a deliberação de liminares superadas ou decisões contraditórias.
                       </p>
                     </div>
                   </div>

@@ -335,9 +335,12 @@ export async function extractTextFromPdf(
             continue;
           }
 
-          // Bullet points or numbered list items
+          // Bullet points, numbered list items or Capa do Processo metadata fields (especially on page 1)
           const isListItem = /^(?:[-*•]|\d+[.)])\s+/.test(lText);
-          if (isListItem) {
+          const isCoverField = /^(?:Processo\s*(?:N[º°o]|\.)?|Ju[ií]zo|Prioridade|Tipo\s*A[cç][aã]o|Segredo|Fase\s*Processual|Data\s*recebimento|Valor\s*da\s*Causa|Partes\s*Process(?:os|uais)?|Polo\s*(?:Ativo|Passivo)|Promovente|Promovido|Requerente|Requerido|Autor(?:a)?|R[eé]u|V[ií]tima|Ofendid[oa]|Autor\s+do\s+fato|Infrator)\b/i.test(lText);
+          const isPageOneDiscrete = i === 1 && (isCoverField || isListItem || (currentPara && isCoverField) || /^[A-ZÁ-Ú\s\.\-\&\/]{3,}$/.test(lText));
+
+          if (isListItem || isCoverField || isPageOneDiscrete) {
             if (currentPara) {
               pageTextBlocks.push(currentPara.trim());
               currentPara = "";
@@ -364,13 +367,14 @@ export async function extractTextFromPdf(
         if (pageTextBlocks.length > 0) {
           // If the last paragraph of previous page was incomplete (e.g. ended with comma or no terminal punctuation)
           // and current page starts with continuation (lowercase or continuation sentence), fuse them!
-          if (pageParagraphs.length > 0 && pageTextBlocks.length > 0) {
+          // NOTA: A Página 1 (Capa de Autuação do Processo) NUNCA deve ser fundida com a Página 2!
+          if (pageParagraphs.length > 1 && pageTextBlocks.length > 0) {
             const lastPageText = pageParagraphs[pageParagraphs.length - 1];
             const firstParaOfCurrentPage = pageTextBlocks[0];
 
             const endsWithOpenClause = /[,;—–-]\s*$/i.test(lastPageText) ||
               (!/[.?!:;]\s*(?:\*\*|\*)?$/i.test(lastPageText) && !lastPageText.endsWith("\n"));
-            const startsWithContinuation = /^[a-zà-ÿ0-9]/i.test(firstParaOfCurrentPage) &&
+            const startsWithContinuation = /^[a-zà-ÿ]/i.test(firstParaOfCurrentPage) &&
               !/^(?:I|II|III|IV|V|VI|VII|VIII|IX|X|\d+)\s*[-–.]/i.test(firstParaOfCurrentPage) &&
               !/^(?:\*\*|\*|#)*(?:RELAT[OÓ]RIO|FUNDAMENTA[CÇ][AÃ]O|DISPOSITIVO|DECIS[AÃ]O|SENTEN[CÇ]A|DESPACHO)/i.test(firstParaOfCurrentPage);
 

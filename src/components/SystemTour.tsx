@@ -70,7 +70,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Passo 3: Seletor de Tipo de Minuta & Inserção dos Autos</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Utilize o seletor interativo para escolher o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão, Despacho ou Embargos)</strong>. No modo <em>Auto-Detectar</em>, a inteligência analisa caso a caso a linha do tempo do PDF de ponta a ponta (identificando se o feito está maduro para sentença, saneamento, liminar ou despacho), sem tabelas cegas. O motor opera com <strong>temperatura zero e blindagem de adstrição estrita aos pedidos (arts. 141 e 492 do CPC)</strong>: em litisconsórcios com pedidos múltiplos, delibera de forma autônoma sobre cada devedor, preservando com fidelidade cirúrgica os telefones e DDDs informados, sem alucinações ou fusões indevidas.
+            Utilize o seletor interativo para escolher o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão, Despacho ou Embargos)</strong>. No modo <em>Auto-Detectar</em>, a inteligência opera pelo <strong>Protocolo do Fio da Meada</strong> (Início da Lide &rarr; Cadeia das Últimas Decisões &rarr; Atos Posteriores &rarr; Estado Atual), com <strong>extração canônica e fidedigna de polos (Cível, Família, Fazenda e Criminal / TCO) e número CNJ</strong> diretamente da capa do Projudi/TJGO e do arquivo PDF. Em feitos criminais e Termos Circunstanciados de Ocorrência (TCO), identifica perfeitamente o <em>Autor do Fato / Infrator</em> no polo passivo e o <em>Ministério Público</em> ou <em>Vítima</em> no polo ativo, banindo ruídos de digitalização. Todas as minutas seguem o <strong>Guia Simples e Fácil do TJGO</strong> e o Pacto pela Linguagem Simples (STF/CNJ): sem "latinórios" ou arcaísmos, com ordem direta e máxima densidade fundamentadora.
           </p>
         </div>
       ),
@@ -161,10 +161,10 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       content: (
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800 flex items-center gap-1.5">
-            <span>Chave de API, Pool Inteligente, Pausa Preventiva & Grandeza Flash 🔑⚡</span>
+            <span>Chave Nativa Blindada, Modais Coerentes & Pool Inteligente 🔑⚡</span>
           </h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            O sistema gerencia com rigor o acesso à IA: a <strong>Chave Nativa</strong> é governada com exclusividade pelo <strong>Super Admin</strong>, ativada somente para usuários autorizados. Quando desativada, o usuário opera exclusivamente com suas chaves gratuitas do Google AI Studio cadastradas no seu <strong>Pool Inteligente</strong> de forma blindada. A esteira prioriza <strong>todos os modelos de raciocínio profundo primeiro (Gemini 3.8 ➔ 3.7 ➔ 3.6 ➔ 3.5)</strong> e aciona ao final os modelos <strong>Latest e Lite</strong>, acompanhados de <strong>pausas inteligentes preventivas</strong>, preservação total de PDFs e provas na segunda tentativa e <strong>garantia inegociável de grandeza cognitiva</strong> (piso de 14 a 20+ parágrafos sem qualquer simplificação).
+            O sistema gerencia com rigor o acesso à IA: a <strong>Chave Nativa Corporativa</strong> é governada com exclusividade pelo <strong>Super Admin</strong>. A esteira conta com <strong>Proteção Ativa de Créditos Faturados</strong> e <strong>Pausa Preventiva Inteligente (2.5s)</strong> entre as etapas: se a Etapa 1 for processada e cobrada pelo Google, seu resultado fático é salvaguardado imediatamente, garantindo que você nunca fique sem minuta nem perca créditos pagos se a Etapa 2 oscilar. Além disso, a rotação foi <strong>blindada contra abandono prematuro</strong> na esteira (Gemini 3.8 ➔ 3.7 ➔ 3.6 ➔ 3.5 ➔ Latest ➔ Lite). Quando desativada pelo Super Admin, o sistema orienta e opera estritamente com sua cota própria via <strong>Pool Inteligente</strong> de chaves pessoais com rotação automática.
           </p>
         </div>
       ),

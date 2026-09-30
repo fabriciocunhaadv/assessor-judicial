@@ -46,6 +46,7 @@ import { getUserProfile } from "../lib/firestoreUtils";
 import { UserProfile, ProcessDossier } from "../types";
 import { useAuth } from "../lib/AuthContext";
 import { groupAnalysesIntoDossiers } from "../utils/dossierUtils";
+import { isInvalidPartyName, extractFromCoverPage } from "../utils/judicialMetadataExtractor";
 import { detectPromptCategory } from "../utils/promptCategoryHelper";
 import { ProcessTimelineModal } from "./ProcessTimelineModal";
 import { EditProcessUnitModal } from "./EditProcessUnitModal";
@@ -808,6 +809,15 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
             <div id="tour-history-flat-list" className="grid grid-cols-1 gap-3">
               {paginatedFlat.map((item) => {
                 const parties = item.result?.minute?.parties;
+                const coverFallback = (!parties?.author || isInvalidPartyName(parties.author) || !parties?.defendant || isInvalidPartyName(parties.defendant))
+                  ? extractFromCoverPage([item.processTextContext, item.result?.minute?.fullFormattedText].filter(Boolean).join("\n"))
+                  : null;
+                const displayAuthor = (parties?.author && !isInvalidPartyName(parties.author))
+                  ? parties.author
+                  : (coverFallback?.author || "");
+                const displayDefendant = (parties?.defendant && !isInvalidPartyName(parties.defendant))
+                  ? parties.defendant
+                  : (coverFallback?.defendant || "");
                 const actTitle = item.result?.minute?.title || item.promptTitle || "MINUTA JUDICIAL";
                 const isMine = currentUid && item.createdBy === currentUid;
                 const canDelete = isAdmin || isMine;
@@ -883,9 +893,9 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                         {(item.promptTitle || item.result?.minute?.title || "Ato Judicial").replace('[SENTENÇA DO MUTIRÃO PREVIDENCIÁRIO]', '').trim()}
                       </h3>
 
-                      {parties && (parties.author || parties.defendant) && (
+                      {(displayAuthor || displayDefendant) && (
                         <p className="text-[11px] text-slate-500 mt-1.5 line-clamp-1">
-                          <strong className="text-slate-700">{toSafeString(parties.author, "Autor")}</strong> vs <strong className="text-slate-700">{toSafeString(parties.defendant, "Réu")}</strong>
+                          <strong className="text-slate-700">{toSafeString(displayAuthor, "Autor")}</strong> vs <strong className="text-slate-700">{toSafeString(displayDefendant, "Réu")}</strong>
                         </p>
                       )}
 

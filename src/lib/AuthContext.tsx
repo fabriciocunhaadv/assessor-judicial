@@ -109,8 +109,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canUseNativeKey = Boolean(userProfile?.canUseNativeKey);
 
   useEffect(() => {
-    setNativeKeyAccessState(canUseNativeKey, user?.uid);
-  }, [canUseNativeKey, user?.uid]);
+    if (user && userProfile) {
+      setNativeKeyAccessState(canUseNativeKey, user?.uid);
+    }
+  }, [canUseNativeKey, user?.uid, userProfile]);
 
   const activeTenantId = useMemo(() => {
     if (isSuperAdmin && superAdminTenantId) {

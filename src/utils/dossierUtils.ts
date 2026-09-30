@@ -1,4 +1,5 @@
 import { SavedAnalysis, ProcessDossier } from "../types";
+import { isInvalidPartyName, extractFromCoverPage } from "./judicialMetadataExtractor";
 
 /**
  * Normaliza o número do processo para agrupamento unificado.
@@ -119,17 +120,34 @@ export function groupAnalysesIntoDossiers(analyses: SavedAnalysis[]): ProcessDos
     const bestProcessNumber = extractCleanString(rawProc, "Processo s/ nº");
 
     // Encontra as melhores partes
-    const rawParties =
-      items.find(
-        (i) =>
-          (i.result?.minute?.parties?.author && i.result.minute.parties.author !== "Parte Autora") ||
-          (i.result?.minute?.parties?.defendant && i.result.minute.parties.defendant !== "Parte Ré")
-      )?.result?.minute?.parties ||
-      newest.result?.minute?.parties || { author: "Parte Autora", defendant: "Parte Ré" };
-    
+    let validAuthor = items.map(i => i.result?.minute?.parties?.author).find(a => a && !isInvalidPartyName(a));
+    let validDefendant = items.map(i => i.result?.minute?.parties?.defendant).find(d => d && !isInvalidPartyName(d));
+
+    if (!validAuthor || !validDefendant) {
+      for (const item of items) {
+        const textToScan = [item.processTextContext, item.result?.minute?.fullFormattedText, item.result?.minute?.relatorio].filter(Boolean).join("\n");
+        if (textToScan) {
+          const cover = extractFromCoverPage(textToScan);
+          if (!validAuthor && cover.author && !isInvalidPartyName(cover.author)) {
+            validAuthor = cover.author;
+          }
+          if (!validDefendant && cover.defendant && !isInvalidPartyName(cover.defendant)) {
+            validDefendant = cover.defendant;
+          }
+        }
+        if (validAuthor && validDefendant) break;
+      }
+    }
+
+    let authorName = extractCleanString(validAuthor, "");
+    if (!authorName) {
+      const isCriminal = items.some(i => /(?:termo\s+circunstanciado|tco\b|inqu[eé]rito|a[cç][aã]o\s+penal|jecrim|delito)/i.test(i.result?.minute?.relatorio || i.promptTitle || ""));
+      authorName = isCriminal ? "Ministério Público" : "Parte Autora";
+    }
+
     const bestParties = {
-      author: extractCleanString(rawParties?.author, "Parte Autora"),
-      defendant: extractCleanString(rawParties?.defendant, "Parte Ré")
+      author: authorName,
+      defendant: extractCleanString(validDefendant, "Parte Ré")
     };
 
     // Tipos de atos proferidos

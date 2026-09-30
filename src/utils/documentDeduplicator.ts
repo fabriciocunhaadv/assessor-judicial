@@ -52,8 +52,15 @@ export function cleanJudicialPageNoise(text: string): string {
       if (/^(?:fls?\.?|p[aá]g(?:ina)?\.?|folhas?)\s*\d+(?:\s*(?:de|\/)\s*\d+)?\.?$/i.test(l)) return false;
       if (/^\d+\s*[\/-]\s*\d+$/.test(l)) return false;
       // 2. Carimbos de protocolo e identificadores de processo nos cabeçalhos de folha
-      if (/^PROJUDI\s*[-–:]\s*Processo.*?(?:Ref|mov|fls|pág)/i.test(l)) return false;
-      if (/^(?:PJe|e-SAJ|eproc|SEI)\s*[-–:]\s*Processo/i.test(l)) return false;
+      if (/^PROJUDI\s*[-–:]\s*Processo.*?(?:Ref|mov|fls|pág)/i.test(l)) {
+        // Preserva se a linha contiver o número CNJ do processo (formato 0000000-00.0000.0.00.0000)
+        if (/\b\d{7}[-.]\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}\b/.test(l)) return true;
+        return false;
+      }
+      if (/^(?:PJe|e-SAJ|eproc|SEI)\s*[-–:]\s*Processo/i.test(l)) {
+        if (/\b\d{7}[-.]\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}\b/.test(l)) return true;
+        return false;
+      }
       // 3. Assinaturas digitais de margem e certificados
       if (/^(?:Documento|Assinado)\s+(?:eletronicamente|digitalmente)\s+por/i.test(l)) return false;
       if (/^Assinado\s+por\s+.*?(?:Juiz|Desembargador|Escriv|Analista|Técnico|Advogado)/i.test(l)) return false;

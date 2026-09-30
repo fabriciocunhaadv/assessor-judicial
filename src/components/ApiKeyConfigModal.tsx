@@ -309,7 +309,7 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
     setIsTogglingNative(true);
     try {
       const nextState = !canUseNativeKey;
-      await updateUserNativeKeyAccess(userProfile.uid, nextState);
+      await updateUserNativeKeyAccess(userProfile.uid, nextState, userProfile.email);
     } catch (err) {
       console.error("Erro ao alternar chave nativa do admin:", err);
     } finally {
@@ -364,12 +364,42 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
           
           {/* Initial alert message if prompted by an action */}
           {initialMessage && !hiddenMessage && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div className="text-xs">
-                <span className="font-bold block">Ação Requer Chave de API:</span>
-                <span>{initialMessage}</span>
+            <div className={`p-3 rounded-xl border flex items-start justify-between gap-2.5 transition animate-in fade-in duration-150 ${
+              canUseNativeKey
+                ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-950 dark:text-indigo-200"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200"
+            }`}>
+              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                {canUseNativeKey ? (
+                  <Zap className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                )}
+                <div className="text-xs">
+                  <span className="font-bold block">
+                    {canUseNativeKey
+                      ? "Aviso de Demanda Temporária na IA:"
+                      : "Chave Pessoal Requerida (Chave Nativa Desativada):"}
+                  </span>
+                  <span className="leading-relaxed">
+                    {canUseNativeKey
+                      ? (initialMessage.includes("429") || initialMessage.includes("cota") || initialMessage.includes("Rate Limit") || initialMessage.includes("Resource")
+                          ? "A API do Google reportou momentaneamente um pico de taxa ou requisições concorrentes no cluster. Como a Chave Nativa Corporativa está ativada e prioritária na sua conta, a infraestrutura já gerencia a esteira de modelos automaticamente. Suas chaves pessoais salvas abaixo permanecem em reserva de contingência e podem ser acionadas se desejar."
+                          : initialMessage)
+                      : (initialMessage.includes("429") || initialMessage.includes("cota") || initialMessage.includes("Rate Limit") || initialMessage.includes("Resource")
+                          ? "A cota da sua chave pessoal gratuita do Google AI Studio atingiu o limite por minuto (Rate Limit 429). Aguarde alguns instantes para resfriamento ou cadastre uma nova chave própria gratuita abaixo para continuar imediatamente."
+                          : initialMessage)}
+                  </span>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setHiddenMessage(true)}
+                className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition shrink-0 cursor-pointer"
+                title="Dispensar aviso"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
@@ -397,13 +427,13 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-xs flex items-center gap-1.5">
                     {canUseNativeKey
-                      ? "Chave Nativa do Gabinete Ativada (Prioritária)"
+                      ? "Chave Nativa Corporativa Ativa (Prioritária)"
                       : hasKeys && isKeyActive
-                      ? "Chave Pessoal Ativa e em Uso"
+                      ? "Operando com Chave Pessoal (Chave Nativa Desativada)"
                       : hasKeys && !isKeyActive
                       ? "Chaves Pessoais Cadastradas (Desativadas Temporariamente)"
                       : isBlocked
-                      ? "Chave Própria Obrigatória (Chave Nativa Desativada)"
+                      ? "Chave Pessoal Obrigatória (Chave Nativa Desativada)"
                       : "Chave Nativa do Gabinete Ativa"}
                   </span>
                   {canUseNativeKey ? (
@@ -412,7 +442,11 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
                       Sobrepondo chaves pessoais
                     </span>
                   ) : hasKeys ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-emerald-200/80 dark:bg-emerald-900/80 text-emerald-900 dark:text-emerald-200 font-semibold">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      isKeyActive 
+                        ? "bg-emerald-200/80 dark:bg-emerald-900/80 text-emerald-900 dark:text-emerald-200"
+                        : "bg-slate-200/80 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300"
+                    }`}>
                       <Cloud className="w-3 h-3" />
                       {apiKeyList.length} {apiKeyList.length === 1 ? "chave salva" : "chaves salvas"}
                     </span>
@@ -426,13 +460,13 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
                 </div>
                 <p className="text-[11px] mt-1 opacity-90 leading-relaxed">
                   {canUseNativeKey
-                    ? "O Super Administrador autorizou o uso da Chave Nativa para sua conta. Todas as minutas e análises de PDFs estão sendo processadas automaticamente pela infraestrutura do servidor (chave corporativa com alta capacidade), sobrepondo o uso das chaves pessoais. Suas chaves cadastradas abaixo permanecem seguras e salvas como contingência/reserva."
+                    ? "O Super Administrador autorizou o uso da Chave Nativa corporativa para sua conta. Todas as minutas e análises processam automaticamente pela infraestrutura do servidor com alta capacidade, sobrepondo chaves pessoais. Suas chaves cadastradas abaixo ficam preservadas em reserva de contingência."
                     : hasKeys && isKeyActive
-                    ? `O sistema está utilizando a chave "${activeKeyItem?.label || "Principal"}" (${getMaskedApiKey(activeKeyItem?.key)}), sincronizada no seu perfil de usuário.`
+                    ? `A Chave Nativa corporativa está desativada para sua conta. O sistema está operando diretamente com sua chave pessoal "${activeKeyItem?.label || "Principal"}" (${getMaskedApiKey(activeKeyItem?.key)}), sincronizada no seu perfil.`
                     : hasKeys && !isKeyActive
-                    ? "Suas chaves pessoais estão desativadas. O sistema utilizará a chave nativa do servidor (caso liberada para sua conta)."
+                    ? "Suas chaves pessoais estão desativadas no momento. Ative uma chave pessoal abaixo para voltar a gerar minutas."
                     : isBlocked
-                    ? "Cadastre sua chave gratuita abaixo para liberar o uso completo das minutas e pesquisas jurídicas."
+                    ? "A Chave Nativa está desativada para sua conta pelo Administrador. Cadastre sua chave gratuita própria do Google AI Studio abaixo para liberar a redação e pesquisas jurídicas."
                     : "Você pode cadastrar e alternar chaves próprias gratuitas quando quiser distribuir requisições ou usar contas separadas."}
                 </p>
               </div>
@@ -449,7 +483,7 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
                   Em uso prioritário
                 </span>
               </div>
-            ) : hasKeys && (
+            ) : hasKeys ? (
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <button
                   type="button"
@@ -477,7 +511,7 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
                   {isKeyActive ? "Ativa nas minutas" : "Em repouso"}
                 </span>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Admin Dedicated Toggle Card */}
@@ -648,13 +682,15 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                   canUseNativeKey
                                     ? "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600"
-                                    : "bg-indigo-200 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-200"
+                                    : isKeyActive
+                                    ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
+                                    : "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
                                 }`}>
-                                  {canUseNativeKey ? "Em Reserva (Sobreposta pela Nativa)" : "Ativa (Principal)"}
+                                  {canUseNativeKey ? "Em Reserva (Sobreposta pela Nativa)" : isKeyActive ? "Ativa (Principal)" : "Desativada"}
                                 </span>
                               ) : apiKeyList.length > 1 ? (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700" title={`Reserva ${queuePos} na rotação automática de failover`}>
-                                  {queuePos}ª na Fila de Reserva
+                                  {canUseNativeKey ? `Reserva ${queuePos}` : `${queuePos}ª na Fila de Reserva`}
                                 </span>
                               ) : null}
                             </div>

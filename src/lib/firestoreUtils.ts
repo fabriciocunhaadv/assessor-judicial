@@ -1086,7 +1086,9 @@ export const getUserProfile = async (uid: string, email?: string): Promise<UserP
       ...profileByEmail,
       ...profileByUid,
       tenantId: validTenant,
-      canUseNativeKey: Boolean(profileByUid.canUseNativeKey || profileByEmail.canUseNativeKey),
+      canUseNativeKey: profileByUid.canUseNativeKey !== undefined 
+        ? Boolean(profileByUid.canUseNativeKey) 
+        : Boolean(profileByEmail.canUseNativeKey),
       isActive: profileByUid.isActive !== undefined ? profileByUid.isActive : (profileByEmail.isActive !== undefined ? profileByEmail.isActive : true),
       role: profileByUid.role || profileByEmail.role || 'user',
       isJudge: profileByUid.isJudge !== undefined ? profileByUid.isJudge : profileByEmail.isJudge

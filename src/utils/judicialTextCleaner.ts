@@ -93,18 +93,23 @@ export function cleanJudicialPdfText(rawText: string): string {
       /^#{1,4}\s+/.test(line) ||
       /^\*\*[^*]+\*\*:?$/.test(line);
 
-    if (isHeading) {
+    const isCoverOrPageField = line.startsWith("[Página") || /^(?:Processo\s*(?:N[º°o]|\.)?|Ju[ií]zo|Prioridade|Tipo\s*A[cç][aã]o|Segredo|Fase\s*Processual|Data\s*realiza|Data\s*recebimento|Valor\s*da\s*Causa|Partes\s*Process(?:os|uais)?|Polo\s*(?:Ativo|Passivo)|Promovente|Promovido|Requerente|Requerido|Autor(?:a)?|R[eé]u|V[ií]tima|Ofendid[oa]|Autor\s+do\s+fato|Infrator)\b/i.test(line);
+
+    if (isHeading || isCoverOrPageField) {
       if (currentBlock) {
         processedBlocks.push(currentBlock.trim());
         currentBlock = "";
       }
       
-      // Formatar o título em negrito se já não estiver em negrito ou markdown heading
-      let formattedHeading = line;
-      if (!formattedHeading.startsWith("#") && !formattedHeading.startsWith("**")) {
-        formattedHeading = `**${formattedHeading}**`;
+      if (isHeading) {
+        let formattedHeading = line;
+        if (!formattedHeading.startsWith("#") && !formattedHeading.startsWith("**")) {
+          formattedHeading = `**${formattedHeading}**`;
+        }
+        processedBlocks.push(formattedHeading);
+      } else {
+        processedBlocks.push(line);
       }
-      processedBlocks.push(formattedHeading);
       continue;
     }
 

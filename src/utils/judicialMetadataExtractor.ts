@@ -29,7 +29,7 @@ export function isInvalidPartyName(val: any): boolean {
   const lower = val.trim().toLowerCase();
   const normalized = lower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-  if (lower.length < 3 || lower.length > 95) return true;
+  if (lower.length < 3 || lower.length > 150) return true;
 
   // Termos genéricos ou marcadores de placeholder
   if (
@@ -46,7 +46,66 @@ export function isInvalidPartyName(val: any): boolean {
     lower.includes("extrair") ||
     lower.includes("nao informado") ||
     lower.includes("não informado") ||
+    lower.includes("identificado na") ||
+    lower.includes("identificado no") ||
+    lower.includes("identificado nos") ||
+    lower.includes("conforme inicial") ||
     lower.includes("autos do processo")
+  ) {
+    return true;
+  }
+
+  // Expressões genéricas de suposta autoria, delitos ou narrativa fática
+  if (
+    normalized.includes("suposto autor") ||
+    normalized.includes("suposta autora") ||
+    normalized.includes("suposto infrator") ||
+    normalized.includes("suposta autoria") ||
+    normalized.includes("pela pratica") ||
+    normalized.includes("pelo delito") ||
+    normalized.includes("pelo crime") ||
+    normalized.includes("pela conduta") ||
+    normalized.includes("pelo cometimento") ||
+    normalized.includes("pelo fato") ||
+    normalized.includes("do delito") ||
+    normalized.includes("do crime") ||
+    normalized.includes("da conduta") ||
+    normalized.includes("da infracao") ||
+    normalized.includes("termo circunstanciado") ||
+    normalized.includes("inquerito") ||
+    normalized.includes("boletim de ocorrencia") ||
+    normalized.includes("registro de atendimento") ||
+    normalized.includes("a apurar") ||
+    normalized.includes("em apuracao") ||
+    normalized.includes("nao identificado") ||
+    normalized.includes("desconhecid") ||
+    normalized.includes("fato delituoso") ||
+    normalized.includes("imobiliari") ||
+    normalized.includes("individualizad") ||
+    normalized.includes("benfeitori") ||
+    normalized.includes("fracao ideal") ||
+    normalized.includes("fracoes ideais") ||
+    normalized.includes("loteamento") ||
+    normalized.includes("matricula") ||
+    normalized.includes("usucapiao") ||
+    normalized.includes("reintegracao") ||
+    normalized.includes("interdito proibitorio") ||
+    normalized.includes("despejo") ||
+    normalized.includes("danos morais") ||
+    normalized.includes("danos materiais") ||
+    normalized.includes("lucros cessantes") ||
+    normalized.includes("obrigacao de fazer") ||
+    normalized.includes("cobranca de") ||
+    normalized.includes("declaratoria de")
+  ) {
+    return true;
+  }
+
+  // Rejeição estrita de andamentos processuais e peticionamentos de eventos
+  if (
+    /\b(?:apresentou|peticionou|juntou|manifestou|manifestação|manifestacao|requereu|informou|protocolou|cadastrou|expediu|certificou|intimou|citou)\b/i.test(normalized) ||
+    /\b(?:no\s+mov|na\s+mov|no\s+evento|no\s+arq|mov\b|evento\b)\b/i.test(normalized) ||
+    /(?:apresentou\s+manifesta|peticionou\s+no|juntou\s+peti|em\s+curso\s+de\s+prazo)/i.test(normalized)
   ) {
     return true;
   }
@@ -97,6 +156,7 @@ export function isInvalidPartyName(val: any): boolean {
     return true;
   }
 
+  // Ruídos procedimentais (Ministério Público é parte legítima no polo ativo, logo NÃO deve constar aqui)
   const proceduralNoise = [
     "designacao", "designação", "audiencia", "audiência", "instrucao", "instrução",
     "conciliacao", "conciliação", "julgamento", "despacho", "decisao", "decisão",
@@ -105,7 +165,7 @@ export function isInvalidPartyName(val: any): boolean {
     "mandado", "peticao", "petição", "requerimento", "cumprimento", "execucao", "execução",
     "preclusao", "preclusão", "recurso", "apelacao", "apelação", "agravo", "embargos",
     "movimentacao", "movimentação", "evento", "autos", "secretaria", "vara", "comarca",
-    "juizado", "tribunal", "ministerio publico", "ministério público", "prazo",
+    "juizado", "tribunal", "prazo",
     "procuracao", "procuração", "conclusao", "conclusão", "arquivamento"
   ];
   if (proceduralNoise.some((term) => normalized.includes(term.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))) {
@@ -117,6 +177,92 @@ export function isInvalidPartyName(val: any): boolean {
   }
 
   return false;
+}
+
+function cleanCandidateParty(val: string): string {
+  if (!val) return "";
+  let s = val.replace(/[\*\_]/g, "").trim();
+  s = s.replace(/^(?:o\s+|a\s+|os\s+|as\s+)?(?:autor(?:a)?|promovente|requerente|embargante|exequente|promovid[oa]|requerid[oa]|executad[oa]|embargad[oa]|r[eé]u|r[eé]|autor(?:a)?\s+do\s+fato|supost[oa]\s+autor(?:a)?(?:\s+do\s+fato)?|infrator(?:a)?|investigad[oa]|indiciad[oa]|acusad[oa]|noticiad[oa]|v[ií]tima|ofendid[oa]|noticiante|comunicante)\s*[:\-]?\s*/i, "").trim();
+  s = s.replace(/\s+(?:Processo\b|\d{7}[-.]|Movimenta[cç]|Arquivo\s*\d|P[aá]gina|\d{2}\/\d{2}\/\d{4}).*$/i, "").trim();
+  s = s.replace(/\s*(?:\([^\)]+\)|\[[^\]]+\])\s*$/, "").trim(); // Remove trailing (CPF: ...), (OAB: ...), etc.
+  s = s.replace(/[,\.\-–]+$/, "").trim();
+  return s;
+}
+
+/**
+ * Extração de dados da Capa do Processo (1ª página do PDF - Projudi, PJe, e-SAJ, etc.):
+ * - Identifica com precisão cirúrgica: Número do Processo, Juízo/Vara, Polo Ativo e Polo Passivo
+ */
+export function extractFromCoverPage(text: string): { processNumber: string; author: string; defendant: string; judicialUnit: string } {
+  const result = { processNumber: "", author: "", defendant: "", judicialUnit: "" };
+  if (!text || typeof text !== "string") return result;
+
+  // Capa do Processo: primeiros 8.000 caracteres ou antes da página 2
+  const page2Idx = text.indexOf("[Página 2");
+  const rawScope = page2Idx > 0 ? text.slice(0, page2Idx + 500) : text.slice(0, 8000);
+
+  // Normalizar removendo formatação markdown de negrito e itálico para permitir cruzamento textual límpido
+  const cleanScope = rawScope.replace(/[\*\_]/g, "");
+
+  // 1. Processo Nº na Capa
+  const procMatch = cleanScope.match(/(?:Processo\s*(?:N[º°o]|\.)?\s*[:\-]?\s*|Autos\s*(?:n[º°o]|\.)?\s*[:\-]?\s*)(\d{7}[-.]\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4})/i)
+    || cleanScope.match(/\b(\d{7}[-.]\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4})\b/);
+  if (procMatch && procMatch[1]) {
+    result.processNumber = procMatch[1].replace(/\s+/g, "");
+  }
+
+  // 2. Juízo / Vara na Capa (suporta colons simples, líder de pontos, traços ou quebra)
+  const unitMatch = cleanScope.match(/(?:Ju[ií]zo|Vara|[OÓ]rg[aã]o\s+Julgador)\s*[\.\:\-\s]{1,40}[:\-]?\s*([A-Za-zÁ-Úá-ú0-9\s\-\/\,]{4,100}?)(?=\s*(?:\n|Prioridade|Tipo\s+A[cç][aã]o|Segredo|Fase|Data|Valor|2\.|$))/i);
+  if (unitMatch && unitMatch[1]) {
+    result.judicialUnit = unitMatch[1].trim();
+  }
+
+  // Seção de Partes (Projudi / PJe / TJGO)
+  // Verifica se há colunas horizontais lado a lado: "Polo Ativo Polo Passivo\nNOME_AUTOR NOME_REU"
+  const colMatch = cleanScope.match(/Polo\s+Ativo\s+Polo\s+Passivo\s*\n\s*([A-ZÁ-Ú][A-Za-zÁ-Ú0-9\s\.\-\&\/]{2,80}?)\s{2,}([A-ZÁ-Ú][A-Za-zÁ-Ú0-9\s\.\-\&\/]{2,80})/i);
+  if (colMatch && colMatch[1] && colMatch[2]) {
+    const cAuth = cleanCandidateParty(colMatch[1]);
+    const cDef = cleanCandidateParty(colMatch[2]);
+    if (!isInvalidPartyName(cAuth)) result.author = cAuth;
+    if (!isInvalidPartyName(cDef)) result.defendant = cDef;
+    if (result.author && result.defendant) return result;
+  }
+
+  // 3. Polo Ativo na Capa (ex.: "Polo Ativo VANDERSON BORGES Polo Passivo ...", com ou sem dois pontos, com pontilhado ou quebra)
+  const authPatterns = [
+    /(?:polo\s+ativo|promovente(?:s)?|requerente(?:s)?|exequente(?:s)?|autor(?:a)?)\s*[\.\:\-\s]{1,40}\s*([A-ZÁ-Ú][A-Za-zÁ-Ú0-9 \t\.\-\&\/]{2,90}?)(?=\s*(?:\r?\n|\[|\(|polo\s+passivo|promovid|requerid|r[eé]u|r[eé]|advogad|procurad|oab|cpf|cnpj|valor|classe|assunto|\d+\.|$))/i,
+    /(?:polo\s+ativo|promovente(?:s)?|requerente(?:s)?|exequente(?:s)?|autor(?:a)?)\s*[\.\:\-\s]{1,40}\s*([A-ZÁ-Ú][A-Za-zÁ-Ú0-9\s\.\-\&\/]{2,110}?)(?=\s*(?:\n|\[|polo\s+passivo|promovid|requerid|r[eé]u|r[eé]|advogad|procurad|oab|cpf|cnpj|valor|classe|assunto|\d+\.|$))/i,
+    /(?:PROJUDI|PJe)\s*[-–:].*?(?:promovente|autor(?:a)?|polo\s+ativo)(?:\s*\([^\)]+\))?\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Ú0-9\s\.\-\&\/]{2,110})/i
+  ];
+  for (const pat of authPatterns) {
+    const m = cleanScope.match(pat);
+    if (m && m[1]) {
+      const clean = cleanCandidateParty(m[1]);
+      if (!isInvalidPartyName(clean) && clean.toLowerCase() !== "polo passivo") {
+        result.author = clean;
+        break;
+      }
+    }
+  }
+
+  // 4. Polo Passivo na Capa (ex.: "Polo Passivo MARLENE LEANDRO COUTO ...", com ou sem dois pontos, com pontilhado ou quebra)
+  const defPatterns = [
+    /(?:polo\s+passivo|promovid[oa](?:s)?|requerid[oa](?:s)?|executad[oa](?:s)?|r[eé]u|r[eé]|autor(?:a)?\s+do\s+fato|infrator(?:a)?)\s*[\.\:\-\s]{1,40}\s*([A-ZÁ-Ú][A-Za-zÁ-Ú0-9 \t\.\-\&\/]{2,90}?)(?=\s*(?:\r?\n|\[|\(|polo\s+ativo|advogad|procurad|oab|cpf|cnpj|terceir|interessad|valor|classe|assunto|\d+\.|$))/i,
+    /(?:polo\s+passivo|promovid[oa](?:s)?|requerid[oa](?:s)?|executad[oa](?:s)?|r[eé]u|r[eé]|autor(?:a)?\s+do\s+fato|infrator(?:a)?)\s*[\.\:\-\s]{1,40}\s*([A-ZÁ-Ú][A-Za-zÁ-Ú0-9\s\.\-\&\/]{2,110}?)(?=\s*(?:\n|\[|polo\s+ativo|advogad|procurad|oab|cpf|cnpj|terceir|interessad|valor|classe|assunto|\d+\.|$))/i,
+    /(?:PROJUDI|PJe)\s*[-–:].*?(?:promovid[oa]|requerid[oa]|r[eé]u|r[eé]|polo\s+passivo)(?:\s*\([^\)]+\))?\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Ú0-9\s\.\-\&\/]{2,110})/i
+  ];
+  for (const pat of defPatterns) {
+    const m = cleanScope.match(pat);
+    if (m && m[1]) {
+      const clean = cleanCandidateParty(m[1]);
+      if (!isInvalidPartyName(clean) && clean.toLowerCase() !== "polo ativo") {
+        result.defendant = clean;
+        break;
+      }
+    }
+  }
+
+  return result;
 }
 
 export function extractJudicialMetadataFromText(text: string): JudicialExtractedMetadata {
@@ -133,82 +279,114 @@ export function extractJudicialMetadataFromText(text: string): JudicialExtracted
     };
   }
 
-  // 1. Número do Processo (CNJ com pontuação ou dígitos)
-  let processNumber = "";
-  const cnjRegex = /\b(\d{7}[-.]\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4})\b/;
-  const mCnj = text.match(cnjRegex);
-  if (mCnj && mCnj[1]) {
-    processNumber = mCnj[1].replace(/\s+/g, "");
-  } else {
-    const mDigits = text.match(/\b(\d{7})(\d{2})(\d{4})(\d)(\d{2})(\d{4})\b/);
-    if (mDigits) {
-      processNumber = `${mDigits[1]}-${mDigits[2]}.${mDigits[3]}.${mDigits[4]}.${mDigits[5]}.${mDigits[6]}`;
-    }
-  }
+  // 0. Prioridade máxima absoluta: Extração direta da Capa do Processo (1ª página do PDF)
+  const coverMeta = extractFromCoverPage(text);
+  let processNumber = coverMeta.processNumber;
+  let author = coverMeta.author;
+  let defendant = coverMeta.defendant;
+  let judicialUnit = coverMeta.judicialUnit;
 
-  // 2. Extração do Autor / Promovente / Requerente / Embargante
-  let author = "";
-  const authorPatterns = [
-    // Padrão Cabeçalho TJGO / PROJUDI: "PROMOVENTE: NOME DA PESSOA"
-    /(?:promovente|requerente|polo\s+ativo|embargante|exequente|impetrante)\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?=\s*(?:\n|promovido|requerido|réu|ré|polo\s+passivo|embargado|executado|cpf|cnpj|advogad|procurad|ação|autos|juiz|$))/i,
-    // "Autor(a): Nome"
-    /(?:autor(?:a)?)\s*:\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?=\s*(?:\n|réu|ré|requerido|promovido|polo\s+passivo|cpf|cnpj|advogad|procurad|$))/i,
-    // "ação ... proposta por NOME em face de"
-    /(?:instaurad[oa]|propost[oa]|ajuizad[oa]|promovid[oa]|movid[oa])\s+por\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s+em\s+face|\s+contra|\s+desfavor)/i,
-    // "NOME, devidamente qualificado(a)... ajuizou..."
-    /^([A-ZÁ-Ú][A-ZÁ-Ú\s]{3,65}?)\s*,\s*(?:brasileir[oa]|estadocivil|maior|inscrit[oa]|portador[oa]|residente|domiciliad[oa]|por\s+seu\s+advogado)/im,
-  ];
-
-  for (const pat of authorPatterns) {
-    const match = text.match(pat);
-    if (match && match[1]) {
-      let candidate = match[1].replace(/[\*\_]/g, "").trim();
-      candidate = candidate.replace(/^(?:o\s+|a\s+)?(?:autor(?:a)?|promovente|requerente|embargante)\s+/i, "").trim();
-      if (!isInvalidPartyName(candidate)) {
-        author = candidate;
-        break;
+  // 1. Número do Processo: Fallback se não localizado na Capa
+  if (!processNumber) {
+    const headerMatch = text.match(/(?:Processo\s*(?:N[º°o]|\.)?\s*[:\-]?\s*|Autos\s*(?:n[º°o]|\.)?\s*[:\-]?\s*)(\d{7}[-.]\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4})/i);
+    if (headerMatch && headerMatch[1]) {
+      processNumber = headerMatch[1].replace(/\s+/g, "");
+    } else {
+      const cnjRegex = /\b(\d{7}[-.]\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4})\b/;
+      const mCnj = text.match(cnjRegex);
+      if (mCnj && mCnj[1]) {
+        processNumber = mCnj[1].replace(/\s+/g, "");
+      } else {
+        const mDigits = text.match(/\b(\d{7})(\d{2})(\d{4})(\d)(\d{2})(\d{4})\b/);
+        if (mDigits) {
+          processNumber = `${mDigits[1]}-${mDigits[2]}.${mDigits[3]}.${mDigits[4]}.${mDigits[5]}.${mDigits[6]}`;
+        }
       }
     }
   }
 
-  // 3. Extração do Réu / Promovido / Requerido / Embargado
-  let defendant = "";
-  const defendantPatterns = [
-    // Padrão Cabeçalho TJGO / PROJUDI: "PROMOVIDO: NOME DA PESSOA OU EMPRESA"
-    /(?:promovid[oa]|requerid[oa]|polo\s+passivo|embargad[oa]|executad[oa]|impetrad[oa])\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?=\s*(?:\n|promovente|requerente|autor|polo\s+ativo|cpf|cnpj|advogad|procurad|ação|autos|juiz|$))/i,
-    // "Réu / Ré: Nome"
-    /(?:réu|ré)\s*:\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?=\s*(?:\n|autor|promovente|requerente|cpf|cnpj|advogad|$))/i,
-    // "em face de / contra NOME"
-    /(?:em\s+face\s+d[eao]s?|contra\s+(?:o|a)?|desfavor\s+d[eao]s?)\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s*,\s*tombad|\s*,\s*todos|[,\.\n]|\s+visando|\s+pretendendo)/i,
-    // Dispositivo anterior: "condenar o réu NOME a pagar..."
-    /(?:condenar\s+(?:o|a)?\s+(?:requerid[oa]|promovid[oa]|demandad[oa]|executad[oa]|réu|ré)?\s*)([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,70}?)(?:\s+(?:a|ao|para|em)\s+pagar|\s*,\s*a\s+pagar|[,\.\n])/i
-  ];
+  // 2. Extração do Autor / Promovente / Requerente / Vítima / Ministério Público: Fallback se não localizado na Capa
+  if (!author) {
+    const authorPatterns = [
+      // Padrão Capa TJGO / PROJUDI com quebra de linha: "Polo Ativo\nNOME DO AUTOR" ou com dois pontos "Polo Ativo: NOME"
+      /(?:polo\s+ativo|promovente|requerente|exequente|embargante|impetrante|v[ií]tima|ofendid[oa]|noticiante|comunicante|querelante)(?:\s*\([^\)]+\))?\s*[:\-\n]+\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,110}?)(?=\s*(?:\n\s*(?:polo\s+passivo|promovido|requerido|réu|ré|embargado|executado|autor\s+do\s+fato|suposto\s+autor|infrator|investigado|acusado|cpf|cnpj|advogad|procurad|ação|autos|juiz|1\.|2\.|3\.)|$))/i,
+      // "Autor(a): Nome" ou "Vítima: Nome" ou "Noticiante: Nome"
+      /(?:autor(?:a)?|v[ií]tima|ofendid[oa]|noticiante|comunicante|querelante)(?:\s*\([^\)]+\))?\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,110}?)(?=\s*(?:\n|réu|ré|requerido|promovido|polo\s+passivo|autor\s+do\s+fato|infrator|cpf|cnpj|advogad|procurad|$))/i,
+      // Identificação direta de Ministério Público no Polo Ativo
+      /(?:polo\s+ativo|promovente|requerente|autor(?:a)?)\s*[:\-]?\s*(Minist[eé]rio\s+P[uú]blico(?:\s+do\s+Estado\s+de\s+[A-Za-zÁ-Úá-ú]+|\s+Federal)?|Justi[cç]a\s+P[uú]blica)/i,
+      // "ação ... deflagrada / proposta / ajuizada por NOME em face de"
+      /(?:instaurad[oa]|propost[oa]|ajuizad[oa]|promovid[oa]|movid[oa]|deflagrad[oa])\s+por\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,110}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s+em\s+face|\s+contra|\s+desfavor)/i,
+      // "NOME, devidamente qualificado(a)... ajuizou..."
+      /^([A-ZÁ-Ú][A-ZÁ-Ú\s]{3,90}?)\s*,\s*(?:brasileir[oa]|estadocivil|maior|inscrit[oa]|portador[oa]|residente|domiciliad[oa]|por\s+seu\s+advogado)/im,
+    ];
 
-  for (const pat of defendantPatterns) {
-    const match = text.match(pat);
-    if (match && match[1]) {
-      let candidate = match[1].replace(/[\*\_]/g, "").trim();
-      candidate = candidate.replace(/^(?:a\s+)?(?:ré|réu|requerid[oa]|promovid[oa]|embargad[oa])\s+/i, "").trim();
-      if (!isInvalidPartyName(candidate)) {
-        defendant = candidate;
-        break;
+    for (const pat of authorPatterns) {
+      const match = text.match(pat);
+      if (match && match[1]) {
+        let candidate = cleanCandidateParty(match[1]);
+        if (!isInvalidPartyName(candidate)) {
+          author = candidate;
+          break;
+        }
       }
     }
   }
 
-  // 4. Comarca e Vara
-  let judicialUnit = "";
-  const unitPatterns = [
-    /(?:Vara\s+[A-Za-zÁ-Úá-ú\s]{3,40}?\s+da\s+Comarca\s+de\s+[A-ZÁ-Ú][A-Za-zÁ-Úá-ú\s]{3,30})/i,
-    /(?:Juizado\s+Especial\s+[A-Za-zÁ-Úá-ú\s]{3,40}?\s+da\s+Comarca\s+de\s+[A-ZÁ-Ú][A-Za-zÁ-Úá-ú\s]{3,30})/i,
-    /(?:Comarca\s+de\s+[A-ZÁ-Ú][A-Za-zÁ-Úá-ú\s]{3,30}\s*[-–]\s*(?:GO|Goiás|TJGO))/i,
-    /(?:Poder\s+Judiciário\s+do\s+Estado\s+de\s+Goiás[^\n]*)/i
-  ];
-  for (const pat of unitPatterns) {
-    const match = text.match(pat);
-    if (match && match[0]) {
-      judicialUnit = match[0].replace(/[\*\_]/g, "").trim();
-      break;
+  // Se não localizou autor nominal, mas o feito é TCO / Criminal / Inquérito e cita o Ministério Público ou Justiça Pública
+  if (!author) {
+    const isCriminalOrTco = /(?:termo\s+circunstanciado|tco\b|inqu[eé]rito|a[cç][aã]o\s+penal|jecrim|juizado\s+especial\s+criminal|delito|infração\s+penal)/i.test(text);
+    if (isCriminalOrTco) {
+      if (/Minist[eé]rio\s+P[uú]blico\s+do\s+Estado\s+de\s+Goi[aá]s|MPGO/i.test(text)) {
+        author = "Ministério Público do Estado de Goiás";
+      } else if (/Justi[cç]a\s+P[uú]blica/i.test(text)) {
+        author = "Justiça Pública";
+      } else {
+        author = "Ministério Público do Estado de Goiás";
+      }
+    }
+  }
+
+  // 3. Extração do Réu / Promovido / Requerido / Autor do Fato / Infrator: Fallback se não localizado na Capa
+  if (!defendant) {
+    const defendantPatterns = [
+      // Padrão específico para TCO / JECRIM / Criminal: "Autor do Fato: Nome" ou "Suposto Autor do Fato: Nome" ou "Infrator: Nome"
+      /(?:autor(?:a)?\s+do\s+fato|supost[oa]\s+autor(?:a)?(?:\s+do\s+fato)?|infrator(?:a)?|noticiad[oa]|indiciad[oa]|investigad[oa]|acusad[oa]|denunciad[oa]|querelad[oa]|envolvido(?:\s*\(autor\s+do\s+fato\))?)(?:\s*\([^\)]+\))?\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=\s*(?:\n|v[ií]tima|ofendid|noticiante|comunicante|promovente|cpf|cnpj|advogad|autos|$))/i,
+      // Padrão Capa TJGO / PROJUDI com quebra de linha ou dois pontos: "Polo Passivo\nNOME DA ENTIDADE OU RÉU"
+      /(?:polo\s+passivo|promovid[oa]|requerid[oa]|executad[oa]|embargad[oa]|impetrad[oa]|autor(?:a)?\s+do\s+fato|infrator(?:a)?|acusad[oa]|investigad[oa])\s*[:\-\n]+\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=\s*(?:\n\s*(?:polo\s+ativo|promovente|requerente|autor|embargante|executado|v[ií]tima|ofendid|cpf|cnpj|advogad|procurad|ação|autos|juiz|3\.|4\.|advogado|oab)|$))/i,
+      // "Réu / Ré: Nome"
+      /(?:réu|ré)\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=\s*(?:\n|autor|promovente|requerente|v[ií]tima|cpf|cnpj|advogad|$))/i,
+      // "em face de / desfavor de / contra NOME"
+      /(?:em\s+face\s+d[eao]s?|contra\s+(?:o|a)?|desfavor\s+d[eao]s?)\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s*,\s*ambos|\s*,\s*tombad|\s*,\s*todos|[,\.\n]|\s+visando|\s+pretendendo)/i,
+      // Dispositivo anterior: "condenar o réu NOME a pagar..."
+      /(?:condenar\s+(?:o|a)?\s+(?:requerid[oa]|promovid[oa]|demandad[oa]|executad[oa]|réu|ré)?\s*)([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?:\s+(?:a|ao|para|em)\s+pagar|\s*,\s*a\s+pagar|[,\.\n])/i
+    ];
+
+    for (const pat of defendantPatterns) {
+      const match = text.match(pat);
+      if (match && match[1]) {
+        let candidate = cleanCandidateParty(match[1]);
+        if (!isInvalidPartyName(candidate)) {
+          defendant = candidate;
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. Comarca e Vara: Fallback se não localizado na Capa
+  if (!judicialUnit) {
+    const unitPatterns = [
+      /(?:Vara\s+[A-Za-zÁ-Úá-ú\s]{3,40}?\s+da\s+Comarca\s+de\s+[A-ZÁ-Ú][A-Za-zÁ-Úá-ú\s]{3,30})/i,
+      /(?:Juizado\s+Especial\s+[A-Za-zÁ-Úá-ú\s]{3,40}?\s+da\s+Comarca\s+de\s+[A-ZÁ-Ú][A-Za-zÁ-Úá-ú\s]{3,30})/i,
+      /(?:Comarca\s+de\s+[A-ZÁ-Ú][A-Za-zÁ-Úá-ú\s]{3,30}\s*[-–]\s*(?:GO|Goiás|TJGO))/i,
+      /(?:Poder\s+Judiciário\s+do\s+Estado\s+de\s+Goiás[^\n]*)/i
+    ];
+    for (const pat of unitPatterns) {
+      const match = text.match(pat);
+      if (match && match[0]) {
+        judicialUnit = match[0].replace(/[\*\_]/g, "").trim();
+        break;
+      }
     }
   }
 
