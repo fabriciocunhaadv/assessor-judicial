@@ -1564,6 +1564,47 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Blindagem do Pool de Chaves Ilimitado, Soberania do Dispositivo e Fidelidade Factual Estrita */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Blindagem Ilimitada de Chaves, Soberania Decisória & Fidelidade Factual Estrita</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">ATUALIZAÇÃO CRÍTICA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Pool Ilimitado de Chaves & Rotação Multi-Projetos:</strong> Suporte integral a múltiplos projetos e chaves sem limitação de quantidade (5, 10, 15+ chaves), com cache em memória persistente (blindado contra estouro de quota de armazenamento local do navegador) e failover transparente em caso de exaustão de cota (429/TPM).<br />
+                        • <strong>Soberania Absoluta de Sentença, Decisões e Despachos:</strong> O dispositivo judicial tem primazia soberana sobre o enquadramento do ato. Havendo comando de procedência, improcedência ou extinção (arts. 485 e 487 do CPC), o ato é categoricamente formalizado como <strong>SENTENÇA</strong> com a respectiva movimentação TPU CNJ oficial (219, 220, 221), sendo terminantemente vedado rotulá-lo como despacho ou mero expediente.<br />
+                        • <strong>Protocolo de Fidelidade Factual Estrita (Anti-Inferência na Inicial):</strong> Vedação absoluta de inferir, modificar, embelezar, supor ou complementar fatos, provas e pedidos da petição inicial (arts. 2º, 141 e 492 do CPC). O Relatório Judicial reproduz com fidelidade fotográfica e aspas literais o que o advogado efetivamente alegou na exordial.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Item: Soberania do Dispositivo Judicial & Enquadramento TPU CNJ */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Soberania do Dispositivo Judicial & Enquadramento TPU CNJ</span>
+                          <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">SOBERANIA DISPOSITIVO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Soberania Ontológica do Dispositivo (Arts. 203, 485 e 487 do CPC):</strong> Se a minuta judicial julga o mérito da causa (procedência, improcedência ou parcial procedência) ou extingue a lide, o sistema autocorrige o título imediatamente para <strong>SENTENÇA</strong>, impedindo que herde indevidamente o cabeçalho de &quot;DESPACHO&quot;.<br />
+                        • <strong>Correção Automática da Movimentação TPU CNJ:</strong> Eliminação do enquadramento incorreto de mero expediente (11010) em atos decisórios com julgamento de mérito, aplicando o código TPU correto de Sentença (219 - Procedência, 220 - Improcedência, etc.) no Projudi.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Extração Robusta da Parte Ré na Petição Inicial */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">

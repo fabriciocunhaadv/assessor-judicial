@@ -11,6 +11,7 @@ const API_BANNER_DISMISSED_KEY = "agaia_api_key_banner_dismissed";
 
 const activeKeyMemoryCache: Record<string, string | null> = {};
 const activeStateMemoryCache: Record<string, boolean> = {};
+const keysListMemoryCache: Record<string, UserApiKeyItem[]> = {};
 let currentCanUseNativeKey: boolean | null = null;
 
 export function setNativeKeyAccessState(canUse: boolean, explicitUid?: string): void {
@@ -117,35 +118,59 @@ export function getAllCustomApiKeys(uid?: string): UserApiKeyItem[] {
     const targetUid = uid || auth.currentUser?.uid;
     if (!targetUid) return [];
 
-    const key = getStorageKey(BASE_LIST_STORAGE, targetUid);
-    if (!key) return [];
+    let memoryKeys = keysListMemoryCache[targetUid] || [];
 
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+    const key = getStorageKey(BASE_LIST_STORAGE, targetUid);
+    let storedKeys: UserApiKeyItem[] = [];
+
+    if (key) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            storedKeys = parsed;
+          }
+        } catch (_) {}
       }
     }
+
+    // Mescla o cache de memória com o cache local sem limite de quantidade
+    const mergedMap = new Map<string, UserApiKeyItem>();
+    memoryKeys.forEach(k => {
+      if (k && k.key && k.key.trim().length > 10) {
+        mergedMap.set(k.key.trim(), k);
+      }
+    });
+    storedKeys.forEach(k => {
+      if (k && k.key && k.key.trim().length > 10 && !mergedMap.has(k.key.trim())) {
+        mergedMap.set(k.key.trim(), k);
+      }
+    });
 
     // Fallback: check single key for this specific user
     const singleKeyStorage = getStorageKey(BASE_KEY_STORAGE, targetUid);
     if (singleKeyStorage) {
       const singleKey = localStorage.getItem(singleKeyStorage);
-      if (singleKey && singleKey.trim().length > 10) {
-        return [{
+      if (singleKey && singleKey.trim().length > 10 && !mergedMap.has(singleKey.trim())) {
+        mergedMap.set(singleKey.trim(), {
           id: "key_primary",
           key: singleKey.trim(),
           label: "Chave Principal",
           createdAt: Date.now(),
-        }];
+        });
       }
     }
+
+    const result = Array.from(mergedMap.values());
+    if (result.length > 0) {
+      keysListMemoryCache[targetUid] = result;
+    }
+    return result;
   } catch (err) {
     console.warn("Could not read API keys list from localStorage:", err);
+    return keysListMemoryCache[uid || auth.currentUser?.uid || ""] || [];
   }
-
-  return [];
 }
 
 export function getCustomApiKey(uid?: string): string | null {
@@ -221,6 +246,7 @@ export function saveAllCustomApiKeys(keys: UserApiKeyItem[], activeKeyId?: strin
   } else {
     activeKeyMemoryCache[targetUid] = null;
   }
+  keysListMemoryCache[targetUid] = keys;
 
   // 1. Sempre tenta salvar no banco de dados primeiro (nuvem)
   if (auth.currentUser && auth.currentUser.uid === targetUid) {
@@ -331,6 +357,7 @@ export function removeCustomApiKey(uid?: string): void {
 
   activeKeyMemoryCache[targetUid] = null;
   delete activeStateMemoryCache[targetUid];
+  delete keysListMemoryCache[targetUid];
 
   if (auth.currentUser && auth.currentUser.uid === targetUid) {
     removeUserApiKeyFromDb(targetUid).catch(() => {});
@@ -383,6 +410,7 @@ export function syncApiKeyWithUserProfile(userProfile: UserProfile | null, uid?:
   }
 
   // 2. Sync to in-memory cache
+  keysListMemoryCache[currentUid] = keysToDispatch;
   if (activeKeyToDispatch) {
     activeKeyMemoryCache[currentUid] = activeKeyToDispatch.trim();
   } else {

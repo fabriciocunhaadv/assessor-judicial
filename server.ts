@@ -1880,23 +1880,51 @@ function detectApplicableLegalFrameworks(context) {
 }
 
 function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo: string, rawTpu: any) {
-    if (rawTpu && typeof rawTpu === 'object' && rawTpu.codigoTpu && rawTpu.descricaoMovimento) {
-        return {
-            codigoTpu: String(rawTpu.codigoTpu).trim(),
-            descricaoMovimento: String(rawTpu.descricaoMovimento).trim(),
-            tipoAto: (rawTpu.tipoAto || (resolvedActType === 'decisao' ? 'Decisão Interlocutória' : resolvedActType === 'despacho' ? 'Despacho' : 'Sentença')),
-            subtipoResultado: rawTpu.subtipoResultado || 'Definido no dispositivo',
-            prazoSecretaria: rawTpu.prazoSecretaria || (resolvedActType === 'sentenca' ? '15 dias úteis (Apelação/Recurso Inominado)' : resolvedActType === 'decisao' ? '15 dias úteis (Agravo de Instrumento)' : '5 dias úteis'),
-            filaProjudi: rawTpu.filaProjudi || 'Aguardando Intimação das Partes',
-            observacoesLancamento: rawTpu.observacoesLancamento || 'Lançar movimentação e intimar as partes via sistema.'
-        };
-    }
-
     const dLower = (dispositivo || "").toLowerCase();
     const tLower = (title || "").toLowerCase();
 
+    // SOBERANIA ABSOLUTA DO DISPOSITIVO JUDICIAL (ARTS. 203, 485 E 487 DO CPC):
+    // Se o dispositivo proferiu julgamento de mérito ("julgo procedente/improcedente", "resolução do mérito", art. 487/485),
+    // o ato é material e processualmente uma SENTENÇA, sobrepondo qualquer classificação prévia de despacho ou decisão.
+    const isSentencaByDispositivo = 
+        dLower.includes("julgo procedente") || 
+        dLower.includes("julgo improcedente") || 
+        dLower.includes("julgo parcialmente procedente") ||
+        dLower.includes("parcial procedência") ||
+        dLower.includes("parcial procedencia") ||
+        dLower.includes("resolução do mérito") ||
+        dLower.includes("resolucao do merito") ||
+        dLower.includes("resolvendo o mérito") ||
+        dLower.includes("com resolução de mérito") ||
+        dLower.includes("extingo o processo") ||
+        dLower.includes("extinção do feito") ||
+        dLower.includes("julgo extinto") ||
+        dLower.includes("art. 487") ||
+        dLower.includes("artigo 487") ||
+        dLower.includes("art. 485") ||
+        dLower.includes("artigo 485");
+
+    if (rawTpu && typeof rawTpu === 'object' && rawTpu.codigoTpu && rawTpu.descricaoMovimento) {
+        const rawDesc = String(rawTpu.descricaoMovimento).toLowerCase();
+        const rawTipo = String(rawTpu.tipoAto || "").toLowerCase();
+        const isRawDespacho = String(rawTpu.codigoTpu).trim() === "60" || rawDesc.includes("despacho") || rawTipo.includes("despacho");
+
+        // Se o dispositivo é de sentença, NUNCA permitir que a TPU de Despacho seja adotada
+        if (!(isSentencaByDispositivo && isRawDespacho)) {
+            return {
+                codigoTpu: String(rawTpu.codigoTpu).trim(),
+                descricaoMovimento: String(rawTpu.descricaoMovimento).trim(),
+                tipoAto: (rawTpu.tipoAto || (resolvedActType === 'decisao' ? 'Decisão Interlocutória' : resolvedActType === 'despacho' ? 'Despacho' : 'Sentença')),
+                subtipoResultado: rawTpu.subtipoResultado || 'Definido no dispositivo',
+                prazoSecretaria: rawTpu.prazoSecretaria || (resolvedActType === 'sentenca' ? '15 dias úteis (Apelação/Recurso Inominado)' : resolvedActType === 'decisao' ? '15 dias úteis (Agravo de Instrumento)' : '5 dias úteis'),
+                filaProjudi: rawTpu.filaProjudi || 'Aguardando Intimação das Partes',
+                observacoesLancamento: rawTpu.observacoesLancamento || 'Lançar movimentação e intimar as partes via sistema.'
+            };
+        }
+    }
+
     // 1. Sentenças
-    if (resolvedActType === "sentenca" || tLower.includes("senten")) {
+    if (resolvedActType === "sentenca" || tLower.includes("senten") || isSentencaByDispositivo) {
         if (dLower.includes("julgo parcialmente procedente") || dLower.includes("parcial procedência") || dLower.includes("parcialmente procedente")) {
             return {
                 codigoTpu: "221",
@@ -2184,7 +2212,27 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
                     ? "DESPACHO" 
                     : "SENTENÇA";
     const rawTitle = mContainer.title || mContainer.titulo || parsed.title || parsed.actType || fallbackTitle;
-    const title = extractSafeString(rawTitle, fallbackTitle).toUpperCase();
+    let title = extractSafeString(rawTitle, fallbackTitle).toUpperCase();
+
+    // SOBERANIA DO DISPOSITIVO SOBRE O TÍTULO (Art. 203, § 1º, e Art. 487 do CPC):
+    // Se o dispositivo julgou o mérito ou extinguiu a lide, o ato é materialmente SENTENÇA.
+    // Corrige anacronismos em que a minuta julgou procedente/improcedente mas herdou título de "DESPACHO".
+    const dLowerCheck = (dispositivo || "").toLowerCase();
+    const isDispositivoSentenca = 
+        dLowerCheck.includes("julgo procedente") || 
+        dLowerCheck.includes("julgo improcedente") || 
+        dLowerCheck.includes("julgo parcialmente procedente") ||
+        dLowerCheck.includes("parcial procedência") ||
+        dLowerCheck.includes("resolução do mérito") ||
+        dLowerCheck.includes("resolucao do merito") ||
+        dLowerCheck.includes("art. 487") ||
+        dLowerCheck.includes("artigo 487") ||
+        dLowerCheck.includes("art. 485") ||
+        dLowerCheck.includes("artigo 485");
+
+    if (isDispositivoSentenca && (title.includes("DESPACHO") || actType === "despacho")) {
+        title = "SENTENÇA";
+    }
 
     const rawCourt = parsed.court || mContainer.court || mContainer.judicialUnit || parsed.judicialUnit || processInfo?.comarca || "Comarca de Montes Claros de Goiás";
     const court = extractSafeString(rawCourt, "Comarca de Montes Claros de Goiás");
@@ -2210,7 +2258,8 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
 
     // Indicação do Tipo de Movimentação TPU CNJ no Projudi
     const rawTpu = parsed.indicacaoTpuCnj || mContainer.indicacaoTpuCnj || parsed.auditAnalysis?.indicacaoTpuCnj || parsed.tpu || null;
-    const indicacaoTpuCnj = inferTpuCnjMovement(actType, title, safeDispositivo, rawTpu);
+    const effectiveActTypeForTpu = isDispositivoSentenca ? "sentenca" : actType;
+    const indicacaoTpuCnj = inferTpuCnjMovement(effectiveActTypeForTpu, title, safeDispositivo, rawTpu);
 
     const finalMinute = {
         title,
@@ -2884,9 +2933,12 @@ REGRA MANDATÓRIA DE OBSERVAÇÃO DA MARCHA PROCESSUAL E CASO A CASO (ANÁLISE I
 2. MAPEAMENTO INTRÍNSECO DE 100% DOS PEDIDOS E PRELIMINARES:
    - Você DEVE identificar, extrair e catalogar exaustivamente todos os pedidos deduzidos na exordial (danos materiais, danos morais, obrigação de fazer/não fazer, repetição de indébito, rescisão contratual, etc.) e todas as preliminares e matérias de defesa da contestação (incompetência, ilegitimidade, inépcia, falta de interesse, prescrição, decadência, etc.).
    - É expressamente proibido resumir em bloco ou omitir pedidos secundários.
-3. PROTOCOLO ANTI-INFERÊNCIA E FIDELIDADE TEXTUAL ESTRITA:
+3. PROTOCOLO DE FIDELIDADE FACTUAL ESTRITA E ANTI-INFERÊNCIA NA PETIÇÃO INICIAL (ARTS. 2º, 141 E 492 DO CPC):
+   - É TERMINANTEMENTE PROIBIDO inferir, supor, deduzir, florear, embelezar, melhorar a redação ou complementar fatos, datas, contratos, causas de pedir, danos ou pedidos que não foram expressamente alegados pela parte na Petição Inicial (Mov. 1) ou nas peças processuais.
+   - O sistema e o Relatório Judicial (art. 489, I, do CPC) são o espelho fidedigno e estritamente fiel dos autos: os relatos fáticos do polo ativo e do polo passivo DEVEM reproduzir com fidelidade fotográfica o que as partes efetivamente escreveram, nos exatos termos afirmados, com aspas literais nos trechos centrais, sendo vedado reinterpretar, presumir ou acrescentar fatos não descritos pelas partes.
+   - É proibido criar vínculos de causalidade, detalhes de ocorrências, adjetivos ou presunções de conduta que a parte não escreveu. O magistrado julga os fatos afirmados pelas partes (princípio da congruência e dispositivo).
    - É expressamente PROIBIDO utilizar resumos evasivos ou inferências genéricas (tais como "foram debatidas pelas partes e pelo Ministério Público" ou "as partes manifestaram-se no feito").
-   - Você DEVE extrair e registrar discriminadamente: 1) O que o autor sustentou expressamente sobre os fatos e laudos (com indicação de Mov. X); 2) O que o réu sustentou (com indicação de Mov. X); 3) A transcrição literal entre aspas dos trechos essenciais das peças.
+   - Você DEVE extrair e registrar discriminadamente: 1) O que o autor sustentou expressamente sobre os fatos e documentos (com indicação de Mov. X, Arq. Y, Pág. Z); 2) O que o réu sustentou na contestação (com indicação de Mov. X); 3) A transcrição literal entre aspas dos trechos essenciais das peças.
 4. BLINDAGEM CONTRA PROVAS FANTASMAS (PRINCÍPIO DISPOSITIVO):
    - O juízo só delibera sobre provas que foram expressamente postuladas pelas partes nos autos.
    - É terminantemente PROIBIDO inventar indeferimento ou deferimento de provas não requeridas (ex: inventar indeferimento de prova testemunhal se nenhuma das partes a requereu). Se não há novos pedidos probatórios pendentes, registre a preclusão e o encerramento da fase probatória.
@@ -3487,8 +3539,33 @@ if (!stage1Json.relatorio && !stage1Json.fundamentacao && !stage1Json.dispositiv
     stage1Json = { relatorio: "", fundamentacao: stage1Text, dispositivo: "" };
 }
 
-// Se o usuário estiver no MODO AUTO (sem escolha soberana prévia de tipo de ato), a análise caso a caso da Etapa 1 refina o ato:
-if (!userExplicitActType || userExplicitActType === "auto" || userExplicitActType.includes("definir")) {
+// SOBERANIA ABSOLUTA DO DISPOSITIVO SOBRE O TIPO DE ATO (ARTS. 203, 485 E 487 DO CPC):
+const s1DispLower = (stage1Json.dispositivo || "").toLowerCase();
+const isStage1DispositivoSentenca = 
+    s1DispLower.includes("julgo procedente") || 
+    s1DispLower.includes("julgo improcedente") || 
+    s1DispLower.includes("julgo parcialmente procedente") ||
+    s1DispLower.includes("parcial procedência") ||
+    s1DispLower.includes("parcial procedencia") ||
+    s1DispLower.includes("resolução do mérito") ||
+    s1DispLower.includes("resolucao do merito") ||
+    s1DispLower.includes("resolvendo o mérito") ||
+    s1DispLower.includes("com resolução de mérito") ||
+    s1DispLower.includes("extingo o processo") ||
+    s1DispLower.includes("extinção do processo") ||
+    s1DispLower.includes("extinção do feito") ||
+    s1DispLower.includes("julgo extinto") ||
+    s1DispLower.includes("art. 487") ||
+    s1DispLower.includes("artigo 487") ||
+    s1DispLower.includes("art. 485") ||
+    s1DispLower.includes("artigo 485");
+
+if (isStage1DispositivoSentenca) {
+    resolvedActType = "sentenca";
+    isSaneamentoDecision = false;
+    console.log(`[Assessor Judicial - SOBERANIA DO DISPOSITIVO] Dispositivo da Etapa 1 proferiu julgamento de mérito ou extinção. Ato categoricamente fixado como SENTENÇA.`);
+    actTypeGuidance = buildActTypeGuidance(resolvedActType, isSaneamentoDecision);
+} else if (!userExplicitActType || userExplicitActType === "auto" || userExplicitActType.includes("definir")) {
     const s1Act = (stage1Json.actType || "").toLowerCase();
     const s1Pending = (stage1Json.pendingMatter || "").toLowerCase();
     
@@ -3504,7 +3581,7 @@ if (!userExplicitActType || userExplicitActType === "auto" || userExplicitActTyp
         resolvedActType = "embargos";
         isSaneamentoDecision = false;
         console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): EMBARGOS DE DECLARAÇÃO (${stage1Json.pendingMatter})`);
-    } else if (s1Act.includes("despach") || s1Pending.includes("despacho") || s1Act.includes("prazo") || s1Pending.includes("curso de prazo") || s1Pending.includes("aguardando cumprimento") || s1Pending.includes("aguardando decurso") || s1Pending.includes("intimação")) {
+    } else if (s1Act.includes("despach") || s1Pending.includes("despacho") || s1Act.includes("prazo") || s1Pending.includes("curso de prazo") || s1Pending.includes("aguardando cumprimento") || s1Pending.includes("aguardando decurso")) {
         resolvedActType = "despacho";
         isSaneamentoDecision = false;
         console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): DESPACHO / CONTROLE DE PRAZO (${stage1Json.pendingMatter})`);
@@ -3576,7 +3653,7 @@ COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
    - Confronte com o Caderno de Teses do Gabinete, Súmulas Vinculantes, Jurisprudência e Minuta Paradigma (se ativada);
    - COERÊNCIA COM A MARCHA PROCESSUAL: A decisão deve ser estritamente coerente com o andamento do processo (dar continuidade às últimas decisões, resolver incidentes pendentes ou sentenciar o mérito se maduro, sem nunca regredir a liminares do início da lide);
    - É expressamente PROIBIDO resumir, sintetizar, enxugar ou condensar. Aprofunde, adense e expanda a minuta:
-     * 'relatorio': Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z);
+     * 'relatorio': PROTOCOLO DE FIDELIDADE FACTUAL ESTRITA (ANTI-INFERÊNCIA NA INICIAL): Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z). É TERMINANTEMENTE PROIBIDO inferir, supor, deduzir, florear, modificar, embelezar ou complementar a narrativa da Petição Inicial: adensar significa relatar com máxima fidelidade e precisão os fatos efetivamente afirmados pela parte autora nos exatos termos deduzidos na exordial, com aspas literais nos trechos centrais, sendo vedada qualquer criação ou paráfrase distorcida da causa de pedir;
      * 'fundamentacao': Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);
      * 'dispositivo': Comandos operacionais claros, discriminados pedido por pedido, com deliberação de eventuais requerimentos intercorrentes e fixação dos consectários legais da Lei 14.905/2024;
    - Preencha o cabeçalho, comarca/vara e fecho judicante oficial;
@@ -3615,7 +3692,7 @@ const stage2ResponseSchema = {
                 },
                 relatorio: {
                     type: Type.STRING,
-                    description: "Relatório judicial completo em 4 a 6 parágrafos densos e encadeados, com formatação rica (separando os parágrafos com quebras de linha duplas e utilizando negritos para destaques), encadeado e fidedigno, narrando toda a marcha processual e citando nominalmente as partes, peritos, pedidos, tutelas, certidões, defesas, laudos e parecer do MP com os números exatos de todas as movimentações/eventos dos autos."
+                    description: "Relatório judicial completo em 4 a 6 parágrafos densos e encadeados, com formatação rica (separando os parágrafos com quebras de linha duplas e utilizando negritos para destaques), com fidelidade factual estrita (sem inferir, modificar ou florear os fatos e pedidos afirmados pelo autor na Petição Inicial), narrando toda a marcha processual e citando nominalmente as partes, peritos, pedidos, tutelas, certidões, defesas, laudos e parecer do MP com os números exatos de todas as movimentações/eventos dos autos."
                 },
                 fundamentacao: {
                     type: Type.STRING,
@@ -4021,7 +4098,30 @@ if (!Array.isArray(parsed.auditAnalysis.fatoVsProva) || parsed.auditAnalysis.fat
 
 parsed.minute = sanitizeMinuteData(parsed.minute, defaultFallbackTitle);
 if (parsed.minute) {
-    if (resolvedActType === "embargos" && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("EMBARGO"))) {
+    const finalDispLower = (parsed.minute.dispositivo || "").toLowerCase();
+    const isFinalDispositivoSentenca = 
+        finalDispLower.includes("julgo procedente") || 
+        finalDispLower.includes("julgo improcedente") || 
+        finalDispLower.includes("julgo parcialmente procedente") ||
+        finalDispLower.includes("parcial procedência") ||
+        finalDispLower.includes("parcial procedencia") ||
+        finalDispLower.includes("resolução do mérito") ||
+        finalDispLower.includes("resolucao do merito") ||
+        finalDispLower.includes("resolvendo o mérito") ||
+        finalDispLower.includes("com resolução de mérito") ||
+        finalDispLower.includes("extingo o processo") ||
+        finalDispLower.includes("extinção do processo") ||
+        finalDispLower.includes("extinção do feito") ||
+        finalDispLower.includes("julgo extinto") ||
+        finalDispLower.includes("art. 487") ||
+        finalDispLower.includes("artigo 487") ||
+        finalDispLower.includes("art. 485") ||
+        finalDispLower.includes("artigo 485");
+
+    if (isFinalDispositivoSentenca) {
+        parsed.minute.title = "SENTENÇA";
+        resolvedActType = "sentenca";
+    } else if (resolvedActType === "embargos" && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("EMBARGO"))) {
         parsed.minute.title = "DECISÃO - EMBARGOS DE DECLARAÇÃO";
     } else if (resolvedActType === "decisao" && isSaneamentoDecision && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("SANEAMENTO"))) {
         parsed.minute.title = "DECISÃO DE SANEAMENTO E ORGANIZAÇÃO";
