@@ -1965,7 +1965,7 @@ export default function App() {
                           <div>
                             <span className="text-slate-500 block">Promovido (Réu):</span>
                             <span className="font-semibold text-slate-900 dark:text-white truncate block" title={extractedMetadata.defendant}>
-                              {extractedMetadata.defendant || "Identificado na contestação"}
+                              {extractedMetadata.defendant || "Identificado na petição inicial"}
                             </span>
                           </div>
                         </div>

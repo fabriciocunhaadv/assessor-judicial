@@ -182,10 +182,12 @@ export function isInvalidPartyName(val: any): boolean {
 function cleanCandidateParty(val: string): string {
   if (!val) return "";
   let s = val.replace(/[\*\_]/g, "").trim();
-  s = s.replace(/^(?:o\s+|a\s+|os\s+|as\s+)?(?:autor(?:a)?|promovente|requerente|embargante|exequente|promovid[oa]|requerid[oa]|executad[oa]|embargad[oa]|r[eé]u|r[eé]|autor(?:a)?\s+do\s+fato|supost[oa]\s+autor(?:a)?(?:\s+do\s+fato)?|infrator(?:a)?|investigad[oa]|indiciad[oa]|acusad[oa]|noticiad[oa]|v[ií]tima|ofendid[oa]|noticiante|comunicante)\s*[:\-]?\s*/i, "").trim();
+  s = s.replace(/^(?:em\s+face\s+d[eao]s?|contra|em\s+desfavor\s+d[eao]s?|desfavor\s+d[eao]s?)\s*[:\-]?\s*/i, "").trim();
+  s = s.replace(/^(?:o\s+|a\s+|os\s+|as\s+)?(?:autor(?:a)?|promovente|requerente|embargante|exequente|promovid[oa](?:\([^\)]+\)|s)?|requerid[oa](?:\([^\)]+\)|s)?|executad[oa](?:\([^\)]+\)|s)?|embargad[oa](?:\([^\)]+\)|s)?|r[eé]u(?:\/r[eé])?|r[eé]|autor(?:a)?\s+do\s+fato|supost[oa]\s+autor(?:a)?(?:\s+do\s+fato)?|infrator(?:a)?|investigad[oa]|indiciad[oa]|acusad[oa]|noticiad[oa]|v[ií]tima|ofendid[oa]|noticiante|comunicante)\s*[:\-]?\s*/i, "").trim();
+  s = s.replace(/^(?:de|do|da|dos|das)\s+/i, "").trim();
   s = s.replace(/\s+(?:Processo\b|\d{7}[-.]|Movimenta[cç]|Arquivo\s*\d|P[aá]gina|\d{2}\/\d{2}\/\d{4}).*$/i, "").trim();
   s = s.replace(/\s*(?:\([^\)]+\)|\[[^\]]+\])\s*$/, "").trim(); // Remove trailing (CPF: ...), (OAB: ...), etc.
-  s = s.replace(/[,\.\-–]+$/, "").trim();
+  s = s.replace(/[,\.\-–:]+$/, "").trim();
   return s;
 }
 
@@ -349,15 +351,22 @@ export function extractJudicialMetadataFromText(text: string): JudicialExtracted
   // 3. Extração do Réu / Promovido / Requerido / Autor do Fato / Infrator: Fallback se não localizado na Capa
   if (!defendant) {
     const defendantPatterns = [
-      // Padrão específico para TCO / JECRIM / Criminal: "Autor do Fato: Nome" ou "Suposto Autor do Fato: Nome" ou "Infrator: Nome"
+      // Padrão 1: Tópicos expressos de polo passivo na Petição Inicial ou Capa: "Requerido(a): Nome", "Promovido(a): Nome", "Polo Passivo: Nome", "Réu: Nome"
+      /(?:polo\s+passivo|promovid[oa](?:\([^\)]+\)|s)?|requerid[oa](?:\([^\)]+\)|s)?|executad[oa](?:\([^\)]+\)|s)?|embargad[oa](?:\([^\)]+\)|s)?|impetrad[oa](?:\([^\)]+\)|s)?|r[eé]u(?:\/r[eé])?|autor(?:a)?\s+do\s+fato|infrator(?:a)?|acusad[oa]|investigad[oa])\s*[:\-\n]+\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=\s*(?:\r?\n\s*(?:polo\s+ativo|promovente|requerente|autor|embargante|executado|v[ií]tima|ofendid|cpf|cnpj|advogad|procurad|ação|autos|juiz|3\.|4\.|advogado|oab|valor|comarca|vara)|,\s*(?:pessoa\s+jur[ií]dica|inscrit|brasileir|portador|com\s+sede|residente|qualificad)|$))/i,
+
+      // Padrão 2: Preâmbulo da Petição Inicial - "em face de / do / da", "em desfavor de / do / da", "contra" (com ou sem dois pontos, com ou sem quebra de linha)
+      /(?:em\s+face\s+d[eao]s?|em\s+desfavor\s+d[eao]s?|desfavor\s+d[eao]s?|contra\s+(?:o|a|os|as)?)\s*[:\-]?\s*\n?\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=\s*(?:,\s*(?:partes?\s+)?devidamente|,\s*(?:pessoa\s+jur[ií]dica|inscrit[oa]|brasileir[oa]|portador[oa]|com\s+sede|residente|maior|domiciliad|ambos|tombad)|,\s*qualificad|\s+devidamente\s+qualificad|\s+pessoa\s+jur[ií]dica|\s+inscrit[oa]\s+no\s+(?:cnpj|cpf)|\s+brasileir[oa]|\s+visando|\s+pretendendo|\r?\n\s*\r?\n|\r?\n\s*(?:pelos?\s+fatos|vem|perante|vem\s+respeitosamente)|$))/i,
+
+      // Padrão 3: "ação ... deflagrada / proposta / movida em face de / contra NOME"
+      /(?:instaurad[oa]|propost[oa]|ajuizad[oa]|promovid[oa]|movid[oa]|deflagrad[oa])\s+(?:por\s+[^\n,]+?\s+)?(?:em\s+face\s+d[eao]s?|contra|em\s+desfavor\s+d[eao]s?)\s*[:\-]?\s*([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=[,\n]|\s+qualificad|\s+pessoa\s+jur[ií]dica|\s+visando)/i,
+
+      // Padrão 4: Padrão específico para TCO / JECRIM / Criminal: "Autor do Fato: Nome" ou "Suposto Autor do Fato: Nome" ou "Infrator: Nome"
       /(?:autor(?:a)?\s+do\s+fato|supost[oa]\s+autor(?:a)?(?:\s+do\s+fato)?|infrator(?:a)?|noticiad[oa]|indiciad[oa]|investigad[oa]|acusad[oa]|denunciad[oa]|querelad[oa]|envolvido(?:\s*\(autor\s+do\s+fato\))?)(?:\s*\([^\)]+\))?\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=\s*(?:\n|v[ií]tima|ofendid|noticiante|comunicante|promovente|cpf|cnpj|advogad|autos|$))/i,
-      // Padrão Capa TJGO / PROJUDI com quebra de linha ou dois pontos: "Polo Passivo\nNOME DA ENTIDADE OU RÉU"
-      /(?:polo\s+passivo|promovid[oa]|requerid[oa]|executad[oa]|embargad[oa]|impetrad[oa]|autor(?:a)?\s+do\s+fato|infrator(?:a)?|acusad[oa]|investigad[oa])\s*[:\-\n]+\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=\s*(?:\n\s*(?:polo\s+ativo|promovente|requerente|autor|embargante|executado|v[ií]tima|ofendid|cpf|cnpj|advogad|procurad|ação|autos|juiz|3\.|4\.|advogado|oab)|$))/i,
-      // "Réu / Ré: Nome"
+
+      // Padrão 5: "Réu / Ré: Nome"
       /(?:réu|ré)\s*[:\-]\s*([A-ZÁ-Ú][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?=\s*(?:\n|autor|promovente|requerente|v[ií]tima|cpf|cnpj|advogad|$))/i,
-      // "em face de / desfavor de / contra NOME"
-      /(?:em\s+face\s+d[eao]s?|contra\s+(?:o|a)?|desfavor\s+d[eao]s?)\s+([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?:\s*,\s*(?:partes?\s+)?devidamente|\s*,\s*qualificad|\s*,\s*ambos|\s*,\s*tombad|\s*,\s*todos|[,\.\n]|\s+visando|\s+pretendendo)/i,
-      // Dispositivo anterior: "condenar o réu NOME a pagar..."
+
+      // Padrão 6: Dispositivo anterior: "condenar o réu NOME a pagar..."
       /(?:condenar\s+(?:o|a)?\s+(?:requerid[oa]|promovid[oa]|demandad[oa]|executad[oa]|réu|ré)?\s*)([A-ZÁ-Ú\d][A-Za-zÁ-Úá-ú0-9\s\.\-\&\/]{3,140}?)(?:\s+(?:a|ao|para|em)\s+pagar|\s*,\s*a\s+pagar|[,\.\n])/i
     ];
 

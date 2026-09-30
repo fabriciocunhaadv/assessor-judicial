@@ -1564,6 +1564,27 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Extração Robusta da Parte Ré na Petição Inicial */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Extração Robusta da Parte Ré na Petição Inicial</span>
+                          <span className="bg-sky-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">POLO PASSIVO INICIAL</span>
+                        </h3>
+                        <time className="text-xs font-mono text-sky-800 dark:text-sky-400 font-medium">Setembro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Captura Fiel do Preâmbulo da Inicial:</strong> Reconhecimento inteligente da parte ré qualificada pelo advogado na Petição Inicial (em face de, desfavor de, contra, requerido, promovido), aceitando dois pontos, quebras de linha e abreviações societárias (S.A., LTDA.).<br />
+                        • <strong>Resiliência à Ausência de Capa:</strong> Quando a capa do tribunal (Projudi/PJe) não contiver o polo passivo ou constar como &quot;A Identificar&quot;, os dados da petição inicial suprem o cadastro imediatamente.<br />
+                        • <strong>Correção de Placeholder Visual:</strong> Eliminação do texto genérico anterior, mantendo a coerência processual da identificação na petição inicial.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Leitura Integral da Marcha Processual & Coerência Decisória Contemporânea */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
