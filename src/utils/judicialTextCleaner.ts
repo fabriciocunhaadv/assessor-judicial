@@ -240,15 +240,15 @@ export function extractJudicialActionName(text: string): string | null {
 export function filterInnocuousCertificates(rawText: string): string {
   if (!rawText || typeof rawText !== "string") return "";
 
-  // 1. Remove blocos inteiros de comprovantes de intimação eletrônica pura / leitura automática
+  // 1. Remove blocos de comprovantes de intimação eletrônica pura / leitura automática sem apagar delimitadores de arquivos
   let filtered = rawText.replace(
-    /(?:\[===.*?===\]\s*)?(?:CERTID[AÃ]O\s+DE\s+(?:INTIMA[CÇ][AÃ]O\s+(?:CUMPRIDA|ELETR[OÔ]NICA)|LEITURA\s+AUTOM[AÁ]TICA|VISUALIZA[CÇ][AÃ]O\s+DO\s+PROCESSO|REMESSA\s+AO\s+DJE)[^\n]*\n)(?:[^\n]+\n){1,15}?(?=(?:\[===|Movimenta[cç][aã]o|Evento|Arquivo|\n\n##|\n\nI\s+-|$))/gi,
+    /(?:CERTID[AÃ]O\s+DE\s+(?:INTIMA[CÇ][AÃ]O\s+(?:CUMPRIDA|ELETR[OÔ]NICA)|LEITURA\s+AUTOM[AÁ]TICA|VISUALIZA[CÇ][AÃ]O\s+DO\s+PROCESSO|REMESSA\s+AO\s+DJE)[^\n]*\n)(?:[^\n]+\n){1,10}?(?=(?:\[===|Movimenta[cç][aã]o|Evento|Arquivo|\n\n##|\n\nI\s+-|$))/gi,
     ""
   );
 
   // 2. Remove avisos de suspensão de expediente / feriados regimentais do tribunal
   filtered = filtered.replace(
-    /(?:CERTID[AÃ]O\s+DE\s+SUSPENS[AÃ]O\s+DE\s+EXPEDIENTE|CERTID[AÃ]O\s+DE\s+FERIADO[^\n]*\n)(?:[^\n]+\n){1,10}?(?=(?:\[===|Movimenta[cç][aã]o|Evento|Arquivo|\n\n##|$))/gi,
+    /(?:CERTID[AÃ]O\s+DE\s+SUSPENS[AÃ]O\s+DE\s+EXPEDIENTE|CERTID[AÃ]O\s+DE\s+FERIADO[^\n]*\n)(?:[^\n]+\n){1,8}?(?=(?:\[===|Movimenta[cç][aã]o|Evento|Arquivo|\n\n##|$))/gi,
     ""
   );
 

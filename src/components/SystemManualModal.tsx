@@ -1564,6 +1564,28 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Calibração Universal Multimatéria, Tutela Provisória Pendente & Monitoramento Forense */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Calibração Universal Multimatéria, Tutela Provisória Pendente & Telemetria Forense</span>
+                          <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">CALIBRAÇÃO UNIVERSAL</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Regra Soberana de Congruência & Tutela Provisória Pendente:</strong> Vedação absoluta de presumir ou inventar decisões interlocutórias prévias inexistentes. Havendo pedido de tutela de urgência ou liminar deduzido na inicial (alimentos provisórios, guarda, liminares possessórias, medicamentos/saúde, sustação de protesto, cautelares) pós-emenda ou na fase inicial, o ato é OBRIGATORIAMENTE formalizado como <strong>DECISÃO INTERLOCUTÓRIA</strong> (com TPU CNJ de tutela concedida/indeferida), sendo vedado rebaixar para mero despacho de citação.<br />
+                        • <strong>Protocolo Universal de Documentos Externos e Prova Emprestada:</strong> Garantia de catalogação e valoração probatória integral de peças de outros juízos ou órgãos (Decisões Criminais de outras varas, Medidas Protetivas da Lei Maria da Penha, Laudos do IML, Inquéritos, Boletins de Ocorrência, Pareceres do NATJus, decisões do TCE). Em ações de família, a prova criminal/medidas protetivas afasta expressamente a guarda compartilhada (art. 1.584, § 2º, CC) e fundamenta a guarda unilateral provisória.<br />
+                        • <strong>Blindagem Visual & ErrorBoundary de Recuperação no Carregamento de PDFs:</strong> Implementação de proteção contra intercorrências de tela na leitura de autos extensos, conferindo blindagem de renderização com checagem nula no seletor de lotações e comarca ativa.<br />
+                        • <strong>Caixa-Preta Forense de Telemetria de PDFs em Produção:</strong> Módulo de telemetria contínua que registra em tempo real a ficha técnica de cada execução de PDF em produção (páginas lidas, caracteres extraídos, movimentos/eventos mapeados, peças anexadas e diagnósticos de integridade), viabilizando auditoria e calibração instantânea.
+                      </p>
+                    </div>
+                  </div>
+                  
                   {/* Item: Blindagem do Pool de Chaves Ilimitado, Soberania do Dispositivo e Fidelidade Factual Estrita */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
@@ -4255,7 +4277,23 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Item Mais Recente: Taxonomia Normativa & Pesquisa Legislativa Integrada */}
+                  {/* Item Mais Recente: Calibração Universal de Decisões Interlocutórias & Tutelas Provisórias */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Gavel className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200">Calibração Universal de Decisões & Enfrentamento de Pedidos Pendentes</h3>
+                        <time className="text-xs font-mono text-amber-600 dark:text-amber-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Aprimoramento abrangente da esteira decisória em todas as áreas do direito (Família, Cível, Consumidor, Fazenda Pública, Saúde e Juizados): eliminação de travas rígidas compulsórias em prol da <strong>leitura fidedigna dos fatos, relatos e provas dos autos (PDF)</strong>. Garante o <strong>enfrentamento integral e circunstanciado de 100% dos pedidos preliminares ou urgentes pendentes de apreciação</strong> através da interação dinâmica entre as leis de regência (CPC, CC, CDC, ECA, Lei 5.478/68 e microssistemas), as diretrizes do prompt ativo do gabinete e a jurisprudência vinculante (Súmulas e precedentes do TJGO, STJ e STF), com estruturação analítica dos requisitos da tutela de urgência e classificação exata de TPU CNJ (códigos 25, 480 e 26).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item Anterior: Taxonomia Normativa & Pesquisa Legislativa Integrada */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                       <BookOpen className="w-4 h-4" />

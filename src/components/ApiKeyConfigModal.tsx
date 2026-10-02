@@ -115,14 +115,31 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
       return;
     }
 
-    let keys = userProfile?.customApiKeys || [];
-    if (!Array.isArray(keys) || keys.length === 0) {
-      if (userProfile?.customApiKey && userProfile.customApiKey.length > 10) {
-         keys = [{ id: "key_primary", key: userProfile.customApiKey, label: "Chave Principal", createdAt: Date.now() }];
-      } else {
-         keys = getAllCustomApiKeys(currentUid);
-      }
+    const localKeys = getAllCustomApiKeys(currentUid);
+    const mergedMap = new Map<string, UserApiKeyItem>();
+    
+    // Insere chaves do Firestore do usuário
+    if (Array.isArray(userProfile?.customApiKeys)) {
+      userProfile.customApiKeys.forEach((k: any) => {
+        if (k && k.key && k.key.trim().length > 10) mergedMap.set(k.key.trim(), k);
+      });
     }
+    if (userProfile?.customApiKey && userProfile.customApiKey.trim().length > 10 && !mergedMap.has(userProfile.customApiKey.trim())) {
+      mergedMap.set(userProfile.customApiKey.trim(), {
+        id: "key_primary",
+        key: userProfile.customApiKey.trim(),
+        label: "Chave Principal",
+        createdAt: Date.now()
+      });
+    }
+    // Mescla com todas as chaves salvas localmente sem descartar nenhuma
+    localKeys.forEach((k) => {
+      if (k && k.key && k.key.trim().length > 10 && !mergedMap.has(k.key.trim())) {
+        mergedMap.set(k.key.trim(), k);
+      }
+    });
+
+    const keys = Array.from(mergedMap.values());
     setApiKeyList(keys);
 
     let active = userProfile?.isCustomKeyActive;

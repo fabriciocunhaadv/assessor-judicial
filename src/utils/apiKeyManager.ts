@@ -389,24 +389,45 @@ export function syncApiKeyWithUserProfile(userProfile: UserProfile | null, uid?:
     return;
   }
 
-  // 1. Determine the desired active key and list based on Firestore
+  // 1. Determine the desired active key and list based on Firestore and local cache (merged without loss)
   let activeKeyToDispatch = "";
   let keysToDispatch: UserApiKeyItem[] = [];
 
+  const existingLocalKeys = getAllCustomApiKeys(currentUid);
+  const mergedMap = new Map<string, UserApiKeyItem>();
+
+  // Primeiro insere as chaves vindas do perfil no Firestore (se houver)
   if (userProfile.customApiKeys && Array.isArray(userProfile.customApiKeys) && userProfile.customApiKeys.length > 0) {
-    keysToDispatch = userProfile.customApiKeys;
+    userProfile.customApiKeys.forEach((k) => {
+      if (k && k.key && k.key.trim().length > 10) {
+        mergedMap.set(k.key.trim(), k);
+      }
+    });
     const activeItem = userProfile.activeKeyId 
       ? userProfile.customApiKeys.find(k => k.id === userProfile.activeKeyId) 
       : userProfile.customApiKeys[0];
     activeKeyToDispatch = activeItem?.key || userProfile.customApiKey || "";
   } else if (userProfile.customApiKey && userProfile.customApiKey.trim().length > 10) {
-    activeKeyToDispatch = userProfile.customApiKey.trim();
-    keysToDispatch = [{
+    const pKey = userProfile.customApiKey.trim();
+    mergedMap.set(pKey, {
       id: "key_primary",
-      key: activeKeyToDispatch,
+      key: pKey,
       label: "Chave Principal",
       createdAt: Date.now(),
-    }];
+    });
+    activeKeyToDispatch = pKey;
+  }
+
+  // Mescla com as chaves locais já existentes do usuário sem descartar nenhuma chave do rol
+  existingLocalKeys.forEach((k) => {
+    if (k && k.key && k.key.trim().length > 10 && !mergedMap.has(k.key.trim())) {
+      mergedMap.set(k.key.trim(), k);
+    }
+  });
+
+  keysToDispatch = Array.from(mergedMap.values());
+  if (!activeKeyToDispatch && keysToDispatch.length > 0) {
+    activeKeyToDispatch = keysToDispatch[0].key;
   }
 
   // 2. Sync to in-memory cache

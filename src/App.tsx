@@ -550,6 +550,7 @@ export default function App() {
     if (!textToScan.trim() || !allowedUnits || allowedUnits.length === 0) return null;
 
     for (const unit of allowedUnits) {
+      if (!unit || !unit.name) continue;
       const parts = unit.name.split("/").map((s) => s.trim().toLowerCase());
       const comarca = parts[0];
       if (comarca && comarca.length >= 4 && textToScan.toLowerCase().includes(comarca)) {
@@ -931,7 +932,7 @@ export default function App() {
         proceduralPhase: activePrompt.proceduralPhaseHint || (extractedMetadata?.hasSentencaProferida ? "recursal_ou_pos_sentenca" : "conhecimento"),
         actType: selectedActType !== "auto"
           ? selectedActType
-          : (activePrompt.actTypeHint || (activePrompt.title?.toLowerCase().includes("embargo") ? "embargos" : (extractedMetadata?.suggestedActType || "auto"))),
+          : (activePrompt.actTypeHint || (activePrompt.title?.toLowerCase().includes("embargo") ? "embargos" : "auto")),
         actSubtype: extractedMetadata?.pendingMatterDescription || "",
         processActsSummary,
         isExpertModeEnabled,
@@ -1647,7 +1648,7 @@ export default function App() {
                   </span>
                   <span className="text-xs text-amber-200/90 font-medium flex items-center gap-1">
                     <Scale className="w-3 h-3 text-amber-400" />
-                    {activeUnit.name}
+                    {activeUnit?.name || "Gabinete"}
                   </span>
                 </div>
                 <h2 className="text-sm sm:text-base font-bold text-white mt-0.5">

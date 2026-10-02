@@ -34,14 +34,16 @@ export const ProcessUnitSelector: React.FC<ProcessUnitSelectorProps> = ({
   // Check if detected unit matches any known unit in displayUnits
   const matchedDetectedUnit = detectedUnitName
     ? displayUnits.find((u) => {
+        if (!u || !u.name) return false;
         const cleanName = u.name.toLowerCase();
         const cleanDet = detectedUnitName.toLowerCase();
         return cleanName.includes(cleanDet) || cleanDet.includes(cleanName);
       })
     : null;
 
-  const showDetectedBadge =
-    matchedDetectedUnit && matchedDetectedUnit.id !== activeUnit.id;
+  const showDetectedBadge = Boolean(
+    matchedDetectedUnit && activeUnit && matchedDetectedUnit.id !== activeUnit.id
+  );
 
   return (
     <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 sm:p-3 space-y-2">

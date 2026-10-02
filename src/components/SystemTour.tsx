@@ -70,7 +70,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Passo 3: Seletor de Tipo de Minuta & Inserção dos Autos</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Utilize o seletor interativo para escolher o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão, Despacho ou Embargos)</strong>. No modo <em>Auto-Detectar</em>, a inteligência opera pelo <strong>Protocolo do Fio da Meada</strong> (Início da Lide &rarr; Cadeia das Últimas Decisões &rarr; Atos Posteriores &rarr; Estado Atual), com <strong>extração canônica e fidedigna de polos (Cível, Família, Fazenda e Criminal / TCO) e número CNJ</strong> diretamente da capa do Projudi/TJGO e do arquivo PDF. Em feitos criminais e Termos Circunstanciados de Ocorrência (TCO), identifica perfeitamente o <em>Autor do Fato / Infrator</em> no polo passivo e o <em>Ministério Público</em> ou <em>Vítima</em> no polo ativo, banindo ruídos de digitalização. Todas as minutas seguem o <strong>Guia Simples e Fácil do TJGO</strong> e o Pacto pela Linguagem Simples (STF/CNJ): sem "latinórios" ou arcaísmos, com ordem direta e máxima densidade fundamentadora.
+            Utilize o seletor interativo para escolher o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão, Despacho ou Embargos)</strong>. No modo <em>Auto-Detectar</em>, a inteligência opera pelo <strong>Protocolo do Fio da Meada</strong> sem travas compulsórias, com leitura fidedigna dos fatos, relatos e provas do PDF e <strong>enfrentamento integral e circunstanciado de 100% dos pedidos preliminares ou urgentes pendentes de deliberação</strong> em qualquer ramo do direito (Família, Cível, Consumidor, Fazenda Pública, Saúde e Juizados). Articula dinamicamente a legislação de regência (CPC, CC, CDC, ECA, Lei 5.478/68 e microssistemas), as diretrizes do prompt ativo do gabinete e a jurisprudência vinculante (Súmulas e precedentes do TJGO, STJ e STF), com extração canônica de polos e vinculação soberana de TPU CNJ (códigos 25, 480, 26, 219, 220, 221 e 60). Todas as minutas seguem o <strong>Guia Simples e Fácil do TJGO</strong> e o Pacto pela Linguagem Simples (STF/CNJ): sem "latinórios" ou arcaísmos, com ordem direta e máxima densidade fundamentadora.
           </p>
         </div>
       ),
@@ -203,10 +203,10 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       content: (
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-indigo-800 flex items-center gap-1.5">
-            <span>Painel Super Admin & Telemetria por Módulo 🏢</span>
+            <span>Painel Super Admin, Telemetria Forense de PDFs & Monitoramento 🏢</span>
           </h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Módulo executivo global com rateio detalhado de consumo de tokens e custos financeiros (R$ e USD) por funcionalidade específica (<em>Minutas Judiciais</em>, <em>Mesa de Audiência</em>, <em>Lupa do Magistrado</em> e <em>Chat & Refino Jurídico</em>), matriz comparativa Gabinetes x Módulos, log em tempo real de requisições de IA e monitoramento de cotas do pool de chaves dos assessores.
+            Módulo executivo global com rateio detalhado de consumo de tokens e custos financeiros (R$ e USD) por funcionalidade específica, matriz comparativa Gabinetes x Módulos, log em tempo real de requisições de IA e <strong>Caixa-Preta Forense de PDFs em Produção</strong> (rastreamento de páginas, caracteres, movimentos capturados e diagnósticos da calibração universal multimatéria em tempo real).
           </p>
         </div>
       ),

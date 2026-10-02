@@ -40,22 +40,28 @@ DIRETRIZES DE RIGOR JURÍDICO, EXAUSTIVIDADE E EXTRAÇÃO PROBATÓRIA (ART. 489,
    - Sempre que invocar súmulas do STJ, STF ou TJGO, TRANSCREVA O ENUNCIADO COMPLETO da súmula em bloco destacado ('> "Súmula nº ...'").
    - Sempre que aplicar teses vinculantes do Caderno de Teses do Gabinete, TRANSCREVA A TESE em bloco destacado e aplique-a expressamente ao caso concreto.
 
-5. REGRA INTRÍNSECA DOS 7 BLOCOS OBRIGATÓRIOS DA FUNDAMENTAÇÃO JUDICIAL (ART. 489, § 1º, DO CPC):
-   - A 'fundamentacao' DEVE ser estruturada obrigatoriamente nos seguintes 7 blocos substantivos e densos, identificados por subtópicos Markdown ('### 1. ...', '### 2. ...'), com proibição absoluta de parágrafos telegráficos, sucintos ou genéricos:
+5. ESTRUTURAÇÃO DA FUNDAMENTAÇÃO JUDICIAL CONFORME O TIPO DO ATO (ART. 489, § 1º, DO CPC):
+   A 'fundamentacao' DEVE ser estruturada em subtópicos Markdown ('### 1. ...', '### 2. ...'), com proibição absoluta de parágrafos telegráficos, sucintos ou genéricos:
+   - SE O ATO FOR DECISÃO INTERLOCUTÓRIA (Tutela de Urgência / Liminar / Alimentos / Cautelar / Pedidos não decididos):
+     Estruturada nos subtópicos próprios da tutela provisória e preliminares:
+     ### 1. DA ADMISSIBILIDADE E GRATUIDADE DA JUSTIÇA (análise circunstanciada da prova de renda/contracheques e arts. 98 e 99 do CPC).
+     ### 2. DA TUTELA DE URGÊNCIA (exame dogmático da probabilidade do direito / fumus boni iuris, perigo de dano ou risco ao resultado útil / periculum in mora, reversibilidade, confronto probatório detalhado dos autos e fixação de parâmetros operacionais: percentuais sobre rendimentos líquidos, base de cálculo em folha, pensão subsidiária em caso de desemprego ou prazos e astreintes).
+     ### 3. [DEMAIS PEDIDOS PRELIMINARES OU URGENTES CONEXOS] (ex: guarda unilateral provisória e convivência sob a égide da Lei 14.713/2023 e art. 1.584 do CC; ou ordem de abstenção/desbloqueio no CDC; ou medidas cautelares).
+     ### 4. DA DESIGNAÇÃO DE AUDIÊNCIA DE MEDIAÇÃO/CONCILIAÇÃO E CITAÇÃO (arts. 334 ou 695 do CPC / Juizados / prazos de resposta).
+     (É expressamente VEDADO incluir sucumbência e honorários do art. 85 do CPC em decisões interlocutórias).
+   - SE O ATO FOR SENTENÇA (Julgamento de Mérito ou Extinção):
+     Estruturada nos 7 blocos obrigatórios de mérito:
      ### 1. DA REGULARIDADE PROCESSUAL, COMPETÊNCIA E GRATUIDADE DA JUSTIÇA
-     (Exame minucioso da legitimidade das partes, competência do juízo e deliberação fundamentada sobre o pedido de gratuidade da justiça ou recolhimento de custas nos arts. 98 e 99 do CPC).
      ### 2. DO EXAME INDIVIDUALIZADO DE TODAS AS PRELIMINARES E PREJUDICIAIS
-     (Apreciação analítica e motivada de CADA preliminar ou matéria prejudicial arguida na contestação ou matérias de ordem pública, com transcrição literal dos argumentos entre aspas. Proibido rejeitar em bloco ou de forma simplificada).
      ### 3. DO CERNE DA LIDE E DELIMITAÇÃO DAS QUESTÕES CONTROVERTIDAS
-     (Fixação cristalina das matérias fáticas e jurídicas em conflito entre o pleito autoral e a resistência da defesa).
      ### 4. DO REGIME JURÍDICO APLICÁVEL, NORMAS E SÚMULAS VINCULANTES
-     (Citação e transcrição em bloco destacado '> "Art. ..."' de artigos de lei, microssistemas normativos e enunciados das súmulas do STF, STJ e TJGO).
      ### 5. DO CONFRONTO FÁTICO-PROBATÓRIO DOCUMENTO A DOCUMENTO
-     (Exame individualizado de cada prova acostada aos autos com indicação obrigatória da tríplice localização: Mov. X, Arq. Y, Pág. Z / Fls. Z, e transcrição de trechos essenciais entre aspas).
      ### 6. DA APRECIAÇÃO EXAUSTIVA E VALORAÇÃO INDIVIDUALIZADA DE CADA PEDIDO
-     (Análise dedicada e separada para cada pedido formulado na inicial e na defesa/reconvenção, julgando motivadamente o acolhimento, rejeição ou procedência parcial com enfrentamento de todos os argumentos capazes de infirmar a conclusão).
-     ### 7. DOS CONSECTÁRIOS LEGAIS, JUROS E CORREÇÃO MONETÁRIA (LEI Nº 14.905/2024)
-     (Fixação estrita dos critérios de correção monetária e juros moratórios pela Lei nº 14.905/2024, verbas sucumbenciais, custas e honorários).
+     ### 7. DOS CONSECTÁRIOS LEGAIS, JUROS E CORREÇÃO MONETÁRIA (LEI Nº 14.905/2024), CUSTAS E HONORÁRIOS ADVOCATÍCIOS (ART. 85 DO CPC).
+   - SE O ATO FOR DECISÃO DE SANEAMENTO E ORGANIZAÇÃO (Art. 357 do CPC):
+     Estruturada nos incisos do art. 357 (1. Regularidade e preliminares; 2. Pontos controvertidos; 3. Ônus da prova; 4. Questões de direito; 5. Provas admitidas e designação de AIJ).
+   - SE O ATO FOR EMBARGOS DE DECLARAÇÃO (Art. 1.022 do CPC):
+     Estruturada nos subtópicos (1. Admissibilidade e tempestividade; 2. Exame dos vícios apontados; 3. Precedentes vinculantes).
    - DIRETRIZ MANDATÓRIA DE LINGUAGEM SIMPLES E ACESSÍVEL (GUIA SIMPLES E FÁCIL DO TJGO & PACTO NACIONAL DO JUDICIÁRIO PELA LINGUAGEM SIMPLES - STF/CNJ):
      * BANIMENTO DE LATINÓRIOS (EXPRESSÕES EM LATIM): É terminantemente PROIBIDO o emprego de expressões em latim (*in casu*, *fumus boni iuris*, *periculum in mora*, *ab initio*, *quantum debeatur*, *ex positis*, *data venia*, *inaudita altera parte*, *in albis*, *sub judice*, etc.). Substitua-as sempre por vernáculo límpido em língua portuguesa: "neste caso / no caso em apreço", "aparência do bom direito / probabilidade do direito", "perigo de dano ou risco ao resultado útil", "desde o início", "valor devido", "diante do exposto", "com o devido respeito", "sem oitiva prévia da parte contrária", "sem manifestação", etc.
      * SUPRESSÃO DE JURIDIQUÊS ARCAICO E ANACRÔNICO: É expressamente PROIBIDO o uso de vocábulos obsoletos e arcaísmos jurídicos (ex.: *hodiernamente*, *dessarte*, *destarte*, *outrossim*, *prefalado*, *guerreado*, *digladiar*, *peça vestibular*, *exordial*, *decisum*, *estribado*, *arrimado*, *ululante*, *sobejo*). Utilize português contemporâneo, sóbrio e direto: "atualmente / hoje", "portanto / assim / desse modo", "além disso", "mencionado", "discutido", "petição inicial", "decisão / sentença", "baseado / fundamentado", "evidente", etc.
@@ -77,7 +83,54 @@ DIRETRIZES DE RIGOR JURÍDICO, EXAUSTIVIDADE E EXTRAÇÃO PROBATÓRIA (ART. 489,
 9. DELIBERAÇÃO ESTRITA SOBRE O OBJETO DA PETIÇÃO INTERCORRENTE (SEM REPETIÇÃO INÓCUA DE DESPACHOS PRECLUSOS):
    - Quando os autos estiverem em fase de cumprimento de sentença ou após tentativas citatórias/intimatórias frustradas, e a petição versar sobre localização de devedores ou meios de comunicação processual (WhatsApp, pesquisas em sistemas SISBAJUD/INFOJUD/RENAJUD), o ato judicial DEVE se ater a apreciar os meios postulados (deferindo/indeferindo as pesquisas e a comunicação eletrônica nos termos requeridos), sem reabrir ou repetir provimentos inaugurais pretéritos de intimação para pagamento com multa do art. 523 do CPC já proferidos nos autos.`;
 
-function getActiveCabinetTeses(cabinetTesesText: any, isTesesEnabled: any) {
+function filterThesesByThematicRelevance(thesesText: string, caseContext: string): string {
+    if (!thesesText || typeof thesesText !== "string") return "";
+    const ctxLower = (caseContext || "").toLowerCase();
+    
+    // Identificação dos ramos principais do processo concreto
+    const isFamilia = ctxLower.includes("alimento") || ctxLower.includes("guarda") || ctxLower.includes("divórcio") || ctxLower.includes("divorcio") || ctxLower.includes("união estável") || ctxLower.includes("uniao estavel") || ctxLower.includes("menor") || ctxLower.includes("visitas") || ctxLower.includes("convivência") || ctxLower.includes("paternidade");
+    const isPenal = ctxLower.includes("crime") || ctxLower.includes("delito") || ctxLower.includes("penal") || ctxLower.includes("inquérito") || ctxLower.includes("tco") || ctxLower.includes("prisão") || ctxLower.includes("liberdade provisória") || ctxLower.includes("medidas protetivas");
+    const isFazendaSaude = ctxLower.includes("medicamento") || ctxLower.includes("cirurgia") || ctxLower.includes("leito de uti") || ctxLower.includes("tratamento médico") || ctxLower.includes("natjus") || ctxLower.includes("fazenda pública") || ctxLower.includes("município de") || ctxLower.includes("estado de goiás");
+    const isBancarioConsumidor = ctxLower.includes("empréstimo") || ctxLower.includes("emprestimo") || ctxLower.includes("cartão") || ctxLower.includes("cartao") || ctxLower.includes("consignado") || ctxLower.includes("rmc") || ctxLower.includes("rcc") || ctxLower.includes("tarifa bancária") || ctxLower.includes("seguro prestamista") || ctxLower.includes("negativação") || ctxLower.includes("spc") || ctxLower.includes("serasa");
+
+    // Divisão por blocos/tópicos de teses (ex: "I – ", "1. ", "## ", "== ")
+    const blocks = thesesText.split(/\n(?=(?:[I|V|X]+\s*[-–]|(?:\d+\.|\#\#|\=\=)\s*[A-ZÁ-Ú]))/);
+    if (blocks.length > 1) {
+        const relevantBlocks = blocks.filter(b => {
+            const bLow = b.toLowerCase();
+            // Se for Família, expurga teses bancárias de consignado/RMC/bancos
+            if (isFamilia && (bLow.includes("bancário") || bLow.includes("bancario") || bLow.includes("empréstimo consignado") || bLow.includes("emprestimo consignado") || bLow.includes("cartão rmc") || bLow.includes("rmc/rcc") || bLow.includes("tarifa bancária") || bLow.includes("instituição financeira"))) {
+                return false;
+            }
+            // Se for Penal, expurga teses de consumidor/bancos
+            if (isPenal && (bLow.includes("contratos bancários") || bLow.includes("contratos bancarios") || bLow.includes("empréstimo consignado") || bLow.includes("cartão rmc"))) {
+                return false;
+            }
+            // Se for Saúde/Fazenda, expurga teses bancárias
+            if (isFazendaSaude && (bLow.includes("contratos bancários") || bLow.includes("contratos bancarios") || bLow.includes("empréstimo consignado") || bLow.includes("cartão rmc"))) {
+                return false;
+            }
+            // Se for Bancário, expurga teses de família
+            if (isBancarioConsumidor && !isFamilia && (bLow.includes("guarda unilateral") || bLow.includes("alimentos provisórios") || bLow.includes("convivência paterno-filial"))) {
+                return false;
+            }
+            return true;
+        });
+
+        if (relevantBlocks.length > 0) {
+            return relevantBlocks.join("\n\n").trim();
+        }
+    }
+    
+    // Se a tese inteira for puramente bancária e a ação for de Família ou Penal, descarta para evitar poluição conceitual
+    if (isFamilia && (thesesText.toLowerCase().includes("contratos bancários") || thesesText.toLowerCase().includes("contratos bancarios") || thesesText.toLowerCase().includes("empréstimo consignado") || thesesText.toLowerCase().includes("emprestimo consignado")) && !thesesText.toLowerCase().includes("alimento") && !thesesText.toLowerCase().includes("família") && !thesesText.toLowerCase().includes("familia")) {
+        return "";
+    }
+
+    return thesesText;
+}
+
+function getActiveCabinetTeses(cabinetTesesText: any, isTesesEnabled: any, caseContext?: string) {
     if (isTesesEnabled === false) return "";
     if (typeof cabinetTesesText !== "string") return "";
     const raw = cabinetTesesText.trim();
@@ -93,7 +146,8 @@ function getActiveCabinetTeses(cabinetTesesText: any, isTesesEnabled: any) {
     });
 
     const cleaned = substantiveLines.join("\n").trim();
-    return cleaned.length > 20 ? cleaned : raw;
+    const effectiveBase = cleaned.length > 20 ? cleaned : raw;
+    return filterThesesByThematicRelevance(effectiveBase, caseContext || "");
 }
 
 const app = express();
@@ -1480,33 +1534,40 @@ async function generateWithFallbackAndRetry(options) {
         }
 
         let anyDemandOverloadedInCycle = false;
+        const permanentlyInvalidKeys = new Set<string>();
 
-        // Loop pelas chaves autorizadas do pool:
-        for (let kIdx = 0; kIdx < keyPool.length; kIdx++) {
-            const currentKey = keyPool[kIdx];
-            const isNative = process.env.GEMINI_API_KEY && currentKey === process.env.GEMINI_API_KEY.trim();
-            const maskedKey = isNative ? "Chave Nativa do Servidor" : (currentKey.length > 10 ? `${currentKey.substring(0, 6)}...${currentKey.substring(currentKey.length - 4)}` : "chave");
-            const ai = new GoogleGenAI({
-                apiKey: currentKey,
-                httpOptions: {
-                    timeout: modelTimeoutMs,
-                    headers: {
-                        'User-Agent': 'aistudio-build'
-                    }
+        // BLINDAGEM DO POOL DE CHAVES (SEM LIMITE DE QUANTIDADE DE CHAVES):
+        // Itera pela esteira de modelos (do mais profundo ao mais ágil: 3.8 -> 3.7 -> 3.6 -> 3.5 -> Flash Latest -> Lite).
+        // Em cada modelo, testa TODO o rol de chaves cadastradas do usuário (sejam 5, 8, 12 ou mais chaves em projetos distintos).
+        // Se uma chave atingir cota 429, comuta instantaneamente para a próxima chave do rol no mesmo modelo.
+        // Se todas as chaves do pool atingirem limite de cota naquele modelo específico, o sistema não desiste:
+        // ele transiciona todo o rol de chaves para o próximo modelo da esteira (ex: 3.7 ou 3.6 ou Flash Latest),
+        // assegurando que cotas isoladas por modelo não impeçam o assessor de concluir a minuta com sucesso!
+        for (let mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
+            const modelName = modelsToTry[mIdx];
+
+            for (let kIdx = 0; kIdx < keyPool.length; kIdx++) {
+                const currentKey = keyPool[kIdx];
+                if (permanentlyInvalidKeys.has(currentKey)) {
+                    continue;
                 }
-            });
-            let keyExhausted = false;
 
-            if (kIdx > 0) {
-                console.log(`[Assessor Judicial - Key Pool] Alternando automaticamente para a chave reserva ${kIdx + 1}/${keyPool.length} (${maskedKey})...`);
-            }
+                const isNative = process.env.GEMINI_API_KEY && currentKey === process.env.GEMINI_API_KEY.trim();
+                const maskedKey = isNative ? "Chave Nativa do Servidor" : (currentKey.length > 10 ? `${currentKey.substring(0, 6)}...${currentKey.substring(currentKey.length - 4)}` : "chave");
+                const ai = new GoogleGenAI({
+                    apiKey: currentKey,
+                    httpOptions: {
+                        timeout: modelTimeoutMs,
+                        headers: {
+                            'User-Agent': 'aistudio-build'
+                        }
+                    }
+                });
 
-            for (let mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
-                const modelName = modelsToTry[mIdx];
                 let timerHandle: any = null;
 
                 try {
-                    console.log(`[Assessor Judicial] Ciclo ${cycle}/${maxPipelineCycles} | Modelo ${modelName} | Chave ${kIdx + 1}/${keyPool.length} (${maskedKey}) [Limite Fila: ${modelTimeoutMs / 1000}s]`);
+                    console.log(`[Assessor Judicial - Pool de Chaves] Ciclo ${cycle}/${maxPipelineCycles} | Modelo ${modelName} | Chave ${kIdx + 1}/${keyPool.length} (${maskedKey}) [Limite Fila: ${modelTimeoutMs / 1000}s]`);
                     
                     const timeoutPromise = new Promise<never>((_, reject) => {
                         timerHandle = setTimeout(() => {
@@ -1535,13 +1596,13 @@ async function generateWithFallbackAndRetry(options) {
 
                     if (timerHandle) clearTimeout(timerHandle);
 
-                    // Sucesso! Registra metadados da chave vencedora
+                    // Sucesso absoluto! Registra metadados da chave vencedora
                     (response as any).usedKey = currentKey;
                     (response as any).usedKeyIndex = kIdx;
                     (response as any).wasRotated = kIdx > 0;
 
                     if (kIdx > 0) {
-                        console.log(`[Assessor Judicial - ROTAÇÃO COM SUCESSO] Requisição atendida com êxito pela chave reserva ${kIdx + 1}/${keyPool.length} (${maskedKey})!`);
+                        console.log(`[Assessor Judicial - ROTAÇÃO COM SUCESSO] Requisição atendida com êxito pela chave reserva ${kIdx + 1}/${keyPool.length} (${maskedKey}) no modelo ${modelName}!`);
                         if (options.res && !options.res.headersSent) {
                             try {
                                 options.res.setHeader('x-gemini-rotated-key', currentKey);
@@ -1598,86 +1659,52 @@ async function generateWithFallbackAndRetry(options) {
                     console.log(`[Assessor Judicial] Ciclo ${cycle}/${maxPipelineCycles} | Chave ${kIdx + 1}/${keyPool.length} (${maskedKey}) | Modelo ${modelName} -> ${statusReason}`);
 
                     if (isModelUnavailable) {
-                        continue; // Passa imediatamente ao próximo modelo
+                        break; // Modelo indisponível na API: passa ao próximo modelo da esteira para todas as chaves
                     }
 
-                    // Se for erro de autenticação ou invalidação de chave:
-                    if (isAuthError && kIdx < keyPool.length - 1) {
-                        console.log(`[Assessor Judicial - ROTAÇÃO IMEDIATA] Erro de autenticação na chave ${kIdx + 1}/${keyPool.length}. Rotacionando IMEDIATAMENTE para a chave ${kIdx + 2}...`);
-                        keyExhausted = true;
-                        break;
+                    // Se for erro permanente de autenticação na chave:
+                    if (isAuthError) {
+                        permanentlyInvalidKeys.add(currentKey);
+                        console.log(`[Assessor Judicial - CHAVE INVÁLIDA] Chave ${kIdx + 1}/${keyPool.length} (${maskedKey}) retornou 403. Marcada como inválida. Alternando para a próxima chave...`);
+                        continue;
                     }
 
-                    // Se a cota da chave esgotou (429 / RESOURCE_EXHAUSTED):
+                    // Se for erro de cota / rate limit (429):
                     if (isQuotaError) {
-                        const isDailyLimit = errMsg.includes("generate_requests_per_model_per_day") || errMsg.includes("per_day");
-                        
-                        // BLINDAGEM DA CHAVE NATIVA CORPORATIVA: A Chave Nativa NUNCA abandona prematuramente para chaves pessoais.
-                        // Ela percorre toda a esteira de modelos com ela própria (3.8 ➔ 3.7 ➔ 3.6 ➔ 3.5 ➔ Flash Latest ➔ Flash-Lite)
-                        if (isNative) {
-                            if (mIdx < modelsToTry.length - 1) {
-                                console.log(`[Assessor Judicial - Chave Nativa Corporativa] Oscilação temporária de cota/taxa no modelo ${modelName}. Transicionando imediatamente para o próximo modelo da esteira com a Chave Nativa: ${modelsToTry[mIdx + 1]}...`);
-                                await new Promise(r => setTimeout(r, 1500));
-                                continue;
-                            } else if (kIdx < keyPool.length - 1) {
-                                // Apenas após esgotar TODOS os modelos na Chave Nativa, caso haja chave reserva no pool:
-                                console.log(`[Assessor Judicial - Chave Nativa Concluída] Todos os modelos da esteira foram tentados com a Chave Nativa. Acionando contingência de chave reserva ${kIdx + 2}/${keyPool.length}...`);
-                                keyExhausted = true;
-                                break;
-                            } else {
-                                console.log(`[Assessor Judicial - Chave Nativa] Resfriando 5s antes do próximo ciclo na Chave Nativa corporativa...`);
-                                await new Promise(r => setTimeout(r, 5000));
-                            }
+                        if (kIdx < keyPool.length - 1) {
+                            console.log(`[Assessor Judicial - FAILOVER AUTOMÁTICO DE COTA] Cota da chave ${kIdx + 1}/${keyPool.length} esgotada no modelo ${modelName}. Alternando imediatamente para chave reserva ${kIdx + 2}/${keyPool.length}...`);
+                            continue; // Tenta a próxima chave cadastrada do usuário no mesmo modelo
                         } else {
-                            // Chave pessoal do usuário: se houver múltiplas chaves pessoais no pool, rotaciona para a próxima chave pessoal
-                            if (kIdx < keyPool.length - 1) {
-                                console.log(`[Assessor Judicial - ROTAÇÃO IMEDIATA CHAVE PESSOAL] Cota da chave ${kIdx + 1}/${keyPool.length} esgotada (429/RESOURCE_EXHAUSTED). Rotacionando IMEDIATAMENTE para a chave reserva ${kIdx + 2}...`);
-                                keyExhausted = true;
-                                break;
-                            } else if (isDailyLimit && mIdx < modelsToTry.length - 1) {
-                                console.log(`[Assessor Judicial - Cota Diária do Modelo] Cota diária esgotada no modelo ${modelName}. Alternando imediatamente para o próximo modelo da esteira...`);
-                                continue;
+                            // Todas as chaves do pool atingiram a cota neste modelo:
+                            if (mIdx < modelsToTry.length - 1) {
+                                console.log(`[Assessor Judicial - TRANSIÇÃO DA ESTEIRA] Todas as ${keyPool.length} chaves cadastradas atingiram a cota no modelo ${modelName}. Transicionando o pool completo para o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
+                                await new Promise(r => setTimeout(r, 1200));
+                                break; // Avança ao próximo modelo da esteira
                             } else {
-                                // Chave única ou pessoal: aplica resfriamento preventivo de cota (6 segundos) antes do próximo modelo contingencial
-                                console.log(`[Assessor Judicial - Resfriamento de Cota] Cota por minuto atingida (429 Rate Limit) no modelo ${modelName}. Aguardando 6s de resfriamento para recomposição da cota antes do próximo modelo...`);
-                                await new Promise(r => setTimeout(r, 6000));
+                                // Último modelo de todas as chaves: pausa preventiva para recomposição
+                                console.log(`[Assessor Judicial - Resfriamento de Cota] Cota atingida em todos os modelos. Aguardando 5s para recomposição da cota...`);
+                                await new Promise(r => setTimeout(r, 5000));
                             }
                         }
                     }
 
-                    // 503 Service Unavailable / Timeout na fila da Google / Overloaded:
+                    // Se for 503 / Timeout de fila do Google / Overloaded:
                     if (isDemandOverloaded) {
-                        // Se estiver com responseSchema restritivo, remove-o para aliviar o decodificador do Google para os próximos modelos
                         if (activeConfig && activeConfig.responseSchema) {
                             delete activeConfig.responseSchema;
                         }
-
-                        // PRESERVAÇÃO INTEGRAL DOS DOCUMENTOS E PROVAS (SEM CORTES OU DESCARTE DE PDF):
-                        // O conteúdo probatório dos autos (textos e anexos PDF em inlineData) é preservado 100% íntegro
-                        // nas tentativas subsequentes e contingências de modelos, sem condensação nem descarte de miolo.
-
-                        // PAUSA INTELIGENTE PREVENTIVA: Permite que o roteador de borda do Google redirecione para nós não sobrecarregados
-                        if (mIdx < modelsToTry.length - 1) {
-                            console.log(`[Assessor Judicial - Pausa Inteligente & Transição de Modelo] ${statusReason} em ${modelName}. Executando pausa preventiva inteligente (1.2s) e acionando o próximo modelo: ${modelsToTry[mIdx + 1]} com preservação integral de todos os documentos e provas...`);
-                            await new Promise(r => setTimeout(r, 1200));
-                            continue; // Avança ao próximo modelo com pausa preventiva inteligente
-                        }
-
-                        // Se todos os modelos desta chave sofreram timeout/503 e temos outra chave autorizada no pool
                         if (kIdx < keyPool.length - 1) {
-                            console.log(`[Assessor Judicial - 503/Fila Failover com Pausa Inteligente] Alta demanda/fila em todos os modelos na chave ${kIdx + 1}/${keyPool.length}. Pausa preventiva de 1.5s e rotacionando para chave ${kIdx + 2}...`);
-                            await new Promise(r => setTimeout(r, 1500));
-                            keyExhausted = true;
+                            console.log(`[Assessor Judicial - 503/Fila Failover] Oscilação na chave ${kIdx + 1}/${keyPool.length}. Tentando chave reserva ${kIdx + 2}/${keyPool.length}...`);
+                            await new Promise(r => setTimeout(r, 1000));
+                            continue;
+                        } else if (mIdx < modelsToTry.length - 1) {
+                            console.log(`[Assessor Judicial - Pausa Inteligente & Transição de Modelo] ${statusReason} em ${modelName}. Executando pausa preventiva (1.2s) e acionando o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
+                            await new Promise(r => setTimeout(r, 1200));
                             break;
                         }
                     }
 
-                    // Se não for demand overload, tenta o próximo modelo imediatamente
                     continue;
-                }
-
-                if (keyExhausted) {
-                    break; // Pula para a próxima chave do pool
                 }
             }
         }
@@ -1879,53 +1906,156 @@ function detectApplicableLegalFrameworks(context) {
     }];
 }
 
+export function checkIsDispositivoSentenca(text: string): boolean {
+    if (!text || typeof text !== 'string') return false;
+    const lower = text.toLowerCase();
+
+    // Salvaguarda: Se o dispositivo é de tutela provisória / liminar / decisão interlocutória inaugural
+    // (ex: defere tutela, alimentos provisórios, guarda provisória, citação e audiência) sem resolução definitiva da lide
+    const isExplicitInterlocutory = (
+        lower.includes("defiro a tutela") ||
+        lower.includes("concedo a tutela") ||
+        lower.includes("indefiro a tutela") ||
+        lower.includes("defiro o pedido de tutela") ||
+        lower.includes("indefiro o pedido de tutela") ||
+        lower.includes("acolho o pedido de tutela") ||
+        lower.includes("rejeito o pedido de tutela") ||
+        lower.includes("defiro o pedido liminar") ||
+        lower.includes("indefiro o pedido liminar") ||
+        lower.includes("defiro a medida liminar") ||
+        lower.includes("indefiro a medida liminar") ||
+        lower.includes("alimentos provisórios") ||
+        lower.includes("alimentos provisorios") ||
+        lower.includes("guarda provisória") ||
+        lower.includes("guarda provisoria") ||
+        lower.includes("guarda unilateral provisória") ||
+        lower.includes("fixo os alimentos provisórios") ||
+        lower.includes("fixo os alimentos provisorios") ||
+        lower.includes("tutela de urgência") ||
+        lower.includes("tutela de urgencia") ||
+        lower.includes("tutela provisória") ||
+        lower.includes("tutela provisoria") ||
+        lower.includes("decisão interlocutória") ||
+        lower.includes("decisao interlocutoria")
+    ) && (
+        lower.includes("cite-se") ||
+        lower.includes("intime-se") ||
+        lower.includes("audiência de conciliação") ||
+        lower.includes("audiencia de conciliacao") ||
+        lower.includes("audiência de mediação") ||
+        lower.includes("audiencia de mediacao") ||
+        lower.includes("art. 334") ||
+        lower.includes("art. 695") ||
+        lower.includes("apresentar contestação") ||
+        lower.includes("oficie-se à fonte pagadora") ||
+        lower.includes("ofício à fonte pagadora") ||
+        lower.includes("desconto em folha") ||
+        lower.includes("sob pena de multa") ||
+        lower.includes("astreintes")
+    ) && !(
+        lower.includes("julgo procedente a ação") ||
+        lower.includes("julgo improcedente a ação") ||
+        lower.includes("julgo parcialmente procedente a ação") ||
+        lower.includes("art. 487") ||
+        lower.includes("artigo 487") ||
+        lower.includes("art. 485") ||
+        lower.includes("artigo 485") ||
+        lower.includes("extingo o processo com") ||
+        lower.includes("extingo o processo sem")
+    );
+
+    if (isExplicitInterlocutory) {
+        return false;
+    }
+
+    return (
+        lower.includes("julgo procedente") || 
+        lower.includes("julgo improcedente") || 
+        lower.includes("julgo parcialmente procedente") ||
+        lower.includes("parcial procedência") ||
+        lower.includes("parcial procedencia") ||
+        lower.includes("parcialmente procedente") ||
+        lower.includes("julgo procedentes") ||
+        lower.includes("julgo improcedentes") ||
+        lower.includes("julga-se procedente") ||
+        lower.includes("julga-se improcedente") ||
+        lower.includes("julga-se parcialmente procedente") ||
+        lower.includes("declaro a procedência") ||
+        lower.includes("declaro a procedencia") ||
+        lower.includes("declaro a improcedência") ||
+        lower.includes("declaro a improcedencia") ||
+        (lower.includes("acolho o pedido") && !lower.includes("acolho o pedido de tutela") && !lower.includes("acolho o pedido liminar")) ||
+        (lower.includes("acolho os pedidos") && !lower.includes("acolho os pedidos de tutela") && !lower.includes("acolho os pedidos liminares")) ||
+        lower.includes("acolho em parte o mérito") ||
+        (lower.includes("rejeito o pedido") && !lower.includes("rejeito o pedido de tutela") && !lower.includes("rejeito o pedido liminar")) ||
+        (lower.includes("rejeito os pedidos") && !lower.includes("rejeito os pedidos de tutela") && !lower.includes("rejeito os pedidos liminares")) ||
+        lower.includes("resolução do mérito") ||
+        lower.includes("resolucao do merito") ||
+        lower.includes("resolvendo o mérito") ||
+        lower.includes("resolvendo o merito") ||
+        lower.includes("com resolução de mérito") ||
+        lower.includes("com resolucao de merito") ||
+        lower.includes("com resolução do mérito") ||
+        lower.includes("com resolucao do merito") ||
+        lower.includes("extingo o processo") ||
+        lower.includes("extinção do processo") ||
+        lower.includes("extincao do processo") ||
+        lower.includes("extinção do feito") ||
+        lower.includes("extincao do feito") ||
+        lower.includes("julgo extinto") ||
+        lower.includes("julga-se extinto") ||
+        lower.includes("julgo extinta") ||
+        lower.includes("condeno a parte ré a pagar") ||
+        lower.includes("condeno a parte requerida a pagar") ||
+        lower.includes("condeno o réu a pagar") ||
+        lower.includes("condeno o requerido a pagar") ||
+        lower.includes("condeno a reclamada a pagar") ||
+        lower.includes("art. 487") ||
+        lower.includes("artigo 487") ||
+        lower.includes("art. 485") ||
+        lower.includes("artigo 485")
+    );
+}
+
 function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo: string, rawTpu: any) {
     const dLower = (dispositivo || "").toLowerCase();
     const tLower = (title || "").toLowerCase();
 
     // SOBERANIA ABSOLUTA DO DISPOSITIVO JUDICIAL (ARTS. 203, 485 E 487 DO CPC):
-    // Se o dispositivo proferiu julgamento de mérito ("julgo procedente/improcedente", "resolução do mérito", art. 487/485),
-    // o ato é material e processualmente uma SENTENÇA, sobrepondo qualquer classificação prévia de despacho ou decisão.
-    const isSentencaByDispositivo = 
-        dLower.includes("julgo procedente") || 
-        dLower.includes("julgo improcedente") || 
-        dLower.includes("julgo parcialmente procedente") ||
-        dLower.includes("parcial procedência") ||
-        dLower.includes("parcial procedencia") ||
-        dLower.includes("resolução do mérito") ||
-        dLower.includes("resolucao do merito") ||
-        dLower.includes("resolvendo o mérito") ||
-        dLower.includes("com resolução de mérito") ||
-        dLower.includes("extingo o processo") ||
-        dLower.includes("extinção do feito") ||
-        dLower.includes("julgo extinto") ||
-        dLower.includes("art. 487") ||
-        dLower.includes("artigo 487") ||
-        dLower.includes("art. 485") ||
-        dLower.includes("artigo 485");
+    // Se o dispositivo julgou o mérito ou extinguiu a lide, o ato é SOBERANAMENTE uma SENTENÇA.
+    // É TERMINANTEMENTE PROIBIDO rotular a minuta como "DESPACHO" ou aplicar TPU de mero expediente (11010/60).
+    const isSentencaByDispositivo = checkIsDispositivoSentenca(dispositivo);
+    const isActSentenca = isSentencaByDispositivo || resolvedActType === "sentenca" || tLower.includes("senten");
+    const isActDecisao = !isActSentenca && (resolvedActType === "decisao" || tLower.includes("decis") || dLower.includes("tutela de urgência") || dLower.includes("tutela de urgencia") || dLower.includes("tutela provisória") || dLower.includes("liminar") || dLower.includes("alimentos provisórios") || dLower.includes("saneamento"));
 
+    // Validação estrita de TPU existente (rawTpu):
     if (rawTpu && typeof rawTpu === 'object' && rawTpu.codigoTpu && rawTpu.descricaoMovimento) {
+        const rawCode = String(rawTpu.codigoTpu).trim();
         const rawDesc = String(rawTpu.descricaoMovimento).toLowerCase();
         const rawTipo = String(rawTpu.tipoAto || "").toLowerCase();
-        const isRawDespacho = String(rawTpu.codigoTpu).trim() === "60" || rawDesc.includes("despacho") || rawTipo.includes("despacho");
+        const isRawDespacho = rawCode === "60" || rawCode === "11010" || rawDesc.includes("despacho") || rawTipo.includes("despacho") || rawDesc.includes("mero expediente");
 
-        // Se o dispositivo é de sentença, NUNCA permitir que a TPU de Despacho seja adotada
-        if (!(isSentencaByDispositivo && isRawDespacho)) {
+        // Se o ato for SENTENÇA, NUNCA admitir TPU de Despacho (11010 ou 60) nem de Decisão (3, 25, 26)!
+        if (isActSentenca && (isRawDespacho || rawCode === "3" || rawCode === "25" || rawCode === "26" || rawCode === "480")) {
+            // Rejeita o rawTpu incongruente e prossegue para a dedução soberana da Sentença abaixo
+        } else if (isActDecisao && isRawDespacho) {
+            // Rejeita TPU de despacho para decisão interlocutória
+        } else if (!isActSentenca || rawDesc.includes("senten") || rawTipo.includes("senten") || ["219", "220", "221", "22", "222", "230"].includes(rawCode)) {
             return {
-                codigoTpu: String(rawTpu.codigoTpu).trim(),
+                codigoTpu: rawCode,
                 descricaoMovimento: String(rawTpu.descricaoMovimento).trim(),
-                tipoAto: (rawTpu.tipoAto || (resolvedActType === 'decisao' ? 'Decisão Interlocutória' : resolvedActType === 'despacho' ? 'Despacho' : 'Sentença')),
+                tipoAto: (rawTpu.tipoAto || (isActSentenca ? 'Sentença' : isActDecisao ? 'Decisão Interlocutória' : 'Despacho')),
                 subtipoResultado: rawTpu.subtipoResultado || 'Definido no dispositivo',
-                prazoSecretaria: rawTpu.prazoSecretaria || (resolvedActType === 'sentenca' ? '15 dias úteis (Apelação/Recurso Inominado)' : resolvedActType === 'decisao' ? '15 dias úteis (Agravo de Instrumento)' : '5 dias úteis'),
+                prazoSecretaria: rawTpu.prazoSecretaria || (isActSentenca ? '15 dias úteis (Apelação/Recurso Inominado)' : isActDecisao ? '15 dias úteis (Agravo de Instrumento)' : '5 dias úteis'),
                 filaProjudi: rawTpu.filaProjudi || 'Aguardando Intimação das Partes',
                 observacoesLancamento: rawTpu.observacoesLancamento || 'Lançar movimentação e intimar as partes via sistema.'
             };
         }
     }
 
-    // 1. Sentenças
-    if (resolvedActType === "sentenca" || tLower.includes("senten") || isSentencaByDispositivo) {
-        if (dLower.includes("julgo parcialmente procedente") || dLower.includes("parcial procedência") || dLower.includes("parcialmente procedente")) {
+    // 1. Sentenças (Mérito ou Extinção - Arts. 487 e 485 do CPC)
+    if (isActSentenca) {
+        if (dLower.includes("julgo parcialmente procedente") || dLower.includes("parcial procedência") || dLower.includes("parcial procedencia") || dLower.includes("parcialmente procedente") || dLower.includes("acolho em parte") || dLower.includes("acolho parcialmente")) {
             return {
                 codigoTpu: "221",
                 descricaoMovimento: "Sentença - Julgamento com Resolução do Mérito - Procedência em Parte",
@@ -1936,7 +2066,7 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
                 observacoesLancamento: "Lançar código TPU 221 no PROJUDI. Intimar as partes para cumprimento ou recurso cabível."
             };
         }
-        if (dLower.includes("julgo improcedente") || dLower.includes("improcedência") || dLower.includes("improcedentes os pedidos")) {
+        if (dLower.includes("julgo improcedente") || dLower.includes("improcedência") || dLower.includes("improcedencia") || dLower.includes("improcedentes os pedidos") || dLower.includes("rejeito o pedido") || dLower.includes("rejeito os pedidos")) {
             return {
                 codigoTpu: "220",
                 descricaoMovimento: "Sentença - Julgamento com Resolução do Mérito - Improcedência",
@@ -1947,7 +2077,7 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
                 observacoesLancamento: "Lançar código TPU 220 no PROJUDI. Intimar a parte autora."
             };
         }
-        if (dLower.includes("julgo extinto sem") || dLower.includes("extinção sem resolução") || dLower.includes("sem julgamento do mérito") || dLower.includes("art. 485") || dLower.includes("indeferimento da petição inicial") || dLower.includes("falta de interesse") || dLower.includes("ilegitimidade")) {
+        if (dLower.includes("julgo extinto sem") || dLower.includes("extinção sem resolução") || dLower.includes("extincao sem resolucao") || dLower.includes("sem julgamento do mérito") || dLower.includes("sem julgamento do merito") || dLower.includes("sem resolução do mérito") || dLower.includes("sem resolucao do merito") || dLower.includes("art. 485") || dLower.includes("artigo 485") || dLower.includes("indeferimento da petição inicial") || dLower.includes("falta de interesse") || dLower.includes("ilegitimidade")) {
             return {
                 codigoTpu: "22",
                 descricaoMovimento: "Sentença - Extinção sem Resolução do Mérito (art. 485 CPC)",
@@ -1955,10 +2085,10 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
                 subtipoResultado: "Extinção sem Resolução do Mérito",
                 prazoSecretaria: "15 dias úteis",
                 filaProjudi: "Aguardando Trânsito em Julgado / Intimação",
-                observacoesLancamento: "Lançar código TPU 22 (ou 230). Verificar eventual condenação em custas processuais."
+                observacoesLancamento: "Lançar código TPU 22 (ou 230) no PROJUDI. Verificar eventual condenação em custas processuais."
             };
         }
-        if (dLower.includes("homologo o acordo") || dLower.includes("homologação de acordo") || dLower.includes("transação")) {
+        if (dLower.includes("homologo o acordo") || dLower.includes("homologação de acordo") || dLower.includes("homologacao de acordo") || dLower.includes("transação") || dLower.includes("transacao")) {
             return {
                 codigoTpu: "222",
                 descricaoMovimento: "Sentença - Homologação de Transação / Acordo",
@@ -1969,7 +2099,7 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
                 observacoesLancamento: "Lançar código TPU 222 no PROJUDI. Baixar prazos abertos."
             };
         }
-        // Default Sentença: Procedência Total
+        // Padrão Sentença: Procedência Total com Resolução do Mérito (TPU 219)
         return {
             codigoTpu: "219",
             descricaoMovimento: "Sentença - Julgamento com Resolução do Mérito - Procedência",
@@ -1982,8 +2112,28 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
     }
 
     // 2. Decisões Interlocutórias
-    if (resolvedActType === "decisao" || tLower.includes("decisão")) {
-        if (dLower.includes("defiro a tutela") || dLower.includes("concedo a tutela") || dLower.includes("defiro o pedido liminar") || dLower.includes("defiro a medida de urgência")) {
+    if (isActDecisao) {
+        const isDeferida = (
+            dLower.includes("defiro") ||
+            dLower.includes("concedo") ||
+            dLower.includes("acolho") ||
+            dLower.includes("fixo os alimentos") ||
+            dLower.includes("arbitro os alimentos") ||
+            dLower.includes("atribuo a guarda") ||
+            dLower.includes("concedida")
+        ) && (
+            dLower.includes("tutela") ||
+            dLower.includes("liminar") ||
+            dLower.includes("urgência") ||
+            dLower.includes("urgencia") ||
+            dLower.includes("alimento") ||
+            dLower.includes("guarda") ||
+            dLower.includes("medida") ||
+            dLower.includes("provisória") ||
+            dLower.includes("provisoria")
+        );
+
+        if (isDeferida) {
             return {
                 codigoTpu: "25",
                 descricaoMovimento: "Decisão - Concedida a Medida Liminar / Deferimento de Tutela Provisória",
@@ -1994,7 +2144,24 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
                 observacoesLancamento: "Lançar código TPU 25 no PROJUDI com prioridade. Expedir mandado/ofício à parte requerida com prazo cominatório fixado."
             };
         }
-        if (dLower.includes("indefiro a tutela") || dLower.includes("indefiro a liminar") || dLower.includes("indefiro o pedido de tutela") || dLower.includes("ausentes os requisitos")) {
+
+        const isIndeferida = (
+            dLower.includes("indefiro") ||
+            dLower.includes("rejeito") ||
+            dLower.includes("não concedo") ||
+            dLower.includes("nao concedo") ||
+            dLower.includes("ausentes os requisitos")
+        ) && (
+            dLower.includes("tutela") ||
+            dLower.includes("liminar") ||
+            dLower.includes("urgência") ||
+            dLower.includes("urgencia") ||
+            dLower.includes("alimento") ||
+            dLower.includes("guarda") ||
+            dLower.includes("medida")
+        );
+
+        if (isIndeferida) {
             return {
                 codigoTpu: "26",
                 descricaoMovimento: "Decisão - Não Concedida a Medida Liminar / Indeferimento de Tutela Provisória",
@@ -2005,6 +2172,7 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
                 observacoesLancamento: "Lançar código TPU 26 no PROJUDI. Citar e intimar para contestação ou audiência."
             };
         }
+
         if (dLower.includes("saneamento") || dLower.includes("saneador") || dLower.includes("fixo os pontos controvertidos") || dLower.includes("art. 357")) {
             return {
                 codigoTpu: "480",
@@ -2016,6 +2184,7 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
                 observacoesLancamento: "Lançar código TPU 480 no PROJUDI. Pautar instrução ou abrir vista ao perito."
             };
         }
+
         return {
             codigoTpu: "3",
             descricaoMovimento: "Decisão - Decisão Interlocutória",
@@ -2027,8 +2196,9 @@ function inferTpuCnjMovement(resolvedActType: string, title: string, dispositivo
         };
     }
 
-    // 3. Despachos
-    if (dLower.includes("emenda") || dLower.includes("emende-se") || dLower.includes("comprove a hipossuficiência") || dLower.includes("junte comprovante")) {
+    // 3. Despachos (Impulso oficial / Emenda)
+    // SÓ aplica TPU 60 se o ato FOR EFETIVAMENTE UM DESPACHO (nunca decisão nem sentença) e contiver ordem de emenda
+    if (!isActDecisao && !isActSentenca && (dLower.includes("emenda") || dLower.includes("emende-se") || dLower.includes("comprove a hipossuficiência") || dLower.includes("junte comprovante") || dLower.includes("regularize a representação"))) {
         return {
             codigoTpu: "60",
             descricaoMovimento: "Despacho - Despacho Proferido - Determinação de Emenda / Regularização",
@@ -2217,18 +2387,7 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
     // SOBERANIA DO DISPOSITIVO SOBRE O TÍTULO (Art. 203, § 1º, e Art. 487 do CPC):
     // Se o dispositivo julgou o mérito ou extinguiu a lide, o ato é materialmente SENTENÇA.
     // Corrige anacronismos em que a minuta julgou procedente/improcedente mas herdou título de "DESPACHO".
-    const dLowerCheck = (dispositivo || "").toLowerCase();
-    const isDispositivoSentenca = 
-        dLowerCheck.includes("julgo procedente") || 
-        dLowerCheck.includes("julgo improcedente") || 
-        dLowerCheck.includes("julgo parcialmente procedente") ||
-        dLowerCheck.includes("parcial procedência") ||
-        dLowerCheck.includes("resolução do mérito") ||
-        dLowerCheck.includes("resolucao do merito") ||
-        dLowerCheck.includes("art. 487") ||
-        dLowerCheck.includes("artigo 487") ||
-        dLowerCheck.includes("art. 485") ||
-        dLowerCheck.includes("artigo 485");
+    const isDispositivoSentenca = checkIsDispositivoSentenca(dispositivo);
 
     if (isDispositivoSentenca && (title.includes("DESPACHO") || actType === "despacho")) {
         title = "SENTENÇA";
@@ -2905,7 +3064,7 @@ Retorne de 1 a 3 precedentes oficiais aplicáveis (informando o tribunal, númer
     }
 }
 
-const activeTeses = getActiveCabinetTeses(cabinetTesesText, isTesesEnabled);
+const activeTeses = getActiveCabinetTeses(cabinetTesesText, isTesesEnabled, [accumulatedPdfText, safeProcessText, customPromptText, activePromptTitle].filter(Boolean).join(" "));
 const hasActiveParadigm = (isParadigmEnabled !== false) && Boolean(paradigmModelText && typeof paradigmModelText === "string" && paradigmModelText.trim().length > 0);
 
 // ETAPA 1 - System Instruction do Assessor Fático (Extração e Confronto Probatório Bruto):
@@ -2927,9 +3086,24 @@ REGRA MANDATÓRIA DE OBSERVAÇÃO DA MARCHA PROCESSUAL E CASO A CASO (ANÁLISE I
      - TARJAS E CERTIDÕES DE CONCLUSÃO (INDÍCIO FORTE, SEM CERTEZA CEGA): Se houver tarja ou certidão nos autos indicando "Conclusos para Sentença" (código TPU 51), "Conclusos para Decisão" (TPU 53) ou "Conclusos para Despacho" (TPU 52), considere como indício forte. Contudo, NÃO adote automatismo cego de 100%: confronte a tarja com a realidade dos autos (se a fase probatória realmente se encerrou ou se ainda há atos saneadores pendentes) para assegurar o ato processual correto.
      - SE JÁ HOUVE INSTRUÇÃO/LAUDO/PERÍCIA OU A CAUSA ESTÁ MADURA: O saneamento do Art. 357 do CPC é anterior à produção da perícia. Se o processo já superou a fase postulatória e a prova pericial/estudo técnico/audiência já foi realizada, ou se as partes não requereram outras provas, ou se houve alegações finais ou parecer de mérito do Ministério Público (em qualquer processo com intervenção do MP), a instrução probatória está encerrada e a lide está madura para SENTENÇA (Art. 355 / Art. 487 do CPC). É TERMINANTEMENTE PROIBIDO regredir os autos para decisão de saneamento se a prova técnica já foi produzida ou se a matéria está madura para julgamento final!
      - SE O PROCESSO DEMANDA DELIMITAÇÃO PROBATÓRIA: Se após contestação e réplica, o feito ainda estiver na fase prévia de fixar pontos controvertidos, julgar preliminares pendentes e deferir/indeferir provas: o ato cabível é DECISÃO DE SANEAMENTO E ORGANIZAÇÃO (Art. 357 do CPC).
-     - SE HOUVER PEDIDO LIMINAR/URGÊNCIA PENDENTE NA FASE INICIAL: DECISÃO INTERLOCUTÓRIA (Tutela de Urgência / Art. 300 do CPC).
-     - SE FOR FASE INICIAL SEM LIMINAR: DESPACHO de mero expediente / citação / emenda (Art. 321 ou 334 do CPC).
+     - SE HOUVER PEDIDO LIMINAR/URGÊNCIA PENDENTE NA FASE INICIAL (OU PÓS-EMENDA À INICIAL): DECISÃO INTERLOCUTÓRIA (Tutela de Urgência / Art. 300 do CPC / Art. 695 do CPC).
+     - SE FOR FASE INICIAL SEM NENHUM PEDIDO LIMINAR/URGÊNCIA: DESPACHO de mero expediente / citação / emenda (Art. 321 ou 334 do CPC).
      - SE HOUVER PETIÇÃO RECENTE DE EMBARGOS CONTRA DECISÃO/SENTENÇA: EMBARGOS DE DECLARAÇÃO.
+     * REGRA SOBERANA DE CALIBRAÇÃO E ENFRENTAMENTO DINÂMICO DE PEDIDOS NÃO DECIDIDOS (MULTIMATÉRIA: CÍVEL, FAMÍLIA, FAZENDA PÚBLICA, JUIZADOS, PENAL):
+       - VEDAÇÃO A TRAVAS COMPULSÓRIAS ARTIFICIAIS: A análise jurídica não se submete a travas forçadas ou presunções cegas; ela DEVE se ater estritamente aos fatos, relatos e provas constantes do processo e do PDF.
+       - LEVANTAMENTO EXAUSTIVO DE PEDIDOS PENDENTES: Identifique todos os pedidos preliminares ou urgentes deduzidos pelas partes (justiça gratuita, tutela de urgência/evidência, liminares, alimentos provisórios, guarda provisória, visitas, sustação de protesto, exclusão de cadastro restritivo, exibição, bloqueio/arresto cautelar, fornecimento de tratamentos/medicamentos, etc.).
+       - VERIFICAÇÃO DO HISTÓRICO DECISÓRIO: Se tais pedidos ainda NÃO foram enfrentados e decididos por decisão interlocutória prévia assinada (mesmo que tenha havido despacho anterior determinando emenda à inicial, certidão de juntada ou atos cartorários), TAIS PEDIDOS ESTÃO PENDENTES DE DELIBERAÇÃO JUDICIAL!
+       - É TERMINANTEMENTE PROIBIDO presumir, supor, deduzir ou inventar decisões interlocutórias prévias de deferimento de tutela provisória, gratuidade ou providências liminares que NÃO constem materialmente como documento formal assinado nos autos eletrônicos!
+       - NUNCA afirme ou presuma no Relatório ou Fundamentação que 'os pedidos urgentes já foram apreciados por decisão interlocutória pretérita' se essa decisão não existe nos autos!
+       - REGRA DO RETORNO DE CONCLUSÃO PÓS-EMENDA / FASE INICIAL: Se a parte autora deduziu na inicial pedido de TUTELA PROVISÓRIA (urgência ou evidência, alimentos provisórios, guarda provisória, liminar possessória, medicamentos/saúde, sustação de protesto, cautelar, etc.), e a única decisão anterior foi de emenda à inicial (art. 321 do CPC), OS PEDIDOS DE TUTELA PROVISÓRIA ESTÃO PENDENTES DE DELIBERAÇÃO JUDICIAL! O ato judicial é OBRIGATORIAMENTE UMA DECISÃO INTERLOCUTÓRIA (e NUNCA despacho de mero expediente de citação e NUNCA novo despacho repetitivo de emenda).
+       - ENFRENTAMENTO SUBSTANCIAL ATRAVÉS DA DINÂMICA DAS LEIS, PROMPTS, JURISPRUDÊNCIA E PROVAS:
+         * Enfrente cada pedido que carece de decisão apreciando os requisitos legais (art. 300 CPC, 98, CDC, etc.), as provas e fatos concretos trazidos no PDF, os prompts temáticos e a jurisprudência/teses vinculantes do gabinete;
+         * Se o ato for DECISÃO INTERLOCUTÓRIA: estruture a fundamentação nos subtópicos (### 1. Da Gratuidade da Justiça; ### 2. Da Tutela de Urgência [...]; ### 3. Demais Pedidos Conexos; ### 4. Da Audiência e Citação), sem incluir sucumbência do art. 85 do CPC;
+         * Se o ato for SENTENÇA: estruture nos 7 blocos obrigatórios de mérito.
+     * PROTOCOLO UNIVERSAL DE PROVAS DOCUMENTAIS E DOCUMENTOS EXTERNOS/EMPRESTADOS (UNIVERSAL):
+       - Em qualquer matéria (Cível, Família, Fazenda Pública, Juizados, Penal), as partes frequentemente acostam documentos de outros juízos ou órgãos (Decisões Criminais de outras varas, Medidas Protetivas da Lei Maria da Penha, Laudos do IML, Inquéritos Policiais, Boletins de Ocorrência, Pareceres do NATJus, decisões do TCE, processos administrativos).
+       - É TERMINANTEMENTE PROIBIDO descartar, ignorar ou tratar como 'ruído de cabeçalho' qualquer documento pelo simples fato de ostentar timbre ou cabeçalho de outro juízo/comarca. Todo documento externo acostado DEVE ser catalogado na Fundamentação e na Matriz de Fato vs Prova como PROVA DOCUMENTAL QUALIFICADA.
+       - Em ações de Família com pedido de guarda unilateral e visitas, a existência de decisão criminal/medidas protetivas no Mov. 1 ou nos autos afasta a presunção de guarda compartilhada (art. 1.584, § 2º, CC), fundamenta a guarda unilateral provisória em favor da mãe e impõe cautelas protetivas na regulamentação da convivência.
 2. MAPEAMENTO INTRÍNSECO DE 100% DOS PEDIDOS E PRELIMINARES:
    - Você DEVE identificar, extrair e catalogar exaustivamente todos os pedidos deduzidos na exordial (danos materiais, danos morais, obrigação de fazer/não fazer, repetição de indébito, rescisão contratual, etc.) e todas as preliminares e matérias de defesa da contestação (incompetência, ilegitimidade, inépcia, falta de interesse, prescrição, decadência, etc.).
    - É expressamente proibido resumir em bloco ou omitir pedidos secundários.
@@ -2978,7 +3152,7 @@ Você deve produzir a MINUTA PRELIMINAR FACTUAL estruturada em JSON contendo:
 - "pendingMatter": Descrição exata da questão que está pendente de julgamento nos autos;
 - "actType": Tipo do ato judicial adequado (EMBARGOS DE DECLARAÇÃO, DECISÃO INTERLOCUTÓRIA, DECISÃO DE SANEAMENTO E ORGANIZAÇÃO, SENTENÇA ou DESPACHO);
 - "relatorio": Relatório judicial completo, fidedigno e cronológico em 4 a 6 parágrafos densos (narrando detalhadamente todas as partes, pedidos, tutelas, certidões, contestações, réplicas, laudos e provas com a tríplice localização processual: Mov. X, Arq. Y, Pág. Z, acusando expressamente eventuais petições intercorrentes pendentes de homologação/apreciação);
-- "fundamentacao": Fundamentação jurídica fática e probatória exaustiva estruturada rigorosamente nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com 2 a 3 parágrafos aprofundados por bloco (totalizando no mínimo 14 a 20 parágrafos judiciais densos com citações literais entre aspas e tríplice localização Mov./Arq./Pág.), enfrentando 100% dos pedidos e preliminares;
+- "fundamentacao": Fundamentação jurídica fática e probatória exaustiva estruturada em subtópicos Markdown ('### 1. ...', '### 2. ...'), com proibição absoluta de fundamentação sucinta ou genérica. SE SENTENÇA: estruturada nos 7 blocos substantivos (regularidade/gratuidade, preliminares, cerne da lide, regime jurídico, confronto probatório, apreciação de pedidos e sucumbência). SE DECISÃO INTERLOCUTÓRIA / TUTELA PROVISÓRIA / INCIDENTES: estruturada no enfrentamento analítico e circunstanciado de 100% dos pedidos preliminares, liminares e tutelas de urgência pendentes de deliberação (### 1. Gratuidade/Competência; ### 2. Fumus Boni Iuris e Periculum in Mora - Art. 300 CPC e legislação especial; ### 3. Enfrentamento de Cada Pedido Urgente com fixação de valores, percentuais, contas, obrigações de fazer/não fazer, prazos e astreintes; ### 4. Caderno de Teses e Precedentes), com citação direta de eventos (Mov. X, Arq. Y, Pág. Z), transcrições literais entre aspas e aplicação dinâmica das leis, dos prompts e da jurisprudência;
 - "dispositivo": Dispositivo preliminar operacional com comandos claros e precisos adequados aos pedidos ou ao julgamento do recurso pendente, contendo a fixação operacional dos consectários legais (juros pela Selic deduzida e correção monetária pelo IPCA nos termos da Lei nº 14.905/2024).`;
 if (processActsSummary && typeof processActsSummary === "string" && processActsSummary.trim().length > 0) {
     stage1SystemInstruction += `\n\n[MEMÓRIA PROCESSUAL DO GABINETE • EVOLUÇÃO DOS ATOS PRÉVIOS DESTE MESMO PROCESSO]:\n${processActsSummary.trim()}\n`;
@@ -2998,20 +3172,26 @@ Sua missão é:
 1. LER a Minuta Preliminar Factual com atenção máxima aos eventos probatórios;
 2. CONFRONTÁ-LA com o CADERNO DE TESES DO GABINETE, as SÚMULAS VINCULANTES (STF, STJ, TNU e TJGO) e a MINUTA PARADIGMA (se ativada);
 3. REESCREVER e ADENSAR magistralmente a fundamentação ('fundamentacao') e o dispositivo ('dispositivo') aplicando as teses consolidadas do magistrado e a jurisprudência vinculante, sem perder a riqueza fática da Etapa 1;
-4. BLINDAGEM INTRÍNSECA DOS 7 BLOCOS OBRIGATÓRIOS DA FUNDAMENTAÇÃO:
-   - É expressamente PROIBIDO resumir, omitir ou suprimir qualquer um dos 7 blocos obrigatórios ou sintetizar a fundamentação em parágrafos genéricos.
-   - Mesmo operando sob modelos ágeis de contingência (Flash-Lite) ou chaves gratuitas, você DEVE preservar a divisão em subtópicos Markdown (### 1. a ### 7.), com formatação rica (negrito, itálico, citações em bloco '>' e indicação de Mov., Arq., Pág.).
-   - Você DEVE deliberar exaustivamente sobre CADA preliminar arguida na contestação e CADA pedido formulado na inicial.
+4. ESTRUTURAÇÃO SUBSTANTIVA DA FUNDAMENTAÇÃO CONFORME O ATO (ART. 489 DO CPC):
+   - É expressamente PROIBIDO sintetizar a fundamentação em parágrafos genéricos ou superficiais.
+   - Mesmo operando sob modelos ágeis de contingência (Flash-Lite) ou chaves gratuitas, você DEVE preservar a divisão em subtópicos Markdown ('### 1. ...', '### 2. ...'), com formatação rica (negrito, itálico, citações em bloco '>' e indicação de Mov., Arq., Pág.).
+   - SE SENTENÇA: você DEVE estruturar nos 7 blocos obrigatórios e deliberar exaustivamente sobre CADA preliminar arguida na contestação e CADA pedido formulado na inicial.
+   - SE DECISÃO INTERLOCUTÓRIA / TUTELA PROVISÓRIA / INCIDENTES: você DEVE deliberar e enfrentar fundamentadamente 100% de todos os pedidos preliminares, urgentes e pleitos ainda pendentes de apreciação formulados pelas partes, analisando probabilidade do direito, perigo de dano e medidas concretas com base estrita no acervo de provas do PDF/dossiê.
 5. GERAR a estrutura final ('minute') e a MATRIZ DE AUDITORIA FORENSE COMPLETA ('auditAnalysis': Fato vs Prova evento a evento, Competência, 6 Pilares de Integridade Documental, Normas Aplicadas, Legislação Mapeada, Consectários Detalhados e Pré-Auditoria).
-6. PROTOCOLO ANTI-INFERÊNCIA E FIDELIDADE TEXTUAL ESTRITA:
-   - É expressamente proibido resumir com fórmulas evasivas (como "foram debatidas pelas partes e pelo Ministério Público" ou "as partes manifestaram-se no feito").
+6. PROTOCOLO DE FIDELIDADE FACTUAL ESTRITA (ANTI-INFERÊNCIA NA PETIÇÃO INICIAL - ARTS. 2º, 141 E 492 DO CPC):
+   - É TERMINANTEMENTE PROIBIDO inferir, supor, deduzir, florear, modificar, embelezar, melhorar a redação ou complementar a narrativa da Petição Inicial (Mov. 1) ou das peças de defesa.
+   - O Relatório Judicial é o espelho fotográfico e rigorosamente fiel dos autos: relate com fidelidade estrita exatamente o que a parte autora afirmou na peça inaugural, nos exatos termos deduzidos, sem inventar nuances de relacionamentos afetivos, cronologias não documentadas, motivos psicológicos ou pedidos não deduzidos expressamente.
+   - Na revisão da Etapa 2, adensar o relatório NUNCA significa criar ou presumir fatos: significa detalhar com máxima exatidão as alegações reais das partes com transcrições literais entre aspas ("...") e tríplice citação (Mov. X, Arq. Y, Pág. Z).
+   - Proibição absoluta de fórmulas evasivas ou generalistas (ex: "debateram nos autos", "manifestaram-se no feito").
    - Registre expressamente o que cada parte sustentou com as respectivas Movimentações.
 7. EXTRAÇÃO QUALIFICADA DO MINISTÉRIO PÚBLICO (EM TODOS OS PROCESSOS COM ATUAÇÃO DO MP):
    - Em todo e qualquer feito com parecer ou intervenção do Ministério Público (Família, Sucessões, Infância, Fazenda Pública, Meio Ambiente, Curatela, etc.): preserve no Relatório um parágrafo próprio detalhado com a Mov., data, identificação do Promotor(a), juízo sobre o mérito (procedência, improcedência ou procedência parcial) e a TRANSCRIÇÃO LITERAL ENTRE ASPAS da conclusão do parecer ministerial, enfrentando os apontamentos na Fundamentação.
 8. BLINDAGEM CONTRA PROVAS FANTASMAS, PRECLUSÃO PRO JUDICATO E PROTOCOLO DO FIO DA MEADA:
    - O magistrado só delibera sobre provas efetivamente postuladas nos autos. Não crie indeferimentos de provas que ninguém requereu (ex: indeferir testemunhas inexistentes).
    - Se o laudo/perícia já foi produzido e as partes/MP manifestaram-se sobre ele, a instrução está exaurida e a causa está madura para SENTENÇA (não para saneamento).
-   - PRECLUSÃO E COERÊNCIA DECISÓRIA (ARTS. 505 E 507 DO CPC): O Juiz Revisor deve observar o Fio da Meada e a cadeia das últimas decisões proferidas pelo magistrado nos autos. É terminantemente proibido proferir decisão contraditória ou rediscutir matérias já acobertadas pela preclusão pro judicato, ou retroagir arbitrariamente aos primeiros movimentos dos autos para decidir liminares superadas.
+   - PRECLUSÃO E COERÊNCIA DECISÓRIA (ARTS. 505 E 507 DO CPC): O Juiz Revisor deve observar o Fio da Meada e a cadeia das últimas decisões proferidas pelo magistrado nos autos. É terminantemente proibido proferir decisão contraditória ou rediscutir matérias já acobertadas pela preclusão pro judicato, ou retroagir arbitrariamente aos primeiros movimentos dos autos para decidir liminares superadas em fases executórias ou pós-sentença.
+   - REGRA MANDATÓRIA DE TUTELA PROVISÓRIA PÓS-EMENDA (FASE INICIAL): Se a ação está na fase inaugural e a única decisão anterior foi de determinação de emenda à inicial (art. 321 do CPC), os pedidos de tutela de urgência/liminar NÃO foram apreciados. O retorno dos autos conclusos após o cumprimento da emenda EXIGE o julgamento da tutela provisória de urgência (deferimento ou indeferimento fundamentado). O ato é OBRIGATORIAMENTE UMA DECISÃO INTERLOCUTÓRIA! É expressamente PROIBIDO presumir falsamente que uma decisão pretérita inexistente já apreciou os pedidos urgentes!
+   - PROTOCOLO UNIVERSAL DE PROVAS DOCUMENTAIS E DOCUMENTOS EXTERNOS/EMPRESTADOS: Documentos provenientes de outras varas ou órgãos (Decisões Criminais, Medidas Protetivas da Lei Maria da Penha, Laudos do IML, Inquéritos Policiais, Boletins de Ocorrência, Pareceres do NATJus, decisões do TCE) anexados aos autos são PROVAS DOCUMENTAIS QUALIFICADAS. Em ações de família, a presença de decisão criminal/medidas protetivas no Mov. 1 afasta a guarda compartilhada (art. 1.584, § 2º, CC), justifica a guarda unilateral provisória materna e exige cautelas no regime de visitas.
    - SE O PROCESSO ESTIVER EM CURSO DE PRAZO: Caso a última movimentação seja uma intimação da parte sem conclusão ou decurso de prazo certificado, a minuta deve registrar com fidelidade essa situação no relatório e dispositivo, resguardando o tempo legal do contraditório e orientando a serventia sobre os atos futuros condicionados à inércia ou ao cumprimento.
 9. BLINDAGEM CONTRA OMISSÃO DE PETIÇÕES E REQUERIMENTOS INTERCORRENTES (ART. 493 DO CPC):
    - Confronte minuciosamente os autos para assegurar que nenhuma petição pendente de deliberação judicial (acordo/transação para homologação, pedido de desistência da ação ou de parte, documentos novos juntados, habilitação de herdeiros ou pedidos de prazo) reste sem apreciação motivada no Relatório ou no Dispositivo.
@@ -3020,7 +3200,7 @@ Sua missão é:
 11. PISO MÍNIMO DE EXTENSÃO E PROIBIÇÃO ABSOLUTA DE SÍNTESE/BREVIDADE (GRANDEZA INEGOCIÁVEL EM TODOS OS MODELOS):
    - É expressamente PROIBIDO enxugar, abreviar, condensar ou simplificar a minuta, inclusive quando processada por modelos ao final da esteira (como gemini-flash-latest ou variantes lite). A concisão telegráfica ou simplificação fática é considerada erro formal grave de técnica judicante. Não economize tokens ou espaço, preservando rigorosamente a grandeza, o piso e a profundidade dos modelos de raciocínio profundo da linha principal (gemini-3.8-flash).
    - PISO MÍNIMO DO RELATÓRIO: O 'relatorio' DEVE conter no mínimo 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha processual.
-   - PISO MÍNIMO DA FUNDAMENTAÇÃO: A 'fundamentacao' DEVE conter de 2 a 3 parágrafos profundos por subtópico nos 7 blocos obrigatórios (totalizando no mínimo 14 a 20 parágrafos judiciais densos e fundamentados), enfrentando exaustivamente cada preliminar, cada prova e cada pedido da exordial.
+   - PISO MÍNIMO DA FUNDAMENTAÇÃO: A 'fundamentacao' DEVE conter de 2 a 3 parágrafos profundos por subtópico, enfrentando exaustivamente todos os pedidos da exordial, preliminares pendentes, requisitos do art. 300 CPC se decisão interlocutória ou os 7 blocos substantivos se sentença, com densidade analítica e jurídica.
 12. PROTOCOLO DE ANCORAGEM PROBATÓRIA E TRANSCRIÇÕES LITERAIS OBRIGATÓRIAS:
    - Para impedir respostas genéricas ou abstratas, mantenha e amplie as TRANSCRIÇÕES LITERAIS ENTRE ASPAS dos autos: exordial, contestação, laudos periciais, contratos e parecer ministerial, além da transcrição em bloco destacado (>) de artigos de lei e enunciados de súmulas aplicados.
 13. CHECKLIST EXAUSTIVO DE DOCUMENTOS (SEM DESCARTAR NENHUM DADO DO PROCESSO):
@@ -3126,23 +3306,25 @@ while ((mMovMatch = movementRegex.exec(combinedTextLower)) !== null) {
     }
 }
 
-// Verifica se há termos e atos típicos de fases intermediárias ou adiantadas:
-const hasIntermediateOrLateActs = maxMovementFound > 5 || 
+// Verificação de fases executórias ou pós-sentença:
+const hasExecutionOrCompliancePhase = 
     combinedTextLower.includes("cumprimento de sentença") ||
     combinedTextLower.includes("execução de título") ||
     combinedTextLower.includes("processo de execução") ||
-    combinedTextLower.includes("expedição de mandado") ||
-    combinedTextLower.includes("mandado de intimação") ||
-    combinedTextLower.includes("certidão de publicação") ||
-    combinedTextLower.includes("trânsito em julgado") ||
-    combinedTextLower.includes("intimação da parte") ||
-    combinedTextLower.includes("intimação do autor") ||
-    combinedTextLower.includes("intimação da autora") ||
-    combinedTextLower.includes("aguarda cumprimento") ||
-    combinedTextLower.includes("decorrido o prazo") ||
-    combinedTextLower.includes("decurso de prazo");
+    combinedTextLower.includes("trânsito em julgado");
 
-const isOnlyInitialPetitionPresent = hasInitialPetition && !hasIntermediateOrLateActs && !hasContestacao && !hasAudiencia && !hasReplica;
+const hasPriorInterlocutoryDecisionOnRelief = (
+    /(?:defiro\s+a\s+tutela|indefiro\s+a\s+tutela|concedo\s+a\s+liminar|indefiro\s+a\s+liminar|fixo\s+os\s+alimentos\s+provisórios|atribuo\s+a\s+guarda\s+unilateral\s+provisória)/i.test(combinedTextLower)
+);
+
+// Se houver pedido de tutela de urgência / liminar que ainda NÃO foi apreciado por decisão anterior,
+// e NÃO há contestação nem sentença prévia nem execução, há pedido urgente pendente de apreciação:
+const hasPendingUrgentDecision = hasUrgentRequest && !hasPriorInterlocutoryDecisionOnRelief && !hasExecutionOrCompliancePhase;
+
+// Verifica se há termos e atos típicos de fases intermediárias ou adiantadas:
+const hasIntermediateOrLateActs = hasExecutionOrCompliancePhase || (maxMovementFound > 12 && hasContestacao);
+
+const isOnlyInitialPetitionPresent = hasInitialPetition && !hasContestacao && !hasAudiencia && !hasReplica;
 
 // Detecção Cronológica de Sentença Prévia e Embargos de Declaração Pendentes:
 const hasSentencaPrevia = (
@@ -3212,12 +3394,12 @@ if (userExplicitActType && userExplicitActType !== "auto" && !userExplicitActTyp
     console.log(`[Assessor Judicial] Prompt configurado para Embargos de Declaração. Enquadramento: EMBARGOS`);
 } else {
     // 2. MODO AUTO PRELIMINAR: ESTIMATIVA INICIAL (A SER REFINADA CASO A CASO NA ETAPA 1)
-    if (isOnlyInitialPetitionPresent) {
+    if (hasPendingUrgentDecision) {
+        resolvedActType = "decisao";
+        console.log(`[Assessor Judicial] Auto-detecção preliminar: Tutela provisória de urgência / pedidos pendentes não apreciados. Ato: DECISÃO INTERLOCUTÓRIA`);
+    } else if (isOnlyInitialPetitionPresent) {
         resolvedActType = hasUrgentRequest ? "decisao" : "despacho";
         console.log(`[Assessor Judicial] Auto-detecção preliminar: Fase inicial isolada. Ato: ${resolvedActType.toUpperCase()} (Tutela: ${hasUrgentRequest})`);
-    } else if (hasUrgentRequest && !hasContestacao && !hasIntermediateOrLateActs) {
-        resolvedActType = "decisao";
-        console.log(`[Assessor Judicial] Auto-detecção preliminar: Tutela de urgência pendente na fase inicial. Ato: DECISÃO`);
     } else if (hasSaneamentoPendente && !hasSentencaPrevia) {
         resolvedActType = "decisao";
         console.log(`[Assessor Judicial] Auto-detecção preliminar: Fase de saneamento pendente. Ato: DECISÃO DE SANEAMENTO`);
@@ -3406,7 +3588,11 @@ DIRETRIZES DE REDAÇÃO DA MINUTA:
      * Ponto 2 - Cadeia das Últimas Decisões Judiciais: narrar as decisões relevantes recentes proferidas pelo magistrado (ex: Movs. 70, 85, 89; saneador; penhora; emendas; cálculos), mantendo a coerência decisória e a preclusão dos atos já deferidos/indeferidos (arts. 505 e 507 do CPC);
      * Ponto 3 - Atos Subsequentes: o que as partes e a secretaria praticaram após essas decisões recentes (cumprimentos, inércias, certidões de citação/intimação com citação expressa dos eventos, ARQUIVOS E PÁGINAS);
      * Ponto 4 - Situação Presente: situação dos autos no momento atual (se há ato pendente de resolução judicial ou se o feito está em curso de prazo aguardando cumprimento de intimação pela parte).
-   - PROTOCOLO ANTI-INFERÊNCIA: É expressamente proibido resumir com fórmulas vagas (como "foram debatidas pelas partes e pelo Ministério Público" ou "manifestaram-se nos autos"). Descreva detalhadamente o que cada parte sustentou com as respectivas movimentações.
+   - PROTOCOLO DE FIDELIDADE FACTUAL ESTRITA (ANTI-INFERÊNCIA NA PETIÇÃO INICIAL):
+     * É TERMINANTEMENTE PROIBIDO inferir, supor, deduzir, florear, modificar, embelezar, melhorar a redação ou complementar os fatos, causas de pedir, danos e pedidos descritos na Petição Inicial (Mov. 1) ou nas contestações;
+     * O relato dos fatos da inicial DEVE ser o espelho estrito e fiel do que a parte autora expressamente redigiu, sem acréscimos de relações interpessoais, suposições fáticas, juízos morais ou cronologias não alegadas;
+     * Transcreva literalmente entre aspas ("...") os trechos essenciais da inicial e da contestação com citação de Mov., Arq. e Pág.;
+     * É expressamente proibido resumir com fórmulas vagas (como "foram debatidas pelas partes e pelo Ministério Público" ou "manifestaram-se nos autos"). Descreva detalhadamente o que cada parte sustentou com as respectivas movimentações.
    - EXTRAÇÃO QUALIFICADA DO PARECER DO MINISTÉRIO PÚBLICO (OBRIGATÓRIO EM TODOS OS PROCESSOS COM INTERVENÇÃO DO MP): Em qualquer matéria (Família, Sucessões, Infância, Fazenda Pública, Cível, Meio Ambiente, Interdição ou Registros Públicos), o relatório DEVE conter parágrafo autônomo indicando Mov., data, Promotor(a) de Justiça, sentido do parecer (procedência total, parcial ou improcedência) e a TRANSCRIÇÃO LITERAL ENTRE ASPAS da conclusão do parecer ministerial. Se o MP já opinou pelo mérito e a instrução está finda ou dispensada, o processo está maduro para SENTENÇA!
 
 2. FUNDAMENTAÇÃO MAGISTRAL, CAPITULAR E EXAUSTIVA (ART. 489, § 1º, DO CPC - NUNCA REDUZA OU SINTETIZE PARA ECONOMIZAR ESPAÇO):
@@ -3540,25 +3726,7 @@ if (!stage1Json.relatorio && !stage1Json.fundamentacao && !stage1Json.dispositiv
 }
 
 // SOBERANIA ABSOLUTA DO DISPOSITIVO SOBRE O TIPO DE ATO (ARTS. 203, 485 E 487 DO CPC):
-const s1DispLower = (stage1Json.dispositivo || "").toLowerCase();
-const isStage1DispositivoSentenca = 
-    s1DispLower.includes("julgo procedente") || 
-    s1DispLower.includes("julgo improcedente") || 
-    s1DispLower.includes("julgo parcialmente procedente") ||
-    s1DispLower.includes("parcial procedência") ||
-    s1DispLower.includes("parcial procedencia") ||
-    s1DispLower.includes("resolução do mérito") ||
-    s1DispLower.includes("resolucao do merito") ||
-    s1DispLower.includes("resolvendo o mérito") ||
-    s1DispLower.includes("com resolução de mérito") ||
-    s1DispLower.includes("extingo o processo") ||
-    s1DispLower.includes("extinção do processo") ||
-    s1DispLower.includes("extinção do feito") ||
-    s1DispLower.includes("julgo extinto") ||
-    s1DispLower.includes("art. 487") ||
-    s1DispLower.includes("artigo 487") ||
-    s1DispLower.includes("art. 485") ||
-    s1DispLower.includes("artigo 485");
+const isStage1DispositivoSentenca = checkIsDispositivoSentenca(stage1Json.dispositivo);
 
 if (isStage1DispositivoSentenca) {
     resolvedActType = "sentenca";
@@ -3568,19 +3736,30 @@ if (isStage1DispositivoSentenca) {
 } else if (!userExplicitActType || userExplicitActType === "auto" || userExplicitActType.includes("definir")) {
     const s1Act = (stage1Json.actType || "").toLowerCase();
     const s1Pending = (stage1Json.pendingMatter || "").toLowerCase();
+    const rawCaseTextSample = [accumulatedPdfText, safeProcessText].filter(Boolean).join("\n").toLowerCase();
+    
+    // Verificação Soberana de Tutela Provisória / Liminar Pendente (Cível, Família, Fazenda Pública, Juizados):
+    const hasPendingUrgentRelief = 
+      s1Pending.includes("liminar") || s1Pending.includes("tutela") || s1Pending.includes("alimento") || s1Pending.includes("guarda") || s1Pending.includes("urgência") || s1Pending.includes("urgencia") ||
+      s1Act.includes("liminar") || s1Act.includes("tutela") ||
+      ((rawCaseTextSample.includes("alimentos provisórios") || rawCaseTextSample.includes("alimentos provisorios") || rawCaseTextSample.includes("guarda provisória") || rawCaseTextSample.includes("guarda provisoria") || rawCaseTextSample.includes("tutela de urgência") || rawCaseTextSample.includes("tutela de urgencia") || rawCaseTextSample.includes("medida liminar") || rawCaseTextSample.includes("pedido liminar")) && !rawCaseTextSample.includes("cumprimento de sentença") && !rawCaseTextSample.includes("execução de título"));
     
     if (s1Act.includes("senten") || s1Pending.includes("senten") || s1Pending.includes("mérito") || s1Pending.includes("merito") || s1Pending.includes("julgar a ação") || s1Pending.includes("resolução da lide")) {
         resolvedActType = "sentenca";
         isSaneamentoDecision = false;
         console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): Processo maduro para SENTENÇA (${stage1Json.pendingMatter})`);
-    } else if (s1Act.includes("saneam") || s1Pending.includes("saneam") || s1Pending.includes("organização") || s1Pending.includes("organizacao")) {
-        resolvedActType = "decisao";
-        isSaneamentoDecision = true;
-        console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): Fase de SANEAMENTO E ORGANIZAÇÃO (${stage1Json.pendingMatter})`);
     } else if (s1Act.includes("embargo") || s1Pending.includes("embargo")) {
         resolvedActType = "embargos";
         isSaneamentoDecision = false;
         console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): EMBARGOS DE DECLARAÇÃO (${stage1Json.pendingMatter})`);
+    } else if (hasPendingUrgentRelief) {
+        resolvedActType = "decisao";
+        isSaneamentoDecision = false;
+        console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): DECISÃO INTERLOCUTÓRIA / TUTELA PROVISÓRIA PENDENTE (${stage1Json.pendingMatter})`);
+    } else if (s1Act.includes("saneam") || s1Pending.includes("saneam") || s1Pending.includes("organização") || s1Pending.includes("organizacao")) {
+        resolvedActType = "decisao";
+        isSaneamentoDecision = true;
+        console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): Fase de SANEAMENTO E ORGANIZAÇÃO (${stage1Json.pendingMatter})`);
     } else if (s1Act.includes("despach") || s1Pending.includes("despacho") || s1Act.includes("prazo") || s1Pending.includes("curso de prazo") || s1Pending.includes("aguardando cumprimento") || s1Pending.includes("aguardando decurso")) {
         resolvedActType = "despacho";
         isSaneamentoDecision = false;
@@ -3647,6 +3826,11 @@ III - DISPOSITIVO PRELIMINAR:
 ${stage1Json.dispositivo || "(Não informado)"}
 ======================================================
 
+ACERVO PROBATÓRIO E DOCUMENTOS RELEVANTES DOS AUTOS (CONFRONTO DIRETO COM O PDF):
+======================================================
+${(accumulatedPdfText || safeProcessText || "").substring(0, 160000)}
+======================================================
+
 COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
 1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL (PISO DE DENSIDADE E PROIBIÇÃO DE BREVIDADE):
    - Leia atentamente o Relatório e a Fundamentação Preliminar;
@@ -3654,7 +3838,7 @@ COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
    - COERÊNCIA COM A MARCHA PROCESSUAL: A decisão deve ser estritamente coerente com o andamento do processo (dar continuidade às últimas decisões, resolver incidentes pendentes ou sentenciar o mérito se maduro, sem nunca regredir a liminares do início da lide);
    - É expressamente PROIBIDO resumir, sintetizar, enxugar ou condensar. Aprofunde, adense e expanda a minuta:
      * 'relatorio': PROTOCOLO DE FIDELIDADE FACTUAL ESTRITA (ANTI-INFERÊNCIA NA INICIAL): Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z). É TERMINANTEMENTE PROIBIDO inferir, supor, deduzir, florear, modificar, embelezar ou complementar a narrativa da Petição Inicial: adensar significa relatar com máxima fidelidade e precisão os fatos efetivamente afirmados pela parte autora nos exatos termos deduzidos na exordial, com aspas literais nos trechos centrais, sendo vedada qualquer criação ou paráfrase distorcida da causa de pedir;
-     * 'fundamentacao': Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);
+     * 'fundamentacao': ${resolvedActType === "decisao" ? "Mínimo de 8 a 14 parágrafos judiciais densos e analíticos estruturados em subtópicos Markdown ('### 1. ...', '### 2. ...'), enfrentando circunstanciadamente 100% dos pedidos preliminares ou urgentes pendentes de apreciação formulados pelas partes (gratuidade da justiça, fumus boni iuris, periculum in mora, e análise probatória pormenorizada de cada medida postulada com fixação de valores, percentuais, contas, obrigações de fazer/não fazer, prazos cominatórios e astreintes, além de teses vinculantes e precedentes), com transcrição literal entre aspas e tríplice localização processual (Mov. X, Arq. Y, Pág. Z);" : resolvedActType === "embargos" ? "Mínimo de 6 a 10 parágrafos judiciais densos estruturados nos subtópicos do art. 1.022 do CPC (admissibilidade/tempestividade de 5 dias úteis, exame analítico de cada vício ou omissão alegada em confronto com a decisão embargada, e precedentes dos tribunais superiores);" : resolvedActType === "despacho" ? "Fundamentação pontual e precisa indicando os motivos fáticos e legais da determinação judicial ou da emenda ordenada (art. 321 CPC);" : "Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);"}
      * 'dispositivo': Comandos operacionais claros, discriminados pedido por pedido, com deliberação de eventuais requerimentos intercorrentes e fixação dos consectários legais da Lei 14.905/2024;
    - Preencha o cabeçalho, comarca/vara e fecho judicante oficial;
    - Compile o texto integral contínuo pronto para o Projudi/PJe em 'fullFormattedText'.
@@ -4098,25 +4282,7 @@ if (!Array.isArray(parsed.auditAnalysis.fatoVsProva) || parsed.auditAnalysis.fat
 
 parsed.minute = sanitizeMinuteData(parsed.minute, defaultFallbackTitle);
 if (parsed.minute) {
-    const finalDispLower = (parsed.minute.dispositivo || "").toLowerCase();
-    const isFinalDispositivoSentenca = 
-        finalDispLower.includes("julgo procedente") || 
-        finalDispLower.includes("julgo improcedente") || 
-        finalDispLower.includes("julgo parcialmente procedente") ||
-        finalDispLower.includes("parcial procedência") ||
-        finalDispLower.includes("parcial procedencia") ||
-        finalDispLower.includes("resolução do mérito") ||
-        finalDispLower.includes("resolucao do merito") ||
-        finalDispLower.includes("resolvendo o mérito") ||
-        finalDispLower.includes("com resolução de mérito") ||
-        finalDispLower.includes("extingo o processo") ||
-        finalDispLower.includes("extinção do processo") ||
-        finalDispLower.includes("extinção do feito") ||
-        finalDispLower.includes("julgo extinto") ||
-        finalDispLower.includes("art. 487") ||
-        finalDispLower.includes("artigo 487") ||
-        finalDispLower.includes("art. 485") ||
-        finalDispLower.includes("artigo 485");
+    const isFinalDispositivoSentenca = checkIsDispositivoSentenca(parsed.minute.dispositivo);
 
     if (isFinalDispositivoSentenca) {
         parsed.minute.title = "SENTENÇA";
@@ -4125,6 +4291,8 @@ if (parsed.minute) {
         parsed.minute.title = "DECISÃO - EMBARGOS DE DECLARAÇÃO";
     } else if (resolvedActType === "decisao" && isSaneamentoDecision && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("SANEAMENTO"))) {
         parsed.minute.title = "DECISÃO DE SANEAMENTO E ORGANIZAÇÃO";
+    } else if (resolvedActType === "decisao" && !isSaneamentoDecision && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("DECISÃO") || parsed.minute.title.toUpperCase().includes("DESPACHO"))) {
+        parsed.minute.title = "DECISÃO INTERLOCUTÓRIA";
     } else if (resolvedActType === "sentenca" && (!parsed.minute.title || parsed.minute.title.toUpperCase().includes("SANEAMENTO") || parsed.minute.title.toUpperCase().includes("INTERLOCUTÓRIA") || parsed.minute.title.toUpperCase().includes("DESPACHO"))) {
         parsed.minute.title = "SENTENÇA";
     } else if (resolvedActType === "despacho" && (!parsed.minute.title || !parsed.minute.title.toUpperCase().includes("DESPACHO"))) {
@@ -4147,7 +4315,16 @@ if (parsed.minute) {
     parsed.minute.parties.defendant = extractSafeString(reconciled.defendant, parsed.minute.parties.defendant || "Parte Ré");
     parsed.minute.judicialUnit = extractSafeString(reconciled.judicialUnit || parsed.minute.judicialUnit, "Poder Judiciário do Estado de Goiás - TJGO");
     parsed.minute.header = extractSafeString(parsed.minute.header, "PODER JUDICIÁRIO DO ESTADO DE GOIÁS");
-    parsed.minute.title = extractSafeString(parsed.minute.title, "SENTENÇA").toUpperCase();
+    parsed.minute.title = extractSafeString(parsed.minute.title, isFinalDispositivoSentenca ? "SENTENÇA" : "SENTENÇA").toUpperCase();
+
+    // SOBERANIA ABSOLUTA DA TPU CNJ E DO TÍTULO (CORREÇÃO DE SENTENÇA, DECISÃO E DESPACHO):
+    // Recalcula e vincula a TPU definitiva correspondente ao ato real e ao dispositivo deliberado
+    const sovereignTpu = inferTpuCnjMovement(resolvedActType, parsed.minute.title, parsed.minute.dispositivo, null);
+    parsed.minute.indicacaoTpuCnj = sovereignTpu;
+    parsed.indicacaoTpuCnj = sovereignTpu;
+    if (parsed.auditAnalysis) {
+        parsed.auditAnalysis.indicacaoTpuCnj = sovereignTpu;
+    }
 }
 
 parsed.groundingSources = liveGroundingSources;
@@ -4245,6 +4422,51 @@ if (wasRotated && rotatedKey) {
         writeJsonFile("history.json",history);
         console.log(`[Storage] Análise 2 etapas ${generatedId} (${processNum}) gravada para ${reqUserEmail || 'anônimo'} no histórico compartilhado. Total: ${history.length}`);
         parsed.analysisId = generatedId;
+
+        // CAIXA-PRETA FORENSE DE MONITORAMENTO DE PDFS EM PRODUÇÃO:
+        try {
+            const rawAllScope = [accumulatedPdfText, safeProcessText].filter(Boolean).join("\n");
+            const detectedMovs = Array.from(new Set(
+                Array.from(rawAllScope.matchAll(/(?:Mov(?:imenta[cç][aã]o)?\.?\s*(\d+)|Evento\s*(\d+))/gi))
+                .map(m => m[1] || m[2])
+                .filter(Boolean)
+            )).sort((a, b) => Number(a) - Number(b));
+
+            const diagItem = {
+                id: generatedId,
+                timestamp: new Date().toISOString(),
+                processNumber: processNum,
+                userEmail: reqUserEmail || "anônimo",
+                userName: reqUserName || "Usuário",
+                pdfCount: targetPdfFiles.length,
+                pdfStats: targetPdfFiles.map((f: any) => ({
+                    name: f.name || "Documento",
+                    size: f.size || 0,
+                    pageCount: f.pageCount || 1,
+                    charsExtracted: (f.extractedText || "").length,
+                })),
+                totalCharsExtracted: accumulatedPdfText.length,
+                detectedMovements: detectedMovs,
+                duplicatesFound: totalDuplicatesFound,
+                charsSaved: totalCharsSaved,
+                stage1ActType: stage1Json.actType || "não informado",
+                stage1PendingMatter: stage1Json.pendingMatter || "não informado",
+                finalActType: resolvedActType,
+                finalTitle: parsed.minute?.title || "não informado",
+                finalTpu: parsed.minute?.indicacaoTpuCnj || parsed.indicacaoTpuCnj || null,
+                urgentReliefIdentified: rawAllScope.toLowerCase().includes("tutela") || rawAllScope.toLowerCase().includes("alimento") || rawAllScope.toLowerCase().includes("liminar") || rawAllScope.toLowerCase().includes("guarda"),
+                urgentReliefDecided: Boolean(parsed.minute?.dispositivo && (parsed.minute.dispositivo.toLowerCase().includes("tutela") || parsed.minute.dispositivo.toLowerCase().includes("alimento") || parsed.minute.dispositivo.toLowerCase().includes("liminar") || parsed.minute.dispositivo.toLowerCase().includes("guarda") || parsed.minute.dispositivo.toLowerCase().includes("defiro") || parsed.minute.dispositivo.toLowerCase().includes("indefiro"))),
+                modelUsed: (response as any)?.usedModel || "gemini-3.8-flash"
+            };
+
+            let diags = readJsonFile("diagnostic_runs.json", []);
+            diags.unshift(diagItem);
+            if (diags.length > 100) diags = diags.slice(0, 100);
+            writeJsonFile("diagnostic_runs.json", diags);
+            console.log(`[Telemetria Forense] Execução ${generatedId} (${processNum}) registrada com sucesso em diagnostic_runs.json.`);
+        } catch (diagErr) {
+            console.warn("[Telemetria Forense] Falha ao registrar telemetria do PDF:", diagErr);
+        }
     } catch (saveErr) {
         console.warn("[Storage] Falha ao persistir automaticamente no histórico do servidor:", saveErr);
     }
@@ -4313,6 +4535,25 @@ app.get("/api/telemetry/server-history", (req, res) => {
             candidatesTokenCount: h.result?.usage?.candidatesTokenCount || h.usage?.candidatesTokenCount || 0,
         }));
         res.json({ success: true, count: simplified.length, items: simplified });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+app.get("/api/telemetry/pdf-diagnostics", (req, res) => {
+    try {
+        const diags = readJsonFile("diagnostic_runs.json", []);
+        res.json({ success: true, count: diags.length, items: diags });
+    } catch (e: any) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+app.get("/api/telemetry/latest-pdf-diagnostic", (req, res) => {
+    try {
+        const diags = readJsonFile("diagnostic_runs.json", []);
+        const latest = diags.length > 0 ? diags[0] : null;
+        res.json({ success: true, item: latest });
     } catch (e: any) {
         res.status(500).json({ success: false, error: e.message });
     }

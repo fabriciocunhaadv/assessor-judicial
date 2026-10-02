@@ -105,23 +105,29 @@ export function deduplicateJudicialPdfFiles(files: JudicialDocItem[]): {
     const normalized = normalizeForComparison(rawText);
     const sample = normalized.substring(0, 350);
 
-    // Verificar se já vimos este documento exato antes
-    const existing = seenDocuments.find((seen) => {
-      // Comparação por amostra inicial e similaridade de tamanho (se tamanho for similar e amostra coincidir)
+    // BLINDAGEM UNIVERSAL: Petições intermediárias (emendas, manifestações), decisões judiciais,
+    // medidas protetivas, contratos e provas documentais NUNCA devem ser descartadas por deduplicação!
+    const isProtectedDocument = 
+      /(?:emenda|peti[cç][aã]o|manifesta[cç][aã]o|decis[aã]o|senten[cç]a|despacho|protetiva|criminal|laudo|contrato|procura[cç][aã]o|certid[aã]o|comprovante|termo|inqu[eé]rito|boletim)/i.test(file.name || "") ||
+      /(?:emenda|peti[cç][aã]o\s+intermedi[aá]ria|vem\s+(?:respeitosamente\s+)?(?:emendar|requerer|manifestar)|decis[aã]o\s+judicial|medida\s+protetiva|vara\s+criminal|contrato\s+de\s+loca[cç][aã]o|instrumento\s+particular)/i.test(rawText.substring(0, 800));
+
+    // Verificar se já vimos este documento exato antes (apenas se NÃO for documento protegido)
+    const existing = !isProtectedDocument ? seenDocuments.find((seen) => {
+      // Comparação por amostra inicial e similaridade de tamanho quase exata (< 3% de diferença)
       if (seen.sample && sample && seen.sample === sample) {
         const lengthDiff = Math.abs(seen.length - normalized.length) / Math.max(seen.length, normalized.length);
-        if (lengthDiff < 0.15) {
+        if (lengthDiff < 0.03) {
           return true;
         }
       }
-      // Se for texto muito idêntico (> 92% do conteúdo)
-      if (normalized.length > 500 && seen.normalizedFull.length > 500) {
-        if (seen.normalizedFull.includes(normalized.substring(0, 500))) {
+      // Se for conteúdo verdadeiramente idêntico de cabo a rabo (> 98% do conteúdo)
+      if (normalized.length > 500 && seen.normalizedFull.length > 500 && Math.abs(seen.length - normalized.length) < 30) {
+        if (seen.normalizedFull.includes(normalized.substring(0, Math.min(1000, normalized.length)))) {
           return true;
         }
       }
       return false;
-    });
+    }) : undefined;
 
     if (existing) {
       duplicatesFound++;
