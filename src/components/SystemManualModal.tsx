@@ -4277,7 +4277,23 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Item Mais Recente: Calibração Universal de Decisões Interlocutórias & Tutelas Provisórias */}
+                  {/* Item Mais Recente: Desoneração Cirúrgica da Etapa 2 & Alternância Balanceada de Chaves */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Zap className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200">Desoneração de Cota na Etapa 2 & Alternância Balanceada do Pool de Chaves</h3>
+                        <time className="text-xs font-mono text-emerald-600 dark:text-emerald-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Otimização de consumo para chaves gratuitas do Google Gemini: eliminação da geração duplicada de texto na Etapa 2 (economizando mais de 6.000 tokens de saída por requisição, com compilação automatizada da minuta contínua no servidor), racionalização do extrato probatório de entrada e implementação da <strong>alternância automática de chaves (Key Pool Rotation)</strong> entre a Etapa 1 e a Etapa 2, garantindo que a revisão inicie com uma chave de cota 100% livre e preservando a profundidade magistral sem erros 429 de Rate Limit.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Calibração Universal de Decisões Interlocutórias & Tutelas Provisórias */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                       <Gavel className="w-4 h-4" />

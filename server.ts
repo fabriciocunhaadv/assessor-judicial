@@ -1634,7 +1634,8 @@ async function generateWithFallbackAndRetry(options) {
                                          errMsg.includes("429") || 
                                          errMsg.includes("RESOURCE_EXHAUSTED") ||
                                          errMsg.includes("rate limit") ||
-                                         errMsg.includes("generativelanguage.googleapis.com");
+                                         errMsg.includes("usage limit") ||
+                                         errMsg.includes("exhausted");
                     const isAuthError = errMsg.includes("API key not valid") || 
                                          errMsg.includes("API_KEY_INVALID") || 
                                          errMsg.includes("403") || 
@@ -1672,13 +1673,14 @@ async function generateWithFallbackAndRetry(options) {
                     // Se for erro de cota / rate limit (429):
                     if (isQuotaError) {
                         if (kIdx < keyPool.length - 1) {
-                            console.log(`[Assessor Judicial - FAILOVER AUTOMÁTICO DE COTA] Cota da chave ${kIdx + 1}/${keyPool.length} esgotada no modelo ${modelName}. Alternando imediatamente para chave reserva ${kIdx + 2}/${keyPool.length}...`);
+                            console.log(`[Assessor Judicial - FAILOVER AUTOMÁTICO DE COTA] Cota da chave ${kIdx + 1}/${keyPool.length} esgotada no modelo ${modelName}. Pausa suave (1.5s) e alternando para chave reserva ${kIdx + 2}/${keyPool.length}...`);
+                            await new Promise(r => setTimeout(r, 1500));
                             continue; // Tenta a próxima chave cadastrada do usuário no mesmo modelo
                         } else {
                             // Todas as chaves do pool atingiram a cota neste modelo:
                             if (mIdx < modelsToTry.length - 1) {
-                                console.log(`[Assessor Judicial - TRANSIÇÃO DA ESTEIRA] Todas as ${keyPool.length} chaves cadastradas atingiram a cota no modelo ${modelName}. Transicionando o pool completo para o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
-                                await new Promise(r => setTimeout(r, 1200));
+                                console.log(`[Assessor Judicial - TRANSIÇÃO DA ESTEIRA] Todas as ${keyPool.length} chaves cadastradas atingiram a cota no modelo ${modelName}. Pausa de recomposição (3.5s) e transicionando para o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
+                                await new Promise(r => setTimeout(r, 3500));
                                 break; // Avança ao próximo modelo da esteira
                             } else {
                                 // Último modelo de todas as chaves: pausa preventiva para recomposição
@@ -1881,6 +1883,9 @@ function formatGeminiError(error) {
     }
     if (msg.includes("prepayment credits are depleted") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Quota exceeded") || msg.includes("429") || msg.includes("rate limit") || msg.includes("usage limit")) {
         return "Limite temporário de cota/requisições da API Gemini atingido no Google (Erro 429 Rate Limit / Quota Exceeded). Se você possui chaves adicionais da API Gemini, cadastre-as no botão Chave API para ativação automática do Pool Inteligente com rotação instantânea.";
+    }
+    if (msg.includes("conta de serviço vinculada") || msg.includes("service account associated with this API key") || (msg.toLowerCase().includes("service account") && (msg.includes("deleted") || msg.includes("disabled") || msg.includes("excluída") || msg.includes("desativada")))) {
+        return "A conta de serviço do Google Cloud vinculada a esta chave foi desativada ou excluída no Google Cloud Console/AI Studio. Selecione outra chave do seu Pool de Reserva ou gere uma nova chave ativa no Google AI Studio (aistudio.google.com).";
     }
     return msg;
 }
@@ -3828,7 +3833,7 @@ ${stage1Json.dispositivo || "(Não informado)"}
 
 ACERVO PROBATÓRIO E DOCUMENTOS RELEVANTES DOS AUTOS (CONFRONTO DIRETO COM O PDF):
 ======================================================
-${(accumulatedPdfText || safeProcessText || "").substring(0, 160000)}
+${(accumulatedPdfText || safeProcessText || "").substring(0, 10000)}
 ======================================================
 
 COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
@@ -3840,8 +3845,7 @@ COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
      * 'relatorio': PROTOCOLO DE FIDELIDADE FACTUAL ESTRITA (ANTI-INFERÊNCIA NA INICIAL): Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z). É TERMINANTEMENTE PROIBIDO inferir, supor, deduzir, florear, modificar, embelezar ou complementar a narrativa da Petição Inicial: adensar significa relatar com máxima fidelidade e precisão os fatos efetivamente afirmados pela parte autora nos exatos termos deduzidos na exordial, com aspas literais nos trechos centrais, sendo vedada qualquer criação ou paráfrase distorcida da causa de pedir;
      * 'fundamentacao': ${resolvedActType === "decisao" ? "Mínimo de 8 a 14 parágrafos judiciais densos e analíticos estruturados em subtópicos Markdown ('### 1. ...', '### 2. ...'), enfrentando circunstanciadamente 100% dos pedidos preliminares ou urgentes pendentes de apreciação formulados pelas partes (gratuidade da justiça, fumus boni iuris, periculum in mora, e análise probatória pormenorizada de cada medida postulada com fixação de valores, percentuais, contas, obrigações de fazer/não fazer, prazos cominatórios e astreintes, além de teses vinculantes e precedentes), com transcrição literal entre aspas e tríplice localização processual (Mov. X, Arq. Y, Pág. Z);" : resolvedActType === "embargos" ? "Mínimo de 6 a 10 parágrafos judiciais densos estruturados nos subtópicos do art. 1.022 do CPC (admissibilidade/tempestividade de 5 dias úteis, exame analítico de cada vício ou omissão alegada em confronto com a decisão embargada, e precedentes dos tribunais superiores);" : resolvedActType === "despacho" ? "Fundamentação pontual e precisa indicando os motivos fáticos e legais da determinação judicial ou da emenda ordenada (art. 321 CPC);" : "Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);"}
      * 'dispositivo': Comandos operacionais claros, discriminados pedido por pedido, com deliberação de eventuais requerimentos intercorrentes e fixação dos consectários legais da Lei 14.905/2024;
-   - Preencha o cabeçalho, comarca/vara e fecho judicante oficial;
-   - Compile o texto integral contínuo pronto para o Projudi/PJe em 'fullFormattedText'.
+   - Preencha o cabeçalho, comarca/vara e fecho judicante oficial (a compilação integral com I - Relatório, II - Fundamentação e III - Dispositivo é consolidada e unificada diretamente pelo servidor);
 
 2. MATRIZ DE AUDITORIA FORENSE COMPLETA ('auditAnalysis'):
    - 'fatoVsProva': Tabela analítica confrontando fato alegado vs prova documental evento a evento com análise crítica e fundamentação legal (art. 373 CPC);
@@ -3886,8 +3890,7 @@ const stage2ResponseSchema = {
                     type: Type.STRING,
                     description: "Dispositivo judicial exaustivo e operacional, com comandos claros e precisos adequados aos pedidos da ação (procedência, improcedência ou parcial procedência, obrigações de fazer/pagar, deliberação sobre acordos/desistências pendentes, fixação operacional e líquida dos consectários legais da Lei nº 14.905/2024 com IPCA e juros da Selic deduzida, custas e honorários se cabíveis, prazos recursais e arquivamento definitivo)."
                 },
-                closing: { type: Type.STRING, description: "Fecho padrão judicial oficial (ex: Comarca/GO, data. Juiz(a) de Direito)." },
-                fullFormattedText: { type: Type.STRING, description: "Texto integral da minuta compilada e formatada com títulos I - RELATÓRIO, II - FUNDAMENTAÇÃO e III - DISPOSITIVO, pronta para cópia para o Projudi/PJe." }
+                closing: { type: Type.STRING, description: "Fecho padrão judicial oficial (ex: Comarca/GO, data. Juiz(a) de Direito)." }
             },
             required: ["title", "header", "processNumber", "parties", "relatorio", "fundamentacao", "dispositivo"]
         },
@@ -4006,9 +4009,23 @@ const stage2ResponseSchema = {
 };
 
 // PAUSA PREVENTIVA INTELIGENTE (Anti-Rate Limit & Recomposição de Tokens):
-// Dá um intervalo técnico de 2.5s para recomposição do bucket de tokens por minuto (TPM/RPM) no cluster do Google após o término da Etapa 1
-console.log("[Assessor Judicial] Etapa 1 concluída com sucesso. Pausa preventiva inteligente (2.5s) para recomposição de tokens por minuto antes da Etapa 2...");
-await new Promise(r => setTimeout(r, 2500));
+// Dá um intervalo técnico de resfriamento para recomposição do bucket de tokens por minuto (TPM/RPM) no cluster do Google após o término da Etapa 1
+const isNativeActiveForCooldown = isRequestNativeAllowed(req);
+const cooldownMs = isNativeActiveForCooldown ? 2500 : 5000;
+console.log(`[Assessor Judicial] Etapa 1 concluída com sucesso. Pausa preventiva inteligente (${cooldownMs / 1000}s) para recomposição de tokens por minuto antes da Etapa 2...`);
+await new Promise(r => setTimeout(r, cooldownMs));
+
+// ROTAÇÃO INTELIGENTE DE CHAVES ENTRE ETAPA 1 E ETAPA 2 (PREVENÇÃO DE ESTOURO DE TPM EM CHAVES GRATUITAS):
+const rawStage2KeyPool = extractApiKeyPool(req);
+let stage2KeyPool = [...rawStage2KeyPool];
+const s1KeyIndex = (stage1Response as any)?.usedKeyIndex;
+if (rawStage2KeyPool.length > 1 && typeof s1KeyIndex === 'number' && s1KeyIndex >= 0) {
+    // Alternância cirúrgica: inicia a Etapa 2 pela próxima chave disponível do pool (cota 100% limpa sem acúmulo da Etapa 1)
+    const nextKeyIndex = (s1KeyIndex + 1) % rawStage2KeyPool.length;
+    stage2KeyPool = [...rawStage2KeyPool.slice(nextKeyIndex), ...rawStage2KeyPool.slice(0, nextKeyIndex)];
+    const nextMasked = stage2KeyPool[0].length > 10 ? `${stage2KeyPool[0].substring(0, 6)}...${stage2KeyPool[0].substring(stage2KeyPool[0].length - 4)}` : "chave";
+    console.log(`[Assessor Judicial - BALANCEAMENTO DE POOL] Desonerando cota: Etapa 2 iniciada com a chave reserva ${nextKeyIndex + 1}/${rawStage2KeyPool.length} (${nextMasked}), cota 100% desimpedida sem sobreposição da Etapa 1!`);
+}
 
 let response: any = null;
 let stage2Failed = false;
@@ -4016,8 +4033,8 @@ let stage2ErrorMsg = "";
 
 try {
     response = await generateWithFallbackAndRetry({
-        apiKey: userApiKey,
-        keyPool: extractApiKeyPool(req),
+        apiKey: stage2KeyPool[0] || userApiKey,
+        keyPool: stage2KeyPool,
         isNativeAllowed: isRequestNativeAllowed(req),
         res,
         primaryModel: "gemini-3.8-flash",
