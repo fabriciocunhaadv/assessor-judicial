@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Puzzle, Download, CheckCircle2, ChevronRight, Chrome, Hammer, AlertTriangle, Sparkles } from 'lucide-react';
+import { X, Puzzle, Download, CheckCircle2, ChevronRight, Chrome, Hammer, AlertTriangle, Sparkles, ExternalLink, FolderGit2 } from 'lucide-react';
 import { downloadExtension } from '../utils/extensionBuilder';
 
 interface ExtensionModalProps {
@@ -72,7 +72,47 @@ export const ExtensionModal: React.FC<ExtensionModalProps> = ({ isOpen, onClose 
             </p>
           </div>
 
-          {/* Action */}
+          {/* Link Nativo do GitHub */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950 border border-indigo-500/40 rounded-xl p-5 shadow-lg">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <FolderGit2 className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-white font-bold text-sm">Pasta Nativa no GitHub (Repositório Oficial)</h3>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
+                  Nativo
+                </span>
+              </div>
+              <p className="text-xs text-slate-300">
+                Acesse o repositório oficial no GitHub com a pasta <code className="text-indigo-300 font-mono font-semibold">extensao/</code> e baixe o código-fonte original.
+              </p>
+              <div className="mt-1 text-[11px] text-slate-500 font-mono truncate">
+                https://github.com/fabriciocunhaadv/projudi
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+              <a 
+                href="https://github.com/fabriciocunhaadv/projudi"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg transition-all text-xs"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Acessar no GitHub</span>
+              </a>
+              <a 
+                href="https://github.com/fabriciocunhaadv/projudi/archive/refs/heads/main.zip"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white font-semibold rounded-xl border border-indigo-500/30 shadow transition-all text-xs"
+                title="Download direto do repositório em arquivo .zip"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Baixar .ZIP</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Action Local Package */}
           <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-950 border border-slate-800 rounded-xl p-5">
             <div className="flex-1">
               <h3 className="text-white font-bold mb-1 flex items-center gap-2">

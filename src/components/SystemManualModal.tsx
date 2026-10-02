@@ -90,7 +90,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
     { id: "central-chamados", label: "Central de Chamados & Feedback (Novo)", icon: <MessageSquare className="w-4 h-4 text-amber-500" /> },
     { id: "pesquisa-legislativa", label: "Pesquisa Legislativa & Consectários (Novo)", icon: <BookOpen className="w-4 h-4 text-indigo-500" /> },
     { id: "peticao-inicial", label: "Módulo Petição & Defesa 360° (Exclusivo)", icon: <Scale className="w-4 h-4 text-indigo-400" />, requiresSuperAdmin: true },
-    { id: "extensao-projudi", label: "Extensão PROJUDI (Novo)", icon: <Zap className="w-4 h-4 text-indigo-500" />, requiresSuperAdmin: true },
+    { id: "extensao-projudi", label: "Extensão PROJUDI (Novo)", icon: <Zap className="w-4 h-4 text-indigo-500" /> },
     { id: "super-admin-saas", label: "Painel Super Admin SaaS", icon: <Building2 className="w-4 h-4 text-indigo-500" />, requiresSuperAdmin: true },
     { id: "agenda-gabinete", label: "Agenda & Pautas do Google", icon: <Calendar className="w-4 h-4 text-amber-500" /> },
     { id: "chave-api", label: "Chave API Gratuita (Sem Custos)", icon: <Key className="w-4 h-4 text-emerald-500" /> },
@@ -542,7 +542,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
             )}
 
             {/* TAB: EXTENSÃO PROJUDI */}
-            {activeTab === "extensao-projudi" && isSuperAdmin && (
+            {activeTab === "extensao-projudi" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-center gap-3 text-indigo-600 dark:text-indigo-400 mb-2">
                   <Zap className="w-8 h-8" />
@@ -576,11 +576,34 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                     </div>
                   </div>
 
+                  <div className="my-6 p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-indigo-500" />
+                        Repositório Nativo no GitHub (Pasta extensao)
+                      </h4>
+                      <p className="text-xs text-indigo-900/70 dark:text-indigo-300/80 mt-0.5">
+                        Acesse a pasta nativa original da extensão diretamente no repositório do projeto:
+                      </p>
+                      <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400 font-semibold block mt-1">
+                        https://github.com/fabriciocunhaadv/projudi
+                      </span>
+                    </div>
+                    <a
+                      href="https://github.com/fabriciocunhaadv/projudi"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs shrink-0 shadow-sm transition"
+                    >
+                      Acessar no GitHub
+                    </a>
+                  </div>
+
                   <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-8 mb-4">Como instalar a Extensão?</h3>
                   <ol className="list-decimal list-inside space-y-2 text-slate-600 dark:text-slate-300">
                     <li>Clique no menu <strong>Configurações (engrenagem)</strong> superior direito ou no atalho <strong>Extensão PROJUDI</strong> no menu.</li>
-                    <li>Clique no botão para gerar o <strong>Download do Arquivo .ZIP</strong>, onde nosso sistema construirá a extensão customizada para a sua sessão atual.</li>
-                    <li>Extraia o arquivo .zip em uma pasta no seu computador.</li>
+                    <li>Baixe o código-fonte via <strong>Download do Pacote</strong> ou clone/baixe o repositório nativo no GitHub (<a href="https://github.com/fabriciocunhaadv/projudi" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 underline font-semibold">https://github.com/fabriciocunhaadv/projudi</a>).</li>
+                    <li>Extraia a pasta <code>extensao</code> em um diretório local no seu computador.</li>
                     <li>No Google Chrome, digite na barra de endereços: <code>chrome://extensions/</code></li>
                     <li>Ative o <strong>Modo do Desenvolvedor</strong> (canto superior direito).</li>
                     <li>Clique em <strong>Carregar sem compactação</strong> e selecione a pasta extraída.</li>
@@ -4277,7 +4300,23 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Item Mais Recente: Desoneração Cirúrgica da Etapa 2 & Alternância Balanceada de Chaves */}
+                  {/* Item Mais Recente: Soberania Integral do Caderno de Teses & Eliminação de Filtros Rígidos */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200">Soberania Integral do Caderno de Teses & Eliminação de Filtros Rígidos</h3>
+                        <time className="text-xs font-mono text-amber-600 dark:text-amber-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Eliminação completa de filtros heurísticos de palavras-chave no Caderno de Teses do Gabinete: <strong>entrega soberana e integral de 100% das teses cadastradas</strong> à inteligência artificial desde a Etapa 1 até a Etapa 2. Permite que teses procedimentais e transversais (como extinção pelo art. 924, II pelo pagamento, expedição de alvará sem aguardar trânsito em julgado, condenação em custas e honorários sucumbenciais pelo art. 85, § 2º, penhora de custas em 20 dias pelo Provimento 58/21 e protesto extrajudicial) sejam aplicadas com máxima fidelidade em qualquer classe processual (Família, Cível, Bancário ou Fazenda Pública), adaptando nomes, contas e valores específicos de cada caso.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item Anterior: Desoneração Cirúrgica da Etapa 2 & Alternância Balanceada de Chaves */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                       <Zap className="w-4 h-4" />

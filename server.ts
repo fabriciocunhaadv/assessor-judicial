@@ -147,7 +147,11 @@ function getActiveCabinetTeses(cabinetTesesText: any, isTesesEnabled: any, caseC
 
     const cleaned = substantiveLines.join("\n").trim();
     const effectiveBase = cleaned.length > 20 ? cleaned : raw;
-    return filterThesesByThematicRelevance(effectiveBase, caseContext || "");
+    // SOBERANIA INTEGRAL DO CADERNO DE TESES (SOLUÇÃO 1):
+    // Preserva 100% das teses cadastradas sem filtros rígidos ou expurgos por palavras-chave,
+    // permitindo que o modelo aplique teses materiais e processuais (ex.: art. 924, II pelo pagamento,
+    // alvará, custas, honorários e provimentos da Corregedoria) a qualquer classe ou ramo do direito.
+    return effectiveBase;
 }
 
 const app = express();
@@ -3167,6 +3171,10 @@ if (customPromptText && typeof customPromptText === "string" && customPromptText
     stage1SystemInstruction += `\n\n[DIRETRIZES E PROMPT ATUAL SELECIONADO PELO ASSESSOR]:\n${customPromptText.trim()}\n\nDIRETRIZ DA ETAPA 1 SOBRE O PROMPT SELECIONADO:\n- Observe com rigor estrito as diretrizes, focos analíticos, pedidos-chave e parâmetros materiais definidos no prompt acima durante a leitura e extração dos autos.\n`;
 }
 
+if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
+    stage1SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE (ETAPA 1):\n- Observe com rigor estrito as teses do magistrado. Se o caso se enquadrar em qualquer tese ou diretriz (ex.: extinção pelo pagamento do art. 924, II do CPC, alvará para levantamento, condenação em custas e honorários sucumbenciais de 10% pelo art. 85, § 2º, penhora online de custas em 20 dias pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), ESTRUTURE O DISPOSITIVO PRELIMINAR com os comandos exatos da tese do gabinete, adaptando aos dados concretos dos autos.\n`;
+}
+
 // ETAPA 2 - System Instruction do Juiz Revisor (Teses, Precedentes Vinculantes, Paradigma & Auditoria Forense):
 let stage2SystemInstruction = SYSTEM_INSTRUCTION_FABRICIO + `
 
@@ -3218,7 +3226,7 @@ Sua missão é:
      * Em petições intercorrentes de localização/intimação, deliberar estritamente sobre os meios requeridos, sem repetir indevidamente ordens preclusas de pagamento sob pena de multa do art. 523 do CPC.`;
 
 if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
-    stage2SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE:\n- Confronte a minuta preliminar com as teses acima. Se o caso se enquadrar em qualquer tese, REESCREVA a fundamentação e o dispositivo aplicando expressamente as teses e enunciados do magistrado.\n`;
+    stage2SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE:\n- Confronte a minuta preliminar com as teses acima. Se o caso se enquadrar em qualquer tese ou enunciado do Gabinete (ex.: extinção pelo pagamento do art. 924, II do CPC, alvará para levantamento sem aguardar trânsito em julgado, condenação em custas processuais e honorários advocatícios sucumbenciais de 10% pelo art. 85, § 2º, intimação em 15 dias, penhora online de custas em 20 dias pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), AS TESES DO MAGISTRADO SÃO SOBERANAS E PREVALECEM OBRIGATORIAMENTE sobre entendimentos doutrinários genéricos. REESCREVA a fundamentação e o dispositivo aplicando com fidelidade estrita os comandos do magistrado adaptados aos dados dos autos.\n`;
 }
 
 if (matchedPrecedents.length > 0) {
@@ -3810,6 +3818,7 @@ DADOS DO PROCESSO:
 - Subtipo / Enquadramento: ${actSubtype || "Análise integral de pedidos"}
 - Diretrizes Adicionais: ${specificInstructions || "Confronto probatório e regras do TJGO."}
 ${customPromptText && typeof customPromptText === "string" && customPromptText.trim().length > 0 ? `- DIRETRIZES DO PROMPT TEMÁTICO SELECIONADO: """\n${customPromptText.trim()}\n"""` : ""}
+${activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0 ? `- CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (APLICAÇÃO OBRIGATÓRIA E SOBERANA): """\n${activeTeses.trim()}\n"""` : ""}
 
 ${actTypeGuidance}
 
@@ -3840,6 +3849,7 @@ COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
 1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL (PISO DE DENSIDADE E PROIBIÇÃO DE BREVIDADE):
    - Leia atentamente o Relatório e a Fundamentação Preliminar;
    - Confronte com o Caderno de Teses do Gabinete, Súmulas Vinculantes, Jurisprudência e Minuta Paradigma (se ativada);
+   - SOBERANIA DAS TESES DO GABINETE NO DISPOSITIVO: Havendo no Caderno de Teses diretriz ou enunciado aplicável (como extinção pelo Art. 924, II pelo pagamento, alvará para levantamento sem aguardar trânsito em julgado, condenação em custas e honorários sucumbenciais de 10% pelo art. 85, § 2º, intimação em 15 dias, penhora online de custas pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), essa diretriz prevalece obrigatoriamente sobre praxes genéricas e DEVE constar com máxima fidelidade do Dispositivo e da Fundamentação;
    - COERÊNCIA COM A MARCHA PROCESSUAL: A decisão deve ser estritamente coerente com o andamento do processo (dar continuidade às últimas decisões, resolver incidentes pendentes ou sentenciar o mérito se maduro, sem nunca regredir a liminares do início da lide);
    - É expressamente PROIBIDO resumir, sintetizar, enxugar ou condensar. Aprofunde, adense e expanda a minuta:
      * 'relatorio': PROTOCOLO DE FIDELIDADE FACTUAL ESTRITA (ANTI-INFERÊNCIA NA INICIAL): Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z). É TERMINANTEMENTE PROIBIDO inferir, supor, deduzir, florear, modificar, embelezar ou complementar a narrativa da Petição Inicial: adensar significa relatar com máxima fidelidade e precisão os fatos efetivamente afirmados pela parte autora nos exatos termos deduzidos na exordial, com aspas literais nos trechos centrais, sendo vedada qualquer criação ou paráfrase distorcida da causa de pedir;
