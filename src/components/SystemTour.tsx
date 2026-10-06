@@ -171,6 +171,20 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       placement: "bottom",
     },
     {
+      target: "#btn-header-copilot-top",
+      content: (
+        <div className="text-left font-sans space-y-1.5">
+          <h3 className="font-bold text-md text-indigo-800 flex items-center gap-1.5">
+            <span>Agente Copiloto IA no Topo (ao lado de Configurações) 🤖⚡</span>
+          </h3>
+          <p className="text-sm text-slate-700 leading-relaxed">
+            Acesso direto ao assistente técnico do gabinete no topo da tela: consultas ao CPC, jurisprudência vinculante, análise dos autos e redação rápida de quesitos e despachos. Projetado em <strong>modo ultra-econômico (~200 a 600 tokens)</strong> para preservar 100% da cota gratuita da sua chave Gemini.
+          </p>
+        </div>
+      ),
+      placement: "bottom",
+    },
+    {
       target: "#btn-header-manual",
       content: (
         <div className="text-left font-sans space-y-1.5">
@@ -423,7 +437,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Busca & Dossiê Unificado por Processo 📂</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Pesquise por número CNJ, partes ou palavras-chave. Todas as minutas (despachos, decisões e sentenças) do mesmo processo são automaticamente agrupadas em um único <strong>Dossiê Processual</strong>, eliminando duplicações visuais.
+            Pesquise por número CNJ, partes ou palavras-chave. Todas as minutas (despachos, decisões e sentenças) do mesmo processo são automaticamente agrupadas em um único <strong>Dossiê Processual</strong>. Você também pode consultar qualquer processo arquivado perguntando diretamente ao <strong>Agente Copiloto IA</strong>!
           </p>
         </div>
       ),

@@ -42,6 +42,7 @@ import {
   Coins,
   BarChart3,
   Cpu,
+  Bot,
 } from "lucide-react";
 
 interface SystemManualModalProps {
@@ -1586,6 +1587,28 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                 </div>
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
+                  
+                  {/* Item: Agente Copiloto Conectado ao Histórico & Dossiês do Gabinete */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Agente Copiloto Integrado ao Histórico & Dossiês do Gabinete</span>
+                          <span className="bg-indigo-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">COPILOTO IA</span>
+                        </h3>
+                        <time className="text-xs font-mono text-indigo-800 dark:text-indigo-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Consulta Inteligente de Processos no Acervo:</strong> O Agente Copiloto de Gabinete agora pesquisa instantaneamente no acervo de Histórico & Dossiês do Firestore sempre que um número de processo (CNJ) ou nome de litigante for citado.<br />
+                        • <strong>Respostas Rápidas com Contexto Integral dos Autos:</strong> Localiza polo ativo, polo passivo, comarca/vara, matéria, último ato registrado (sentença, despacho ou decisão) e fundamentação, eliminando respostas evasivas de indisponibilidade externa.<br />
+                        • <strong>Botão Interativo de Carregamento nos Autos:</strong> Ao identificar o processo, o Copiloto exibe o cartão da lide com o botão <em>[Carregar nos Autos]</em>, abrindo a íntegra da minuta no editor com um único clique.<br />
+                        • <strong>Preservação Rigorosa da Governança de Chaves:</strong> A Chave Nativa do servidor permanece estritamente bloqueada para usuários comuns, utilizando a chave pessoal/gratuita cadastrada pelo usuário com motor ágil e econômico.
+                      </p>
+                    </div>
+                  </div>
                   
                   {/* Item: Calibração Universal Multimatéria, Tutela Provisória Pendente & Monitoramento Forense */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
@@ -4300,7 +4323,23 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Item Mais Recente: Soberania Integral do Caderno de Teses & Eliminação de Filtros Rígidos */}
+                  {/* Item Mais Recente: Agente Copiloto Lateral de Gabinete (IA com Abertura e Fechamento Ágil) */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200">Agente Copiloto Lateral de Gabinete (Gemini IA com Gaveta Deslizante)</h3>
+                        <time className="text-xs font-mono text-indigo-600 dark:text-indigo-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Disponibilização de <strong>assistente lateral retrátil (gaveta deslizante com abertura e fechamento instantâneo)</strong> para consultoria jurídica em tempo real sem qualquer alteração ou impacto na estrutura da tela. Opera em três modalidades exclusivas (<em>Geral & CPC</em>, <em>Autos em Tela</em> e <em>Redator de Cláusulas/Quesitos</em>) em modo ultra-econômico (~200 a 600 tokens por consulta), com suporte a formatação rica, cópia rápida com 1 clique e acionamento direto via aba flutuante, menu e barra de ferramentas.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item Anterior: Soberania Integral do Caderno de Teses & Eliminação de Filtros Rígidos */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                       <Scale className="w-4 h-4" />

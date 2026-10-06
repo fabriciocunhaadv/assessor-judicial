@@ -682,6 +682,112 @@ ${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetT
         res.status(500).json({ error: error.message || "Erro interno ao processar chat." });
     }
 });
+
+// AGENTE COPILOTO LATERAL DE GABINETE (CONSULTORIA FORENSE & REDAÇÃO ÁGIL - MODO ECONÔMICO)
+app.post("/api/lateral-agent-chat", async (req, res) => {
+    try {
+        const apiKey = extractApiKey(req);
+        if (!apiKey) {
+            return res.status(401).json({ error: "Chave da API Gemini ausente. Configure sua chave gratuita no menu de configurações." });
+        }
+
+        const {
+            message,
+            conversationHistory = [],
+            mode = "geral", // 'geral' | 'autos' | 'redacao'
+            processNumber,
+            caseSummary,
+            activeMinuteSnippet,
+            matchedProcess
+        } = req.body;
+
+        if (!message || typeof message !== "string" || !message.trim()) {
+            return res.status(400).json({ error: "Mensagem vazia." });
+        }
+
+        let contextSection = "";
+        if (matchedProcess) {
+            contextSection += `\n# PROCESSO LOCALIZADO NO HISTÓRICO & DOSSIÊS DO GABINETE:
+- Número dos Autos: ${matchedProcess.processNumber || "Não identificado"}
+- Partes Litigantes: ${matchedProcess.author || "Autor(a)"} (Polo Ativo) vs ${matchedProcess.defendant || "Réu/Ré"} (Polo Passivo)
+- Vara / Lotação: ${matchedProcess.vara || "Vara Única"}
+- Matéria / Classe / Prompt: ${matchedProcess.promptTitle || "Não especificado"}
+- Último Ato Registrado: ${matchedProcess.actType || "Ato Judicial"} em ${matchedProcess.date || "data recente"}
+- Resumo Factual dos Autos / Relatório:
+${(matchedProcess.synopsis || "").substring(0, 1800)}
+${matchedProcess.minuteSnippet ? `- Trecho da Minuta Registrada:\n${matchedProcess.minuteSnippet.substring(0, 1200)}\n` : ""}\n`;
+        }
+
+        if (mode === "autos" || (caseSummary && mode !== "geral" && !matchedProcess)) {
+            contextSection += `\n# CONTEXTO SUCINTO DOS AUTOS EM ANÁLISE:
+- Número do Processo: ${processNumber || "Não identificado"}
+- Resumo do Caso:
+${(caseSummary || "").substring(0, 1500)}\n`;
+        }
+        if (activeMinuteSnippet && !matchedProcess) {
+            contextSection += `\n# MINUTA / TRECHO ATUAL EM TELA:
+${activeMinuteSnippet.substring(0, 1200)}\n`;
+        }
+
+        const systemPrompt = `Você é o Agente Copiloto de Gabinete Judicial, um assistente técnico de inteligência jurídica para magistrados e assessores de justiça.
+Sua missão é responder dúvidas jurídicas, consultar processos registrados no histórico do gabinete, redigir minutas parciais, sugerir quesitos, analisar teses ou fundamentar atos processuais com base nas leis brasileiras (CPC, CC, CDC, CPP, CP), Constituição Federal e jurisprudência vinculante.
+
+DIRETRIZES DE ATUAÇÃO E RESPOSTA:
+1. CONSULTA AO HISTÓRICO DO GABINETE: Quando fornecido dados da seção "# PROCESSO LOCALIZADO NO HISTÓRICO & DOSSIÊS DO GABINETE", confirme de imediato ao magistrado/assessor que o processo foi localizado no banco de dados do gabinete. Apresente os dados essenciais com elegância forense (número, polo ativo vs passivo, vara, natureza da matéria e o último ato registrado com sua respectiva data), e responda à pergunta ou demanda específica com base nesses autos.
+2. NUNCA diga genericamente "não tenho acesso aos sistemas do tribunal ou PROJUDI" caso os dados do processo estejam fornecidos no contexto do gabinete. Se um processo não for encontrado no contexto, explique que ele não consta no momento no Histórico & Dossiês do Gabinete e sugira carregar os PDFs na tela inicial.
+3. Responda em Português forense culto, direto, técnico e preciso.
+4. Seja objetivo e econômico em tokens (evite rodeios ou prolixidade desnecessária).
+5. Quando solicitado modelo ou redação de ato/cláusula/quesito, forneça o texto pronto para inserção no processo judicial em bloco bem formatado.
+6. Fundamente sempre que relevante no Código de Processo Civil (CPC/15) ou precedentes dos Tribunais Superiores.
+${contextSection}`;
+
+        // Limita o histórico recente a no máximo 6 mensagens para preservar tokens de chaves gratuitas (TPM/RPM)
+        const recentHistory = Array.isArray(conversationHistory) ? conversationHistory.slice(-6) : [];
+        let historyPrompt = "";
+        if (recentHistory.length > 0) {
+            historyPrompt = "HISTÓRICO RECENTE DA CONVERSA:\n" + recentHistory.map((m: any) => {
+                const role = m.sender === "user" || m.role === "user" ? "Usuário" : "Copiloto";
+                return `[${role}]: ${m.text || m.content || ""}`;
+            }).join("\n") + "\n\n";
+        }
+
+        const promptText = `${systemPrompt}\n\n${historyPrompt}Pergunta/Demanda do Assessor/Magistrado:\n${message.trim()}`;
+
+        const options = {
+            apiKey: apiKey,
+            keyPool: extractApiKeyPool(req),
+            isNativeAllowed: isRequestNativeAllowed(req),
+            res,
+            primaryModel: "gemini-3.1-flash-lite",
+            fallbackModel: "gemini-flash-latest",
+            timeoutMs: 15000,
+            maxCycles: 1,
+            contents: [
+                { role: "user", parts: [{ text: promptText }] }
+            ],
+            config: {
+                maxOutputTokens: 2500,
+                temperature: 0.3
+            }
+        };
+
+        const response = await generateWithFallbackAndRetry(options);
+        const replyText = response.text || "Sem resposta do assistente.";
+
+        res.json({
+            reply: replyText,
+            usage: {
+                promptTokenCount: response.usageMetadata?.promptTokenCount || 0,
+                candidatesTokenCount: response.usageMetadata?.candidatesTokenCount || 0,
+                totalTokenCount: response.usageMetadata?.totalTokenCount || 0
+            },
+            modelUsed: response.modelVersion || "Gemini 3.8 Flash"
+        });
+    } catch (error: any) {
+        console.error("Erro no lateral-agent-chat:", error);
+        res.status(500).json({ error: error.message || "Erro ao consultar o Agente Copiloto Lateral." });
+    }
+});
 app.post("/api/audit-assessor-draft", async (req, res) => {
     try {
         const apiKey = extractApiKey(req);
@@ -1667,10 +1773,14 @@ async function generateWithFallbackAndRetry(options) {
                         break; // Modelo indisponível na API: passa ao próximo modelo da esteira para todas as chaves
                     }
 
-                    // Se for erro permanente de autenticação na chave:
-                    if (isAuthError) {
+                    const isBillingDepleted = errMsg.includes("prepayment credits are depleted") || 
+                                              errMsg.includes("402") || 
+                                              errMsg.includes("billing#prepay");
+
+                    // Se for erro permanente de autenticação ou créditos esgotados na chave:
+                    if (isAuthError || isBillingDepleted) {
                         permanentlyInvalidKeys.add(currentKey);
-                        console.log(`[Assessor Judicial - CHAVE INVÁLIDA] Chave ${kIdx + 1}/${keyPool.length} (${maskedKey}) retornou 403. Marcada como inválida. Alternando para a próxima chave...`);
+                        console.log(`[Assessor Judicial - CHAVE INVÁLIDA/SEM CRÉDITOS] Chave ${kIdx + 1}/${keyPool.length} (${maskedKey}) retornou ${isAuthError ? '403 (Inválida)' : '402 (Créditos pré-pagos esgotados)'}. Marcada como indisponível. Alternando imediatamente para a próxima chave...`);
                         continue;
                     }
 

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   Home, ShieldCheck, UserCheck, Activity, History, Scale,
   Sparkles, BookOpen, ClipboardList, Calendar, Gavel, SlidersHorizontal,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Bot
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 

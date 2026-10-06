@@ -333,7 +333,6 @@ export const FloatingGuide: React.FC<FloatingGuideProps> = ({
           </button>
         )}
 
-
         {/* Botão Equipe na lateral */}
         {isAdmin && onOpenUserManager && (
           <button

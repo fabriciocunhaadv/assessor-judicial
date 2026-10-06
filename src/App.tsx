@@ -32,6 +32,7 @@ import { AssessorWorkflowGuideModal } from "./components/AssessorWorkflowGuideMo
 import { InitialPetitionPanel } from "./components/InitialPetitionPanel";
 import { SupportTicketsModal } from "./components/SupportTicketsModal";
 import { HearingWorkbenchModal } from "./components/HearingWorkbenchModal";
+import { LateralAgentDrawer } from "./components/LateralAgentDrawer";
 import { Toaster, toast } from 'react-hot-toast';
 import { extractTextFromPdf } from "./utils/pdfExtractor";
 import { getApiHeaders, checkUserAiAccess, checkResponseForRotatedKey } from "./utils/apiKeyManager";
@@ -263,6 +264,7 @@ export default function App() {
   const [extensionImportData, setExtensionImportData] = useState<{ processNumber: string; documents: any[] } | null>(null);
   const [sessionTokens, setSessionTokens] = useState<number>(0);
   const [isLegalDrawerOpen, setIsLegalDrawerOpen] = useState<boolean>(false);
+  const [isLateralAgentOpen, setIsLateralAgentOpen] = useState<boolean>(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [showInstructionsBanner, setShowInstructionsBanner] = useState<boolean>(true);
   const [historyList, setHistoryList] = useState<SavedAnalysis[]>([]);
@@ -1529,6 +1531,45 @@ export default function App() {
     return 'none';
   };
 
+  const handleLoadAnalysis = (analysis: SavedAnalysis) => {
+    try {
+      if (isCorruptedHistoryItem(analysis)) {
+        if (analysis.id) {
+          deleteFromHistory(analysis.id).catch(console.warn);
+        }
+        alert("Este registro continha erro de processamento e foi removido do histórico.");
+        return;
+      }
+
+      const loadedResult = analysis.result ? {
+        ...analysis.result,
+        originalMinute: analysis.result.originalMinute || analysis.originalMinute || analysis.result.minute,
+      } : null;
+      
+      // Defend against corrupted or null results in history causing a React render crash
+      if (!loadedResult || !loadedResult.minute || (loadedResult as any).error) {
+        console.warn("Corrupted history data, missing minute:", analysis);
+        if (analysis.id) {
+          deleteFromHistory(analysis.id).catch(console.warn);
+        }
+        alert("Este registro do histórico continha dados incompletos e foi limpo automaticamente.");
+        return;
+      }
+      
+      setGenerationResult(loadedResult);
+      setProcessNumber(analysis.processNumber || loadedResult.minute?.processNumber || "");
+      setProcessText(analysis.processTextContext || "");
+      setCurrentAnalysisId(analysis.id);
+      setCurrentChatMessages(Array.isArray(analysis.chatMessages) ? analysis.chatMessages : []);
+      const matchingPrompt = prompts.find((p) => p.title === analysis.promptTitle || p.id === analysis.promptId);
+      if (matchingPrompt) setActivePrompt(matchingPrompt);
+      setIsFormCollapsed(true); // Auto-collapse form to show the minute immediately
+    } catch (e) {
+      console.error("Crash prevented while loading history:", e);
+      alert("Ocorreu um erro ao tentar carregar esta minuta do histórico. Os dados podem estar incompatíveis.");
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#f3f4f6] text-slate-900 font-sans selection:bg-slate-200">
       <Toaster position="bottom-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ duration: 4000, style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' } }} />
@@ -1575,6 +1616,7 @@ export default function App() {
         onOpenManual={() => setIsManualModalOpen(true)}
         onOpenPresentation={() => setIsPresentationOpen(true)}
         onOpenMinuteAuditor={() => setIsMinuteAuditorOpen(true)}
+        onOpenLateralAgent={() => setIsLateralAgentOpen(true)}
         onToggleGuide={() => setIsGuideVisible(prev => !prev)}
         isGuideVisible={isGuideVisible}
         onOpenSuperAdmin={() => setIsSuperAdminPanelOpen(true)}
@@ -2198,44 +2240,7 @@ export default function App() {
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
         onGoHome={handleClearAllProcess}
-        onLoadAnalysis={(analysis) => {
-          try {
-            if (isCorruptedHistoryItem(analysis)) {
-              if (analysis.id) {
-                deleteFromHistory(analysis.id).catch(console.warn);
-              }
-              alert("Este registro continha erro de processamento e foi removido do histórico.");
-              return;
-            }
-
-            const loadedResult = analysis.result ? {
-              ...analysis.result,
-              originalMinute: analysis.result.originalMinute || analysis.originalMinute || analysis.result.minute,
-            } : null;
-            
-            // Defend against corrupted or null results in history causing a React render crash
-            if (!loadedResult || !loadedResult.minute || (loadedResult as any).error) {
-              console.warn("Corrupted history data, missing minute:", analysis);
-              if (analysis.id) {
-                deleteFromHistory(analysis.id).catch(console.warn);
-              }
-              alert("Este registro do histórico continha dados incompletos e foi limpo automaticamente.");
-              return;
-            }
-            
-            setGenerationResult(loadedResult);
-            setProcessNumber(analysis.processNumber || loadedResult.minute?.processNumber || "");
-            setProcessText(analysis.processTextContext || "");
-            setCurrentAnalysisId(analysis.id);
-            setCurrentChatMessages(Array.isArray(analysis.chatMessages) ? analysis.chatMessages : []);
-            const matchingPrompt = prompts.find((p) => p.title === analysis.promptTitle || p.id === analysis.promptId);
-            if (matchingPrompt) setActivePrompt(matchingPrompt);
-            setIsFormCollapsed(true); // Auto-collapse form to show the minute immediately
-          } catch (e) {
-            console.error("Crash prevented while loading history:", e);
-            alert("Ocorreu um erro ao tentar carregar esta minuta do histórico. Os dados podem estar incompatíveis.");
-          }
-        }}
+        onLoadAnalysis={handleLoadAnalysis}
       />
 
       <XRayModal
@@ -2429,6 +2434,17 @@ export default function App() {
         isVisible={isGuideVisible}
         onClose={() => setIsGuideVisible(false)}
         onOpenApiKeyConfig={() => setIsApiKeyModalOpen(true)}
+      />
+
+      <LateralAgentDrawer
+        isOpen={isLateralAgentOpen}
+        onToggle={() => setIsLateralAgentOpen(prev => !prev)}
+        onClose={() => setIsLateralAgentOpen(false)}
+        currentProcessNumber={generationResult?.minute?.processNumber || processNumber || (pdfFiles.length > 0 ? pdfFiles[0].name.replace(/\.pdf$/i, '') : undefined)}
+        caseSummary={generationResult?.holisticSynopsis || generationResult?.minute?.relatorio || (processText ? processText.substring(0, 1500) : undefined)}
+        activeMinuteSnippet={generationResult?.minute?.fundamentacao || generationResult?.minute?.dispositivo}
+        onOpenApiKeyConfig={() => setIsApiKeyModalOpen(true)}
+        onLoadAnalysis={handleLoadAnalysis}
       />
     </div>
     </div>

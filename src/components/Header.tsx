@@ -72,6 +72,7 @@ interface HeaderProps {
   onOpenPresentation?: () => void;
   onOpenExtension?: () => void;
   onOpenHearingWorkbench?: () => void;
+  onOpenLateralAgent?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -93,6 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMinuteAuditor,
   onOpenPetitionPanel,
   onOpenExtension,
+  onOpenLateralAgent,
   onOpenTicketsModal,
   tickets = [],
   sessionTokens = 0,
@@ -219,6 +221,19 @@ export const Header: React.FC<HeaderProps> = ({
             />
           )}
 
+          {onOpenLateralAgent && (
+            <button
+              id="btn-header-copilot-top-mobile"
+              onClick={onOpenLateralAgent}
+              className="flex items-center gap-1 px-2 sm:px-2.5 h-[30px] rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs transition cursor-pointer shadow-sm border border-indigo-400/40"
+              title="Copiloto IA de Gabinete"
+            >
+              <Bot className="w-3.5 h-3.5 text-indigo-100" />
+              <span className="hidden xs:inline">Copiloto IA</span>
+              <Sparkles className="w-3 h-3 text-amber-300" />
+            </button>
+          )}
+
           {activePromptTitle && (
             <div 
               onClick={onOpenPromptManager}
@@ -262,6 +277,20 @@ export const Header: React.FC<HeaderProps> = ({
           className="hidden xl:flex flex-wrap items-center gap-1.5 text-xs justify-end"
         >
           {/* Botões movidos para o Sidebar */}
+
+          {/* BOTÃO COPILOTO IA NO TOPO (AO LADO DE CONFIGURAÇÕES) */}
+          {onOpenLateralAgent && (
+            <button
+              id="btn-header-copilot-top"
+              onClick={onOpenLateralAgent}
+              className="flex items-center gap-1.5 px-3 h-[30px] rounded-lg bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-[11px] transition cursor-pointer shadow-md shadow-indigo-950/40 border border-indigo-400/40 whitespace-nowrap group hover:scale-[1.02]"
+              title="Abrir Agente Copiloto IA de Gabinete"
+            >
+              <Bot className="w-3.5 h-3.5 text-indigo-100 group-hover:rotate-12 transition-transform" />
+              <span>Copiloto IA</span>
+              <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+            </button>
+          )}
 
           {/* GRUPO 3: GESTÃO & SUPORTE (Menu Dropdown) */}
           <div className="relative group">
@@ -408,6 +437,23 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <BookOpen className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span>Manual de Uso</span>
+                  </button>
+                )}
+
+                {onOpenLateralAgent && (
+                  <button
+                    id="btn-header-lateral-agent"
+                    onClick={onOpenLateralAgent}
+                    className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-200 hover:text-white font-semibold text-xs transition cursor-pointer text-left w-full border border-indigo-500/20"
+                    title="Abrir Agente Copiloto Lateral de Gabinete"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span>Copiloto de Gabinete</span>
+                    </div>
+                    <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-500/40">
+                      IA
+                    </span>
                   </button>
                 )}
 
@@ -1059,6 +1105,22 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <BookOpen className="w-4 h-4 text-slate-400 shrink-0" />
                       <span>Manual do Sistema & Guia</span>
+                    </button>
+                  )}
+
+                  {onOpenLateralAgent && (
+                    <button
+                      id="btn-header-lateral-agent-mobile"
+                      onClick={() => handleAction(onOpenLateralAgent)}
+                      className="w-full p-2.5 rounded-xl bg-gradient-to-r from-indigo-950/80 to-slate-900 hover:from-indigo-900 hover:to-slate-800 text-indigo-200 font-bold text-xs flex items-center justify-between border border-indigo-500/40 transition shadow-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Bot className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <span>Agente Copiloto de Gabinete</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        IA
+                      </span>
                     </button>
                   )}
 
