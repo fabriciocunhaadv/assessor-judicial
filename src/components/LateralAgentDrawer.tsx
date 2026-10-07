@@ -27,6 +27,7 @@ import { toast } from "react-hot-toast";
 import { getApiHeaders, hasCustomApiKey, getMaskedApiKey } from "../utils/apiKeyManager";
 import { SavedAnalysis } from "../types";
 import { getHistory } from "../utils/historyDb";
+import { recordApiExecution } from "../utils/apiUsageTracker";
 
 export interface LateralAgentMessage {
   id: string;
@@ -46,6 +47,7 @@ interface LateralAgentDrawerProps {
   activeMinuteSnippet?: string;
   onOpenApiKeyConfig?: () => void;
   onLoadAnalysis?: (analysis: SavedAnalysis) => void;
+  onUnlinkProcess?: () => void;
 }
 
 const DEFAULT_PROMPT_SUGGESTIONS = [
@@ -95,6 +97,7 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
   activeMinuteSnippet,
   onOpenApiKeyConfig,
   onLoadAnalysis,
+  onUnlinkProcess,
 }) => {
   const [messages, setMessages] = useState<LateralAgentMessage[]>(() => {
     if (typeof window !== "undefined") {
@@ -125,6 +128,70 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastLoadedProcessRef = useRef<string | null>(null);
+
+  // Sincroniza e puxa automaticamente os dados do processo em tela quando abrir o Copiloto
+  // Caso o processo tenha sido excluído, limpo ou o usuário esteja em outra página, desacopla cirurgicamente
+  useEffect(() => {
+    if (isOpen) {
+      if (currentProcessNumber) {
+        setActiveMode("autos");
+        setAttachCaseContext(true);
+
+        if (currentProcessNumber !== lastLoadedProcessRef.current) {
+          lastLoadedProcessRef.current = currentProcessNumber;
+
+          const caseInfo = caseSummary ? `\n\n**Resumo dos Autos / Marcha:**\n> ${caseSummary.substring(0, 320).replace(/\n/g, ' ')}...` : "";
+          const minuteNotice = activeMinuteSnippet ? `\n\n*Minuta do ato (relatório, fundamentação e dispositivo) vinculada com sucesso ao Copiloto.*` : "";
+
+          const contextMsg: LateralAgentMessage = {
+            id: `msg-case-loaded-${Date.now()}`,
+            sender: "assistant",
+            text: `⚖️ **Processo Conectado aos Autos em Tela:**\n\n**Processo nº:** \`${currentProcessNumber}\`${caseInfo}${minuteNotice}\n\nO Copiloto já puxou os autos no modo **Autos em Tela** e está pronto para consultas do gabinete. Como posso auxiliar com este processo agora?\n\n• *Revisar fundamentação jurídica ou teses*\n• *Sugerir ou ajustar comandos do dispositivo*\n• *Consultar súmulas, legislação e prazos aplicáveis*`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+
+          setMessages((prev) => {
+            const filtered = prev.filter(m => !m.id.startsWith("msg-case-loaded-"));
+            return [...filtered, contextMsg];
+          });
+        }
+      } else {
+        // Se NÃO há processo em tela (excluído, limpo ou outra página sem processo aberto)
+        lastLoadedProcessRef.current = null;
+        setActiveMode((prevMode) => (prevMode === "autos" ? "geral" : prevMode));
+        setAttachCaseContext(false);
+
+        // Remove do chat qualquer mensagem automática anterior que anunciava processo conectado
+        setMessages((prev) => {
+          const hasStaleCaseMsg = prev.some(m => m.id.startsWith("msg-case-loaded-") || m.text.includes("Processo Conectado aos Autos"));
+          if (hasStaleCaseMsg) {
+            return prev.filter(m => !m.id.startsWith("msg-case-loaded-") && !m.text.includes("Processo Conectado aos Autos"));
+          }
+          return prev;
+        });
+      }
+    }
+  }, [isOpen, currentProcessNumber, caseSummary, activeMinuteSnippet]);
+
+  const handleUnlinkProcess = () => {
+    lastLoadedProcessRef.current = null;
+    setActiveMode("geral");
+    setAttachCaseContext(false);
+    setMessages((prev) => [
+      ...prev.filter(m => !m.id.startsWith("msg-case-loaded-") && !m.text.includes("Processo Conectado aos Autos")),
+      {
+        id: `msg-unlink-${Date.now()}`,
+        sender: "assistant",
+        text: "🔓 **Processo Desvinculado do Copiloto:**\nO agente agora está no modo **Geral** (consultas gerais de teses, modelos, súmulas e CPC) sem vínculo com o processo anterior.",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }
+    ]);
+    if (onUnlinkProcess) {
+      onUnlinkProcess();
+    }
+    toast.success("Processo desvinculado do Copiloto!");
+  };
 
   // Salva histórico local
   useEffect(() => {
@@ -159,11 +226,16 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
   };
 
   const handleClearChat = () => {
+    lastLoadedProcessRef.current = null;
+    const initialText = currentProcessNumber
+      ? `Conversa reiniciada. O processo **${currentProcessNumber}** continua conectado no modo **Autos em Tela**. Como posso auxiliar o gabinete agora?`
+      : "Conversa reiniciada. Como posso auxiliar o gabinete agora?";
+
     setMessages([
       {
         id: `msg-welcome-${Date.now()}`,
         sender: "assistant",
-        text: "Conversa reiniciada. Como posso auxiliar o gabinete agora?",
+        text: initialText,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       },
     ]);
@@ -257,7 +329,7 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
           processNumber: matchedItem.processNumber || minute?.processNumber || "Processo sem número",
           author: minute?.parties?.author || "Autor não qualificado",
           defendant: minute?.parties?.defendant || "Réu não qualificado",
-          vara: minute?.comarcaVara || matchedItem.unitId || "Vara Única",
+          vara: minute?.judicialUnit || (minute as any)?.comarcaVara || minute?.vara || matchedItem.unitId || "Vara Única",
           promptTitle: matchedItem.promptTitle || "Juizado Especial Cível",
           actType: minute?.title || "Ato Judicial",
           date: matchedItem.date ? new Date(matchedItem.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Data recente",
@@ -276,9 +348,9 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
             text: m.text,
           })),
           mode: activeMode,
-          processNumber: attachCaseContext ? currentProcessNumber : undefined,
-          caseSummary: attachCaseContext ? caseSummary : undefined,
-          activeMinuteSnippet: attachCaseContext ? activeMinuteSnippet : undefined,
+          processNumber: (attachCaseContext && activeMode === "autos" && currentProcessNumber) ? currentProcessNumber : undefined,
+          caseSummary: (attachCaseContext && activeMode === "autos" && currentProcessNumber) ? caseSummary : undefined,
+          activeMinuteSnippet: (attachCaseContext && activeMode === "autos" && currentProcessNumber) ? activeMinuteSnippet : undefined,
           matchedProcess: matchedProcessPayload,
         }),
       });
@@ -300,6 +372,20 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Registra telemetria de consumo do Copiloto no Painel Super Admin
+      const totalToks = data.usage?.totalTokenCount || (data.usage?.promptTokenCount ? (data.usage.promptTokenCount + (data.usage.candidatesTokenCount || 0)) : 450);
+      const promptToks = data.usage?.promptTokenCount || Math.round(totalToks * 0.7);
+      const candToks = data.usage?.candidatesTokenCount || Math.round(totalToks * 0.3);
+      recordApiExecution({
+        label: `Copiloto IA (${activeMode === "autos" ? "Autos em Tela" : activeMode === "redacao" ? "Redator" : "Geral"})`,
+        processNumber: (activeMode === "autos" && currentProcessNumber) ? currentProcessNumber : (matchedItem?.processNumber || "Consulta de Gabinete"),
+        model: data.modelUsed || "Gemini Flash (Copiloto)",
+        promptTokens: promptToks,
+        outputTokens: candToks,
+        totalTokens: totalToks,
+        module: 'copiloto',
+      }).catch((telemetryErr) => console.warn("[Copiloto] Aviso telemetria:", telemetryErr));
     } catch (err: any) {
       console.error("Erro na comunicação com Agente Lateral:", err);
       const errorMessage: LateralAgentMessage = {
@@ -334,7 +420,7 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
           aria-label="Painel do Agente Copiloto de Gabinete"
           className={`fixed top-0 right-0 h-full ${
             isExpanded ? "w-full md:w-[620px]" : "w-full sm:w-[420px] md:w-[460px]"
-          } bg-[#0b111a]/98 border-l border-indigo-500/30 shadow-2xl z-50 flex flex-col text-slate-100 backdrop-blur-xl animate-in slide-in-from-right duration-300 transition-all`}
+          } bg-[#0b111a]/98 border-l border-indigo-500/30 shadow-2xl z-[60] flex flex-col text-slate-100 backdrop-blur-xl animate-in slide-in-from-right duration-300 transition-all`}
         >
           {/* TOPO / HEADER DO AGENTE LATERAL */}
           <div className="p-3.5 bg-gradient-to-r from-slate-950 via-indigo-950/40 to-slate-950 border-b border-indigo-500/20 flex items-center justify-between shrink-0">
@@ -478,15 +564,24 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
                     Autos: {currentProcessNumber}
                   </span>
                 </div>
-                <label className="flex items-center gap-1 text-[10px] text-indigo-300 font-semibold cursor-pointer shrink-0 ml-2">
-                  <input
-                    type="checkbox"
-                    checked={attachCaseContext}
-                    onChange={(e) => setAttachCaseContext(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-500 focus:ring-0 w-3 h-3"
-                  />
-                  <span>Vincular resumo</span>
-                </label>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <label className="flex items-center gap-1 text-[10px] text-indigo-300 font-semibold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={attachCaseContext}
+                      onChange={(e) => setAttachCaseContext(e.target.checked)}
+                      className="rounded border-slate-700 text-indigo-500 focus:ring-0 w-3 h-3"
+                    />
+                    <span>Vincular resumo</span>
+                  </label>
+                  <button
+                    onClick={handleUnlinkProcess}
+                    className="text-[10px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer ml-1 transition"
+                    title="Desvincular este processo do Copiloto e voltar ao modo Geral"
+                  >
+                    Desvincular
+                  </button>
+                </div>
               </div>
             )}
           </div>

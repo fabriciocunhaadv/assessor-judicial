@@ -4200,7 +4200,8 @@ export const getAllCabinetMonthlyUsage = async (monthKey?: string): Promise<Cabi
           candidatesTokens: uData.candidatesTokens || 0,
           requestCount: uData.requestCount || 0,
           lastUsedAt: uData.lastUsedAt || 0,
-          users: uData.users || {}
+          users: uData.users || {},
+          modules: uData.modules || {}
         });
       } else {
         // Gabinete sem consumo registrado no mês
@@ -4214,7 +4215,8 @@ export const getAllCabinetMonthlyUsage = async (monthKey?: string): Promise<Cabi
           candidatesTokens: 0,
           requestCount: 0,
           lastUsedAt: 0,
-          users: {}
+          users: {},
+          modules: {}
         });
       }
     }

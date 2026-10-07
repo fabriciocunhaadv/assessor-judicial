@@ -56,6 +56,7 @@ interface HistoryModalProps {
   onClose: () => void;
   onLoadAnalysis: (analysis: SavedAnalysis) => void;
   onGoHome?: () => void;
+  onDeleteAnalysis?: (deletedId: string, processNumber?: string) => void;
 }
 
 const toSafeString = (val: any, fallback: string = ""): string => {
@@ -113,6 +114,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   onClose,
   onLoadAnalysis,
   onGoHome,
+  onDeleteAnalysis,
 }) => {
   const { allowedUnits, isAdmin, activeUnit } = useAuth();
   const [history, setHistory] = useState<SavedAnalysis[]>([]);
@@ -205,6 +207,9 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
     try {
       await deleteFromHistory(id);
+      if (onDeleteAnalysis) {
+        onDeleteAnalysis(id, item.processNumber || item.result?.minute?.processNumber);
+      }
       showFeedback(`Ato judicial "${item.result?.minute?.title || item.promptTitle}" excluído com sucesso.`);
     } catch (err: any) {
       showFeedback(`Erro ao remover análise: ${err.message}`);
@@ -223,6 +228,9 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
       await deleteDossierFromHistory(dossier.processNumber);
       for (const id of ids) {
         await deleteFromHistory(id);
+        if (onDeleteAnalysis) {
+          onDeleteAnalysis(id, dossier.processNumber);
+        }
       }
       showFeedback(`Evolução cronológica do processo ${dossier.processNumber} (${ids.length} atos) excluída com sucesso de todos os dispositivos.`);
     } catch (err: any) {

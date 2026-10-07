@@ -718,15 +718,15 @@ ${(matchedProcess.synopsis || "").substring(0, 1800)}
 ${matchedProcess.minuteSnippet ? `- Trecho da Minuta Registrada:\n${matchedProcess.minuteSnippet.substring(0, 1200)}\n` : ""}\n`;
         }
 
-        if (mode === "autos" || (caseSummary && mode !== "geral" && !matchedProcess)) {
-            contextSection += `\n# CONTEXTO SUCINTO DOS AUTOS EM ANÁLISE:
+        // O processo em tela só é vinculado ao contexto quando o modo for explicitamente "autos" e houver processo válido
+        if (mode === "autos" && (processNumber || caseSummary)) {
+            contextSection += `\n# AUTOS EM TELA / PROCESSO CONECTADO:
 - Número do Processo: ${processNumber || "Não identificado"}
-- Resumo do Caso:
-${(caseSummary || "").substring(0, 1500)}\n`;
-        }
-        if (activeMinuteSnippet && !matchedProcess) {
-            contextSection += `\n# MINUTA / TRECHO ATUAL EM TELA:
-${activeMinuteSnippet.substring(0, 1200)}\n`;
+${caseSummary ? `- Resumo Factual / Marcha dos Autos:\n${caseSummary.substring(0, 2500)}\n` : ""}`;
+            if (activeMinuteSnippet) {
+                contextSection += `\n# MINUTA JUDICIAL DO ATO EM TELA:
+${activeMinuteSnippet.substring(0, 3000)}\n`;
+            }
         }
 
         const systemPrompt = `Você é o Agente Copiloto de Gabinete Judicial, um assistente técnico de inteligência jurídica para magistrados e assessores de justiça.
@@ -786,6 +786,431 @@ ${contextSection}`;
     } catch (error: any) {
         console.error("Erro no lateral-agent-chat:", error);
         res.status(500).json({ error: error.message || "Erro ao consultar o Agente Copiloto Lateral." });
+    }
+});
+
+// =========================================================================
+// MÓDULO TURBO INDEPENDENTE - ANÁLISE ÁGIL DE PROCESSOS (ETAPA ÚNICA CONSOLIDADA)
+// Não afeta e não interfere na esteira profunda principal (/api/generate-minute)
+// =========================================================================
+app.post("/api/generate-minute-turbo", async (req, res) => {
+    const startTime = Date.now();
+    let keepAliveInterval: any = null;
+    try {
+        req.socket?.setTimeout(600000);
+        res.socket?.setTimeout(600000);
+
+        const apiKey = extractApiKey(req);
+        if (!apiKey) {
+            return res.status(401).json({ error: "Chave da API Gemini ausente. Configure sua chave no menu de configurações." });
+        }
+
+        const {
+            processText,
+            pdfFiles = [],
+            actType = "auto", // 'sentenca' | 'decisao' | 'despacho' | 'auto'
+            comarcaVara,
+            specificInstructions = "",
+            promptHint = "",
+            promptTitle = "",
+            promptText = "",
+            promptCategory = ""
+        } = req.body;
+
+        let accumulatedText = (processText || "").trim();
+
+        if (Array.isArray(pdfFiles) && pdfFiles.length > 0) {
+            for (const p of pdfFiles) {
+                if (p.extractedText && typeof p.extractedText === "string" && p.extractedText.trim().length > 0) {
+                    const safe = filterInnocuousCertificates(cleanJudicialPdfText(p.extractedText));
+                    // Evita duplicação caso processText já contenha o mesmo conteúdo
+                    const sample = safe.trim().substring(0, Math.min(80, safe.trim().length));
+                    if (!sample || !accumulatedText.includes(sample)) {
+                        accumulatedText += `\n\n[=== AUTOS DO PROCESSO: ${p.name || "Documento"} ===]\n${safe}\n`;
+                    }
+                }
+            }
+        }
+
+        if (!accumulatedText || accumulatedText.trim().length < 20) {
+            return res.status(400).json({ error: "Nenhum texto processual útil identificado no PDF ou no formulário." });
+        }
+
+        // PRESERVAÇÃO INTEGRAL DOS AUTOS (SEM SUPRESSÃO DE DADOS, PROVAS OU ATOS):
+        // Conforme diretriz soberana, a IA recebe o contexto integral de todas as peças,
+        // decisões anteriores, certidões e provas para avaliar com precisão a marcha processual.
+        if (accumulatedText.length > 1500000) {
+            accumulatedText = accumulatedText.substring(0, 1500000);
+        }
+
+        // Configuração defensiva de batimento cardíaco (anti-timeout do Cloud Run e mobile)
+        if (!res.headersSent) {
+            res.writeHead(200, {
+                "Content-Type": "application/json; charset=utf-8",
+                "Transfer-Encoding": "chunked",
+                "X-Accel-Buffering": "no",
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive"
+            });
+            // Pulso invisível a cada 2,5 segundos para que proxies e celulares não sofram idle timeout
+            keepAliveInterval = setInterval(() => {
+                try {
+                    if (!res.writableEnded && !res.destroyed) {
+                        res.write(" ");
+                    }
+                } catch (_) {}
+            }, 2500);
+        }
+
+        const actInstruction = actType === "sentenca"
+            ? "O ato deve ser categoricamente uma SENTENÇA COMPLETA (com I - Relatório circunstanciado retratando a marcha processual, II - Fundamentação detalhada com enfrentamento de todas as teses e provas e III - Dispositivo claro com resolução do mérito nos termos do art. 487 do CPC, honorários e custas)."
+            : actType === "decisao"
+            ? "O ato deve ser uma DECISÃO INTERLOCUTÓRIA FUNDAMENTADA (com breve relatório fático da marcha, fundamentação analítica examinando o histórico prévio e os requisitos legais da matéria pendente e dispositivo operacional mandamental claro)."
+            : actType === "despacho"
+            ? "O ato deve ser um DESPACHO MOTIVADO de expediente ou determinação pontual de emenda (art. 321 do CPC) ou providência do cartório com prazo certo."
+            : "Identifique automaticamente se o estágio processual comporta SENTENÇA, DECISÃO INTERLOCUTÓRIA ou DESPACHO, fundamentando com rigor técnico e perfeita coerência com a marcha processual.";
+
+        const systemPrompt = `Você é o Magistrado e Motor Turbo de Análise Judicial do Assessor de Gabinete.
+Sua missão é ler os autos processuais e redigir uma minuta judicial COMPLETA, PROFUNDAMENTE FUNDAMENTADA, TÉCNICA E PRONTA PARA ASSINATURA em etapa única consolidada, COM OBSERVÂNCIA ESTRITA DA MARCHA PROCESSUAL E COERÊNCIA COM AS DECISÕES ANTERIORES.
+
+DIRETRIZES DA ANÁLISE JUDICIAL TURBO:
+1. IDENTIFICAÇÃO DOS AUTOS E POLOS (MANDATÓRIO):
+   - Extraia o NÚMERO EXATO DO PROCESSO no formato CNJ (ex: 5783822-08.2026.8.09.0166) a partir dos autos, carimbos, petições ou nomes de arquivo. NUNCA utilize 'Conforme autos', 'Não identificado' ou 'Autos do Processo'.
+   - Extraia o NOME REAL COMPLETO DA PARTE AUTORA (Polo Ativo / Exequente / Requerente) e DA PARTE RÉ (Polo Passivo / Executado / Requerido). É ESTRITAMENTE PROIBIDO retornar rótulos genéricos como 'Autor', 'Réu', 'Parte Autora', 'Promovente', 'Exequente' ou 'Parte'. Identifique os litigantes verdadeiros expressos nos autos.
+
+2. PROTOCOLO OBRIGATÓRIO DO FIO DA MEADA, ANÁLISE CONJUNTA DOS AUTOS E COERÊNCIA DECISÓRIA (ARTS. 505 E 507 DO CPC):
+   O magistrado ou assessor JAMAIS decide olhando apenas para uma ponta isolada, nem recomeça arbitrariamente o processo do início ignorando o que já ocorreu.
+   É TERMINANTEMENTE PROIBIDO suprimir, ignorar ou anular tacitamente os comandos judiciais, despachos e decisões pretéritas dos autos.
+   A IA DEVE OBRIGATORIAMENTE realizar a ANÁLISE CONJUNTA DE TODA A MARCHA PROCESSUAL:
+   * PONTO 1 - GÊNESE DA CAUSA: Petição inicial, pedidos e causa de pedir originários;
+   * PONTO 2 - DECISÕES ANTERIORES E O QUE JÁ FOI RESOLVIDO: O magistrado deve identificar toda a sequência cronológica dos despachos, decisões interlocutórias, liminares e comandos já proferidos nos autos, respeitando com rigor absoluto a preclusão pro judicato (arts. 505 e 507 do CPC) — é TERMINANTEMENTE PROIBIDO proferir decisão contraditória, anacrônica ou retroceder a fases anteriores já superadas;
+   * PONTO 3 - ATOS SUBSEQUENTES E REAÇÃO DAS PARTES: O que ocorreu após as decisões (cumprimento voluntário, inércia da parte, certidão de decurso de prazo pelo cartório, petições intercorrentes);
+   * PONTO 4 - PRÓXIMA DECISÃO CABÍVEL (MATÉRIA PENDENTE): A decisão a ser proferida DEVE ser a consequência lógica e processual da marcha (ex: se já houve intimação para pagar alimentos ou justificar sob pena de prisão e o executado manteve-se inerte com prazo decorrido, a PRÓXIMA DECISÃO É A DECRETAÇÃO DA PRISÃO CIVIL ou medidas coercitivas, sendo PROIBIDO retroagir mandando intimar novamente para pagar; se já houve contestação e réplica, a fase é de saneamento ou julgamento antecipado, etc.).
+   Essa análise DEVE orientar internamente a elaboração da minuta, sendo refletida com técnica e precisão no Relatório circunstanciado, na Fundamentação jurídica e no Dispositivo mandamental.
+
+3. TIPO DE ATO E ADEQUAÇÃO AO MOMENTO PROCESSUAL:
+   - ${actInstruction}
+
+4. I - RELATÓRIO CIRCUNSTANCIADO COM EXTRAÇÃO MINUCIOSA DO PDF:
+   - Relate a marcha processual com fidelidade estrita em múltiplos parágrafos fluidos e arejados (\n\n):
+     * Gênese fática: qualificação completa das partes, pedidos originários, causa de pedir e valor da causa;
+     * Decisões anteriores e o que restou resolvido: relate os despachos, decisões liminares e determinações anteriores proferidas nos autos;
+     * Atos subsequentes e reação das partes: certidões de intimação/citação, decurso de prazo in albis, contestação, justificativa ou manifestações intercorrentes;
+     * Causa atual da conclusão: o motivo específico pelo qual os autos vieram conclusos para deliberação no momento presente.
+   - CITAÇÃO OBRIGATÓRIA DA FONTE (MOVIMENTO, ARQUIVO E PÁGINA):
+     * Ao mencionar cada peça, despacho, decisão, certidão ou manifestação no Relatório, a IA DEVE indicar expressamente entre parênteses a fonte exata extraída do PDF:
+       Exemplos: (mov. 1, arq. 1, p. 1-12), (mov. 14, evento 'Decisão Inicial', p. 25), (mov. 19, certidão de decurso de prazo, p. 32), (mov. 22, arq. 'Contestação', p. 4), (arquivo '001_peticao_inicial.pdf', p. 2).
+     * Destaque em **negrito** datas relevantes, números de movimentos e certidões cartorárias cruciais.
+
+5. II - FUNDAMENTAÇÃO SUBSTANCIAL, APROFUNDADA E EMBASADA NO ACERVO PROBATÓRIO DO PDF (ART. 489 DO CPC):
+   - PROIBIÇÃO ABSOLUTA DE FUNDAMENTAÇÃO SIMPLES, CURTA, GENÉRICA OU DE PARÁGRAFO ÚNICO: A fundamentação não pode ficar muito simples ou superficial. O magistrado deve fundamentar com densidade, seriedade e rigor analítico exauriente.
+   - EXTRAÇÃO DOS DADOS DO PDF PARA JUSTIFICAR O ATO:
+     * Extraia dos autos todos os dados fáticos, contratuais, financeiros e probatórios concretos necessários para fundamentar e justificar categoricamente a decisão/despacho/sentença (ex: valores de débitos/alimentos, cláusulas contratuais, datas de vencimento, datas de intimação pessoal, ausência de justificativa idônea, probabilidade do direito e perigo de dano).
+   - CITAÇÃO OBRIGATÓRIA DE MOVIMENTO, ARQUIVO E PÁGINA (MANDATÓRIO):
+     * Toda vez que invocar uma prova, documento, cálculo, certidão ou manifestação para justificar o acolhimento, rejeição ou ordem mandamental, INDIQUE EXPRESSAMENTE entre parênteses o movimento, arquivo e página de onde a informação foi extraída dos autos:
+       Exemplos:
+       - "...conforme certidão de intimação pessoal e aviso de recebimento positivo (mov. 18, arq. 'AR Cumprido', p. 3)..."
+       - "...atestada a inércia do devedor pela certidão cartorária de decurso de prazo in albis (mov. 21, evento 21.1, p. 1)..."
+       - "...nos termos da planilha de evolução do débito que totaliza o montante exequendo (mov. 1, arq. 3, p. 14-16)..."
+       - "...conforme demonstrado no contrato de prestação de serviços (mov. 1, arq. 'Contrato', p. 8)..."
+     * NUNCA faça referências vagas como "conforme documentos dos autos" ou "segundo provas acostadas". Cite sempre a localização precisa (mov., arq., p.).
+   - ESTRUTURAÇÃO OBRIGATÓRIA EM SUBTÓPICOS TEMÁTICOS ANALÍTICOS ('### 1. ...', '### 2. ...'):
+     * Subtópico 1: Exame das questões prévias, marcha processual, preclusões e decisões já proferidas (fio da meada e art. 505/507 do CPC), citando os movimentos respectivos;
+     * Subtópico 2: Análise analítica e aprofundada do mérito da matéria pendente e enfrentamento minucioso do acervo probatório extraído do PDF (com múltiplos parágrafos densos e citação de mov., arq. e página);
+     * Subtópico 3 (se cabível): Medidas coercitivas, fixação de prazos e consequências legais cabíveis.
+   - DENSIDADE TEXTUAL SUBSTANCIAL: Mínimo de 2 a 3 parágrafos analíticos consistentes por subtópico, correlacionando o fato concreto dos autos com a norma legal aplicável.
+   - MATÉRIAS TÍPICAS E RIGOR TÉCNICO:
+     * Cumprimento de Sentença de Alimentos (rito prisional / art. 528 do CPC e Súmula 309 do STJ): verifique nos autos a prévia intimação pessoal (cite mov. e p.); examine a certidão de decurso de prazo in albis (cite mov. e p.) ou eventual justificativa; demonstre que escusas genéricas de desemprego não elidem a obrigação e justifique a decretação da prisão civil pelo prazo de 1 a 3 meses em regime fechado (art. 528, § 3º e § 4º, do CPC);
+     * Tutelas Provisórias (art. 300 do CPC): examine individualmente a probabilidade do direito (*fumus boni iuris*) e o perigo de dano ou risco ao resultado útil (*periculum in mora*), com base nos documentos e páginas do PDF;
+     * Emenda à Inicial (art. 321 do CPC) ou Saneamento (art. 357 do CPC): aponte com precisão cirúrgica os vícios ou pontos controvertidos com indicação das folhas e movimentos do processo.
+
+6. FORMATAÇÃO RICA, ELEGANTE E FLUIDA DA MINUTA (PARÁGRAFOS, NEGRITO, ITÁLICO E CITAÇÃO DE ARTIGOS):
+   A minuta judicial DEVE ser redigida com formatação Markdown visualmente impecável e profissional:
+   - PARÁGRAFOS BEM DEFINIDOS: Separe cada argumento e ideia com quebras de linha duplas (\n\n), criando parágrafos arejados, fluidos e bem estruturados. É PROIBIDO aglomerar textos em blocos únicos compactos.
+   - DESTAQUES EM NEGRITO (**texto**):
+     * Use **negrito** para destacar teses fundamentais, nomes de provas e certidões cruciais (ex: **certidão de decurso de prazo in albis**, **mandado de intimação pessoal**, **planilha de evolução do débito**, **contrato de prestação de serviços**), datas processuais determinantes, valores controvertidos e a conclusão jurídica direta de cada ponto analisado.
+   - DESTAQUES EM ITÁLICO (*texto*):
+     * Use *itálico* obrigatoriamente para expressões forenses e brocardos em latim (*fumus boni iuris*, *periculum in mora*, *in albis*, *preclusão pro judicato*, *quantum debeatur*, *vis-à-vis*, *inaudita altera parte*, *ex vi*, *ad argumentandum tantum*), termos técnicos e locuções especializadas.
+   - CITAÇÃO PRECISA DE ARTIGOS DE LEI, CÓDIGOS E SÚMULAS VINCULANTES:
+     * Cite de forma expressa, detalhada e tecnicamente precisa os artigos de lei pertinentes (CPC, Código Civil, Constituição Federal, CDC, leis especiais) e os enunciados de súmulas ou temas dos tribunais superiores (STF, STJ e TJGO).
+     * CITAÇÃO DESTACADA EM BLOCO MARKDOWN (>): Quando a literalidade do dispositivo legal ou da súmula for o fundamento central da deliberação, destaque-a em bloco de citação Markdown entre aspas e em itálico:
+       > *"Art. 528, § 3º, do CPC: Se o executado não pagar ou se a justificativa apresentada não for aceita, o juiz, além de mandar protestar o pronunciamento judicial na forma do § 1º, decretar-lhe-á a prisão pelo prazo de 1 (um) a 3 (três) meses."*
+       > *"Súmula 309 do STJ: O débito alimentar que autoriza a prisão civil do alimentante é o que compreende as três prestações anteriores ao ajuizamento da execução e as que se vencerem no curso do processo."*
+
+7. III - DISPOSITIVO OPERACIONAL:
+   - Comandos judiciais claros, práticos, imperativos e executáveis que resolvem categoricamente a matéria pendente.
+   - Estruture em alíneas ou itens numerados (1., 2., 3.), com prazos expressos em dias, advertências legais com cominações específicas, determinações aos órgãos ou ao cartório e ordens mandamentais.
+${promptTitle || promptText ? `\nDIRETRIZES DO PROMPT ESPECIALIZADO (${promptTitle}):\n${promptText}` : ""}
+${specificInstructions ? `\nDIRETRIZ ESPECÍFICA DO MAGISTRADO / ASSESSOR:\n${specificInstructions}` : ""}
+${promptHint ? `\nDIRETRIZ ADICIONAL:\n${promptHint}` : ""}`;
+
+        const userPrompt = `AUTOS DO PROCESSO PARA ANÁLISE JUDICIAL TURBO:
+${accumulatedText}
+
+Comarca/Vara de atuação: ${comarcaVara || "Comarca de Montes Claros / Vara Única - TJGO"}
+
+INSTRUÇÃO DE RESPOSTA (JSON OBRIGATÓRIO):
+Retorne ESTRITAMENTE um objeto JSON válido no formato abaixo, analisando primeiro a fase e as decisões anteriores para fundamentar e proferir a próxima decisão correta com densidade analítica, extração fidedigna do PDF e indicação obrigatória de movimento, arquivo e página:
+{
+  "proceduralPhase": "Fase processual atual (ex: Cumprimento de Sentença - Rito Prisional, Execução, Conhecimento, etc.)",
+  "priorDecisionsSummary": "Síntese cronológica das decisões anteriores e comandos já exarados nos autos (o que já havia sido decidido)",
+  "pendingMatter": "A matéria exata pendente de deliberação atual (qual é a próxima decisão cabível no andamento dos autos)",
+  "title": "SENTENÇA" ou "DECISÃO INTERLOCUTÓRIA" ou "DESPACHO",
+  "processNumber": "0000000-00.0000.0.00.0000",
+  "author": "Nome real do Autor / Exequente",
+  "defendant": "Nome real do Réu / Executado",
+  "judicialUnit": "${comarcaVara || "Vara Única"}",
+  "relatorio": "Texto completo do relatório em parágrafos bem espaçados narrando a gênese, decisões anteriores e a inércia/atos subsequentes, com indicação obrigatória de movimento, arquivo e página de cada ato: ex: (mov. 1, arq. 1, p. 12)...",
+  "fundamentacao": "Texto completo da fundamentação substancial e aprofundada (nunca simples), dividida em subtópicos analíticos (###), múltiplos parágrafos, justificando a decisão com as provas do PDF e citando obrigatoriamente movimento, arquivo e página: ex: (mov. 18, arq. 'Certidão', p. 1), negritos, termos latinos em itálico e citação de artigos de lei/súmulas em blocos '>...",
+  "dispositivo": "Texto completo do dispositivo em itens numerados com comandos executáveis da próxima decisão...",
+  "fullFormattedText": "Texto integral compilado do ato judicial em Markdown com cabeçalho, títulos, relatório, fundamentação com citação de movimentos/páginas e dispositivo formatados..."
+}
+
+ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não pode retroceder (arts. 505 e 507 do CPC). O ato deve dar sequência exata aos comandos e decisões pretéritas proferidas no feito. Extraia do PDF todas as informações necessárias para justificar o pronunciamento judicial e coloque SEMPRE o movimento, arquivo e página de onde cada informação, prova ou decisão foi extraída: ex: (mov. 1, p. 5), (mov. 18, arq. Certidão, p. 2). A fundamentação deve ser substantiva e não simplória. Formate com parágrafos bem espaçados, negrito, itálico e citação de artigos.`;
+
+        const options = {
+            apiKey: apiKey,
+            keyPool: extractApiKeyPool(req),
+            isNativeAllowed: isRequestNativeAllowed(req),
+            res,
+            keepSchema: true,
+            primaryModel: "gemini-3.1-flash-lite",
+            fallbackModel: "gemini-flash-latest",
+            customModelQueue: ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"],
+            timeoutMs: 35000,
+            maxCycles: 1,
+            contents: [
+                { role: "user", parts: [{ text: userPrompt }] }
+            ],
+            config: {
+                systemInstruction: systemPrompt,
+                temperature: 0.1,
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        proceduralPhase: { type: Type.STRING, description: "Fase processual atual identificada nos autos" },
+                        priorDecisionsSummary: { type: Type.STRING, description: "Síntese cronológica das decisões e comandos anteriores já exarados nos autos (o que já foi decidido)" },
+                        pendingMatter: { type: Type.STRING, description: "Matéria pendente de deliberação judicial atual (qual é a próxima decisão cabível)" },
+                        title: { type: Type.STRING, description: "Título do ato: SENTENÇA, DECISÃO INTERLOCUTÓRIA ou DESPACHO" },
+                        processNumber: { type: Type.STRING, description: "Número CNJ do processo extraído dos autos (ex: 5783822-08.2026.8.09.0166)" },
+                        author: { type: Type.STRING, description: "Nome real da parte autora / promovente / exequente" },
+                        defendant: { type: Type.STRING, description: "Nome real da parte ré / promovida / executada" },
+                        judicialUnit: { type: Type.STRING, description: "Vara e Comarca" },
+                        relatorio: { type: Type.STRING, description: "Texto completo do Relatório circunstanciado em múltiplos parágrafos, narrando a marcha processual e decisões anteriores, com citação obrigatória de movimento, arquivo e página de cada ato do PDF: ex: (mov. 1, arq. 1, p. 12), com formatação rica (parágrafos com \\n\\n, negritos e datas)." },
+                        fundamentacao: { type: Type.STRING, description: "Texto completo e substancial da Fundamentação Jurídica (art. 489 do CPC), dividido em subtópicos analíticos (###). Cada subtópico deve conter múltiplos parágrafos densos justificando a decisão com as provas do PDF, citando expressamente movimento, arquivo e página de cada prova ou documento: ex: (mov. 18, arq. 'Certidão', p. 1), com formatação rica em Markdown (parágrafos com \\n\\n, negrito em teses/provas, itálico em expressões latinas e blocos de citação '>' com artigos de lei e súmulas)." },
+                        dispositivo: { type: Type.STRING, description: "Texto completo e imperativo do Dispositivo com comandos judiciais claros organizados em itens numerados, prazos expressos e ordens mandamentais." },
+                        fullFormattedText: { type: Type.STRING, description: "Texto integral da minuta compilado em Markdown com cabeçalho completo, títulos (# e ##), relatório com indicação de movimentos/páginas, fundamentação substantiva e dispositivo formatados." }
+                    },
+                    required: ["proceduralPhase", "priorDecisionsSummary", "pendingMatter", "title", "processNumber", "author", "defendant", "relatorio", "fundamentacao", "dispositivo"]
+                }
+            }
+        };
+
+        const response = await generateWithFallbackAndRetry(options);
+        const elapsedMs = Date.now() - startTime;
+        let parsed: any = {};
+        try {
+            parsed = JSON.parse(response.text);
+        } catch {
+            parsed = safeParseJson(response.text) || {};
+        }
+
+        // Suporte a estruturas aninhadas caso o modelo retorne envelope
+        let targetObj = parsed;
+        if (parsed.minute && typeof parsed.minute === 'object') targetObj = parsed.minute;
+        else if (parsed.minuta && typeof parsed.minuta === 'object') targetObj = parsed.minuta;
+        else if (parsed.ato && typeof parsed.ato === 'object') targetObj = parsed.ato;
+        else if (parsed.decisao && typeof parsed.decisao === 'object') targetObj = parsed.decisao;
+        else if (parsed.sentenca && typeof parsed.sentenca === 'object') targetObj = parsed.sentenca;
+
+        let relatorioContent = (targetObj.relatorio || targetObj.relatorio_fatico || targetObj.relatorioFatico || targetObj.rel || targetObj.report || "").trim();
+        let fundamentacaoContent = (targetObj.fundamentacao || targetObj.fundamentacao_juridica || targetObj.fundamentacaoJuridica || targetObj.fundamentos || targetObj.fundamento || targetObj.merito || targetObj.motivos || "").trim();
+        let dispositivoContent = (targetObj.dispositivo || targetObj.dispositivo_final || targetObj.dispositivoFinal || targetObj.conclusao || targetObj.decisao || targetObj.comando || "").trim();
+
+        // Se as seções estiverem vazias, faz extração cirúrgica do texto bruto da IA
+        const rawResponseText = response.text || "";
+        if (!relatorioContent || !fundamentacaoContent || !dispositivoContent) {
+            const relMatch = rawResponseText.match(/(?:I\s*[-–]\s*RELAT[ÓO]RIO|RELAT[ÓO]RIO)\s*[:\n]+([\s\S]*?)(?=(?:II\s*[-–]\s*FUNDAMENTA[ÇC][ÃA]O|FUNDAMENTA[ÇC][ÃA]O|MOTIVA[ÇC][ÃA]O))/i);
+            if (relMatch && !relatorioContent) relatorioContent = relMatch[1].trim();
+
+            const fundMatch = rawResponseText.match(/(?:II\s*[-–]\s*FUNDAMENTA[ÇC][ÃA]O|FUNDAMENTA[ÇC][ÃA]O|MOTIVA[ÇC][ÃA]O)\s*[:\n]+([\s\S]*?)(?=(?:III\s*[-–]\s*DISPOSITIVO|DISPOSITIVO|DECIS[ÃA]O|PARTE\s+DISPOSITIVA))/i);
+            if (fundMatch && !fundamentacaoContent) fundamentacaoContent = fundMatch[1].trim();
+
+            const dispMatch = rawResponseText.match(/(?:III\s*[-–]\s*DISPOSITIVO|DISPOSITIVO|DECIS[ÃA]O|PARTE\s+DISPOSITIVA)\s*[:\n]+([\s\S]*?)(?=(?:Publique-se|Intimem-se|Cumpra-se|$))/i);
+            if (dispMatch && !dispositivoContent) dispositivoContent = dispMatch[1].trim();
+
+            // Garantia anti-vazio: se fundamentação ainda não tiver texto, preenche com o texto gerado
+            if (!fundamentacaoContent && rawResponseText.length > 50) {
+                const cleanBody = rawResponseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                fundamentacaoContent = cleanBody;
+            }
+        }
+
+        // =========================================================================
+        // EXTRAÇÃO HEURÍSTICA E REFINAMENTO DE DADOS (BLINDAGEM TOTAL)
+        // =========================================================================
+        const pdfNames = (pdfFiles || []).map((f: any) => f.name || "").join(" ");
+        const searchCorpus = `${pdfNames}\n${accumulatedText.substring(0, 10000)}\n${relatorioContent}`;
+
+        // 1. Refinamento do Número do Processo (CNJ)
+        let effectiveProcessNumber = (targetObj.processNumber || parsed.processNumber || "").trim();
+        const isProcessNumberInvalid = !effectiveProcessNumber ||
+            effectiveProcessNumber.toLowerCase().includes("conforme") ||
+            effectiveProcessNumber.toLowerCase().includes("autos") ||
+            effectiveProcessNumber.length < 10;
+
+        if (isProcessNumberInvalid) {
+            const matchCnj = searchCorpus.match(/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/);
+            if (matchCnj) {
+                effectiveProcessNumber = matchCnj[0];
+            } else {
+                const matchCnjVar = searchCorpus.match(/\b\d{7}[-.\s]\d{2}[-.\s]\d{4}[-.\s]\d[-.\s]\d{2}[-.\s]\d{4}\b/);
+                if (matchCnjVar) {
+                    const digits = matchCnjVar[0].replace(/\D/g, "");
+                    if (digits.length === 20) {
+                        effectiveProcessNumber = `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
+                    }
+                } else {
+                    const match20 = searchCorpus.match(/\b\d{20}\b/);
+                    if (match20) {
+                        const digits = match20[0];
+                        effectiveProcessNumber = `${digits.slice(0, 7)}-${digits.slice(7, 9)}.${digits.slice(9, 13)}.${digits.slice(13, 14)}.${digits.slice(14, 16)}.${digits.slice(16, 20)}`;
+                    }
+                }
+            }
+        }
+
+        // 2. Refinamento e Limpeza dos Nomes das Partes (Autor e Réu)
+        const sanitizePartyName = (name: string): string => {
+            if (!name) return "";
+            let clean = name.trim();
+            clean = clean.replace(/\s+(?:Requerid[oa]|Promovid[oa]|Executad[oa]|Polo\s+Passivo|Polo\s+Ativo|Data\s+C[aá]lculo|Data\s+Recebimento|Valor\s+da\s+Causa|Prioridade|Segredo|Ju[íi]zo|Comarca|Vara).*$/i, "");
+            clean = clean.replace(/^(?:Polo\s+Ativo|Polo\s+Passivo|Autor(?:a)?|R[eé]u|Exequente|Executad[oa]|Requerente|Requerid[oa]|Promovente|Promovid[oa])\s*[:\-]?\s*/i, "");
+            return clean.trim();
+        };
+
+        let effectiveAuthor = sanitizePartyName(targetObj.author || parsed.author || "");
+        let effectiveDefendant = sanitizePartyName(targetObj.defendant || parsed.defendant || "");
+
+        const isGenericParty = (name: string) => {
+            if (!name || name.length < 3) return true;
+            const low = name.toLowerCase();
+            return low === "autor" || low === "autora" || low === "parte autora" || low === "promovente" ||
+                   low === "requerente" || low === "exequente" || low === "embargante" || low === "réu" ||
+                   low === "re" || low === "ré" || low === "parte ré" || low === "promovido" ||
+                   low === "requerido" || low === "executado" || low === "embargado" || low === "conforme autos" ||
+                   low === "autos do processo" || low === "não qualificado";
+        };
+
+        if (isGenericParty(effectiveAuthor) || isGenericParty(effectiveDefendant)) {
+            // Padrão jurisprudencial: "... movido por X em face de Y ..."
+            const partyCorpus = `${relatorioContent}\n${accumulatedText.substring(0, 8000)}`;
+            const movidoMatch = partyCorpus.match(/(?:movid[ao]|ajuizad[ao]|propost[ao]|promovid[ao])\s+por\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s\.\-]{2,65}?)\s+(?:em\s+face\s+de|contra|em\s+desfavor\s+de)\s+([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s\.\-]{2,65}?)(?:[,\.;\n]|\s+ambos|\s+qualificad|\s+visando|\s+todos|\s+devidamente|\.\s)/i);
+            if (movidoMatch) {
+                if (isGenericParty(effectiveAuthor) && movidoMatch[1]) {
+                    effectiveAuthor = sanitizePartyName(movidoMatch[1]);
+                }
+                if (isGenericParty(effectiveDefendant) && movidoMatch[2]) {
+                    effectiveDefendant = sanitizePartyName(movidoMatch[2]);
+                }
+            }
+        }
+
+        if (isGenericParty(effectiveAuthor)) {
+            const autMatch = searchCorpus.match(/(?:polo\s+ativo|promovente|requerente|exequente|autor(?:a)?)\s*[:\-]\s*([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s\.\-]{2,65})/i);
+            if (autMatch && !isGenericParty(autMatch[1].trim())) {
+                effectiveAuthor = sanitizePartyName(autMatch[1]);
+            }
+        }
+
+        if (isGenericParty(effectiveDefendant)) {
+            const defMatch = searchCorpus.match(/(?:polo\s+passivo|promovid[oa]|requerid[oa]|executad[oa]|réu|ré)\s*[:\-]\s*([A-ZÀ-ÿ][A-Za-zÀ-ÿ\s\.\-]{2,65})/i);
+            if (defMatch && !isGenericParty(defMatch[1].trim())) {
+                effectiveDefendant = sanitizePartyName(defMatch[1]);
+            }
+        }
+
+        // Se ainda for genérico, aplica fallback seguro
+        if (isGenericParty(effectiveAuthor)) effectiveAuthor = "Parte Autora";
+        if (isGenericParty(effectiveDefendant)) effectiveDefendant = "Parte Ré";
+        if (isProcessNumberInvalid && !effectiveProcessNumber) effectiveProcessNumber = "Autos s/ número CNJ";
+
+        const actTitle = (targetObj.title || parsed.title || "ATO JUDICIAL").toUpperCase();
+
+        const headerBlock = (
+            `**PROCESSO Nº:** ${effectiveProcessNumber}\n\n` +
+            `**POLO ATIVO (AUTOR):** ${effectiveAuthor}\n\n` +
+            `**POLO PASSIVO (RÉU):** ${effectiveDefendant}\n\n` +
+            `**COMARCA / JUÍZO:** ${comarcaVara || "Comarca de Montes Claros / Vara Única - TJGO"}\n\n` +
+            `---\n\n`
+        );
+
+        const compiledFullText = (
+            `${headerBlock}` +
+            `# ${actTitle}\n\n` +
+            `## I - RELATÓRIO\n\n${relatorioContent}\n\n` +
+            `## II - FUNDAMENTAÇÃO\n\n${fundamentacaoContent}\n\n` +
+            `## III - DISPOSITIVO\n\n${dispositivoContent}\n\n` +
+            `**Publique-se. Registre-se. Intimem-se.**`
+        );
+
+        if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            keepAliveInterval = null;
+        }
+
+        const payload = {
+            minute: {
+                ...parsed,
+                ...targetObj,
+                title: actTitle,
+                processNumber: effectiveProcessNumber,
+                author: effectiveAuthor,
+                defendant: effectiveDefendant,
+                relatorio: relatorioContent,
+                fundamentacao: fundamentacaoContent,
+                dispositivo: dispositivoContent,
+                fullFormattedText: compiledFullText,
+                parties: {
+                    author: effectiveAuthor,
+                    defendant: effectiveDefendant
+                }
+            },
+            stats: {
+                elapsedMs,
+                elapsedSeconds: (elapsedMs / 1000).toFixed(1),
+                modelUsed: response.modelVersion || "Gemini 3.8 Flash (Turbo)",
+                tokensUsed: response.usageMetadata?.totalTokenCount || 0,
+                promptTokens: response.usageMetadata?.promptTokenCount || 0,
+                candidatesTokens: response.usageMetadata?.candidatesTokenCount || 0
+            }
+        };
+
+        if (!res.headersSent) {
+            res.json(payload);
+        } else {
+            try {
+                res.write(JSON.stringify(payload));
+                res.end();
+            } catch (_) {}
+        }
+    } catch (error: any) {
+        if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            keepAliveInterval = null;
+        }
+        console.error("Erro no generate-minute-turbo:", error);
+        const errPayload = { error: error.message || "Falha ao executar a análise turbo do processo." };
+        if (!res.headersSent) {
+            res.status(500).json(errPayload);
+        } else {
+            try {
+                res.write(JSON.stringify(errPayload));
+                res.end();
+            } catch (_) {}
+        }
     }
 });
 app.post("/api/audit-assessor-draft", async (req, res) => {
@@ -1615,16 +2040,18 @@ async function generateWithFallbackAndRetry(options) {
     if (fbModel && !initialList.includes(fbModel)) {
         initialList.push(fbModel);
     }
-    const modelsToTry = [
-        ...initialList,
-        ...defaultFlashQueue.filter(m => !initialList.includes(m))
-    ];
+    const modelsToTry = (Array.isArray(options.customModelQueue) && options.customModelQueue.length > 0)
+        ? options.customModelQueue
+        : [
+            ...initialList,
+            ...defaultFlashQueue.filter(m => !initialList.includes(m))
+        ];
     let lastError;
 
-    // DESATIVAÇÃO DA VALIDAÇÃO RÍGIDA (responseSchema):
-    // Descarta responseSchema para desonerar o decodificador do Google e acelerar 2x a 3x a resposta sem alterar estrutura
+    // DESATIVAÇÃO DA VALIDAÇÃO RÍGIDA (responseSchema) EXCETO SE keepSchema = true:
+    // Por padrão descarta responseSchema para desonerar o decodificador, a menos que solicitado expressamente
     let activeConfig = options.config ? { ...options.config } : {};
-    if (activeConfig && activeConfig.responseSchema) {
+    if (!options.keepSchema && activeConfig && activeConfig.responseSchema) {
         delete activeConfig.responseSchema;
     }
     let activeContents = options.contents ? JSON.parse(JSON.stringify(options.contents)) : [];

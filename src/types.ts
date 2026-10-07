@@ -156,6 +156,9 @@ export interface MinuteData {
   closing?: string;
   fullFormattedText: string;
   indicacaoTpuCnj?: IndicacaoTpuCnj;
+  proceduralPhase?: string;
+  priorDecisionsSummary?: string;
+  pendingMatter?: string;
 }
 
 export interface ApiUsageMetadata {
@@ -1025,6 +1028,8 @@ export interface InitialPetitionRecord {
 
 export type ExecutionModuleType = 
   | 'minuta'           // Geração de Minutas (Sentença, Decisão, Despacho)
+  | 'turbo'            // Módulo Turbo Independente (Análise Ágil)
+  | 'copiloto'         // Agente Copiloto IA de Gabinete
   | 'audiencia'        // Mesa de Audiência (Roteiro, Perguntas, Deliberação, Ata)
   | 'lupa_magistrado'  // Lupa do Magistrado (Auditoria de Minuta / Conformidade Forense)
   | 'chat_refino'      // Assistente Judicial / Refino e Chat do Assessor

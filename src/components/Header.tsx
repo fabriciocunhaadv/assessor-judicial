@@ -32,7 +32,8 @@ import {
   FileText,
   X,
   MessageSquare,
-  Bell
+  Bell,
+  Zap
 } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 import { DEFAULT_UNITS, SupportTicket } from "../types";
@@ -73,6 +74,7 @@ interface HeaderProps {
   onOpenExtension?: () => void;
   onOpenHearingWorkbench?: () => void;
   onOpenLateralAgent?: () => void;
+  onOpenTurboModule?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -95,6 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPetitionPanel,
   onOpenExtension,
   onOpenLateralAgent,
+  onOpenTurboModule,
   onOpenTicketsModal,
   tickets = [],
   sessionTokens = 0,
@@ -234,6 +237,18 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
+          {onOpenTurboModule && (
+            <button
+              id="btn-header-turbo-top-mobile"
+              onClick={onOpenTurboModule}
+              className="flex items-center gap-1 px-2 sm:px-2.5 h-[30px] rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs transition cursor-pointer shadow-sm border border-amber-300/50"
+              title="Módulo Turbo Independente (15 a 30s)"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current text-slate-950" />
+              <span className="hidden xs:inline">Turbo</span>
+            </button>
+          )}
+
           {activePromptTitle && (
             <div 
               onClick={onOpenPromptManager}
@@ -289,6 +304,20 @@ export const Header: React.FC<HeaderProps> = ({
               <Bot className="w-3.5 h-3.5 text-indigo-100 group-hover:rotate-12 transition-transform" />
               <span>Copiloto IA</span>
               <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+            </button>
+          )}
+
+          {/* BOTÃO MÓDULO TURBO (AO LADO DO COPILOTO) */}
+          {onOpenTurboModule && (
+            <button
+              id="btn-header-turbo-top"
+              onClick={onOpenTurboModule}
+              className="flex items-center gap-1.5 px-3 h-[30px] rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-[11px] transition cursor-pointer shadow-md shadow-amber-950/40 border border-amber-300/60 whitespace-nowrap group hover:scale-[1.02]"
+              title="Abrir Módulo Turbo Independente (Análise Ágil de Autos em 15 a 30s)"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current text-slate-950 animate-pulse" />
+              <span>Módulo Turbo</span>
+              <span className="text-[9px] bg-slate-950/20 text-slate-950 px-1 py-0.2 rounded font-mono font-bold">15-30s</span>
             </button>
           )}
 
@@ -453,6 +482,23 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                     <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-500/40">
                       IA
+                    </span>
+                  </button>
+                )}
+
+                {onOpenTurboModule && (
+                  <button
+                    id="btn-header-turbo-dropdown"
+                    onClick={onOpenTurboModule}
+                    className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-amber-950/40 hover:bg-amber-900/60 text-amber-200 hover:text-white font-semibold text-xs transition cursor-pointer text-left w-full border border-amber-500/20"
+                    title="Abrir Módulo Turbo (15 a 30s)"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-3.5 h-3.5 text-amber-400 fill-current shrink-0" />
+                      <span>Módulo Turbo</span>
+                    </div>
+                    <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider bg-amber-500/30 text-amber-200 border border-amber-500/40">
+                      15s
                     </span>
                   </button>
                 )}
@@ -1120,6 +1166,22 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                       <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                         IA
+                      </span>
+                    </button>
+                  )}
+
+                  {onOpenTurboModule && (
+                    <button
+                      id="btn-header-turbo-mobile"
+                      onClick={() => handleAction(onOpenTurboModule)}
+                      className="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-950/80 to-slate-900 hover:from-amber-900 hover:to-slate-800 text-amber-200 font-bold text-xs flex items-center justify-between border border-amber-500/40 transition shadow-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Zap className="w-4 h-4 text-amber-400 fill-current shrink-0" />
+                        <span>Módulo Turbo Independente</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+                        15-30s
                       </span>
                     </button>
                   )}

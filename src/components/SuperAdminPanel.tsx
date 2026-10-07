@@ -60,7 +60,8 @@ import {
   PieChart,
   MessageSquare,
   Eye,
-  Sliders
+  Sliders,
+  Bot
 } from 'lucide-react';
 import { collection, getDocs, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -612,6 +613,8 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
       costBrl: number;
     }> = {
       minuta: { totalTokens: 0, promptTokens: 0, candidatesTokens: 0, requestCount: 0, costBrl: 0 },
+      turbo: { totalTokens: 0, promptTokens: 0, candidatesTokens: 0, requestCount: 0, costBrl: 0 },
+      copiloto: { totalTokens: 0, promptTokens: 0, candidatesTokens: 0, requestCount: 0, costBrl: 0 },
       audiencia: { totalTokens: 0, promptTokens: 0, candidatesTokens: 0, requestCount: 0, costBrl: 0 },
       lupa_magistrado: { totalTokens: 0, promptTokens: 0, candidatesTokens: 0, requestCount: 0, costBrl: 0 },
       chat_refino: { totalTokens: 0, promptTokens: 0, candidatesTokens: 0, requestCount: 0, costBrl: 0 },
@@ -3546,6 +3549,30 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                       </button>
                       <button
                         type="button"
+                        onClick={() => setSelectedModuleFilter('turbo')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          selectedModuleFilter === 'turbo'
+                            ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
+                            : 'bg-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Módulo Turbo</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedModuleFilter('copiloto')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                          selectedModuleFilter === 'copiloto'
+                            ? 'bg-indigo-500 text-slate-950 font-black shadow-md shadow-indigo-500/20'
+                            : 'bg-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <Bot className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Copiloto IA</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setSelectedModuleFilter('audiencia')}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
                           selectedModuleFilter === 'audiencia'
@@ -3595,7 +3622,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                   </div>
 
                   {/* Detailed Module Cards Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* 1. Minutas Judiciais */}
                     <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden flex flex-col justify-between">
                       <div className="space-y-3">
@@ -3653,6 +3680,128 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                         >
                           <Activity className="w-3.5 h-3.5" />
                           <span>Ver Logs de Minutas</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Módulo Turbo Independente */}
+                    <div className="bg-slate-900 border border-yellow-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 flex items-center justify-center">
+                            <Zap className="w-5 h-5" />
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-mono">
+                            {globalModuleStats.turbo.requestCount} análises turbo
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="text-base font-bold text-white flex items-center gap-1.5">
+                            Módulo Turbo
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                            Análise ágil com extração automática de dados dos autos (movimentação, arquivo e páginas) e elaboração instantânea de minutas.
+                          </p>
+                        </div>
+
+                        <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Tokens Totais:</span>
+                            <span className="font-mono font-black text-yellow-400">
+                              {globalModuleStats.turbo.totalTokens.toLocaleString('pt-BR')}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Custo Financeiro:</span>
+                            <span className="font-mono font-black text-emerald-400">
+                              R$ {globalModuleStats.turbo.costBrl.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80">
+                            <span className="text-slate-500 text-[11px]">Prompt / Saída:</span>
+                            <span className="font-mono text-[11px] text-slate-300">
+                              <span className="text-indigo-400">{(globalModuleStats.turbo.promptTokens || 0).toLocaleString('pt-BR')}</span> / <span className="text-emerald-400">{(globalModuleStats.turbo.candidatesTokens || 0).toLocaleString('pt-BR')}</span>
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500 text-[11px]">Média por Minuta Turbo:</span>
+                            <span className="font-mono text-[11px] text-yellow-300">
+                              {globalModuleStats.turbo.requestCount > 0 ? Math.round(globalModuleStats.turbo.totalTokens / globalModuleStats.turbo.requestCount).toLocaleString('pt-BR') : 0} tokens
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 mt-2 border-t border-slate-800/60">
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedModuleFilter('turbo'); setTokenSubTab('recent_logs'); }}
+                          className="w-full py-2 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                          <span>Ver Logs do Turbo</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 3. Agente Copiloto IA de Gabinete */}
+                    <div className="bg-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center">
+                            <Bot className="w-5 h-5" />
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 font-mono">
+                            {globalModuleStats.copiloto.requestCount} consultas copiloto
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="text-base font-bold text-white flex items-center gap-1.5">
+                            Copiloto IA de Gabinete
+                          </h4>
+                          <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                            Agente lateral inteligente com consulta ao processo em tela, histórico do gabinete, doutrina e jurisprudência.
+                          </p>
+                        </div>
+
+                        <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Tokens Totais:</span>
+                            <span className="font-mono font-black text-blue-400">
+                              {globalModuleStats.copiloto.totalTokens.toLocaleString('pt-BR')}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Custo Financeiro:</span>
+                            <span className="font-mono font-black text-emerald-400">
+                              R$ {globalModuleStats.copiloto.costBrl.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80">
+                            <span className="text-slate-500 text-[11px]">Prompt / Saída:</span>
+                            <span className="font-mono text-[11px] text-slate-300">
+                              <span className="text-indigo-400">{(globalModuleStats.copiloto.promptTokens || 0).toLocaleString('pt-BR')}</span> / <span className="text-emerald-400">{(globalModuleStats.copiloto.candidatesTokens || 0).toLocaleString('pt-BR')}</span>
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500 text-[11px]">Média por Interação:</span>
+                            <span className="font-mono text-[11px] text-blue-300">
+                              {globalModuleStats.copiloto.requestCount > 0 ? Math.round(globalModuleStats.copiloto.totalTokens / globalModuleStats.copiloto.requestCount).toLocaleString('pt-BR') : 0} tokens
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 mt-2 border-t border-slate-800/60">
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedModuleFilter('copiloto'); setTokenSubTab('recent_logs'); }}
+                          className="w-full py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                          <span>Ver Logs do Copiloto</span>
                         </button>
                       </div>
                     </div>
@@ -3864,9 +4013,11 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                           <tr className="border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-950/50">
                             <th className="py-3 px-3">Gabinete / Vara</th>
                             <th className="py-3 px-3 text-amber-400">📝 Minutas</th>
+                            <th className="py-3 px-3 text-yellow-400">⚡ Turbo</th>
+                            <th className="py-3 px-3 text-blue-400">🤖 Copiloto</th>
                             <th className="py-3 px-3 text-cyan-400">⚖️ Audiência</th>
-                            <th className="py-3 px-3 text-purple-400">🔍 Lupa Magistrado</th>
-                            <th className="py-3 px-3 text-emerald-400">💬 Chat & Refino</th>
+                            <th className="py-3 px-3 text-purple-400">🔍 Lupa</th>
+                            <th className="py-3 px-3 text-emerald-400">💬 Chat</th>
                             <th className="py-3 px-3 text-right text-white">Total Gabinete</th>
                             <th className="py-3 px-3 text-center">Ações</th>
                           </tr>
@@ -3874,13 +4025,15 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                         <tbody className="divide-y divide-slate-800/60">
                           {tokenUsageList.length === 0 ? (
                             <tr>
-                              <td colSpan={7} className="text-center py-6 text-slate-500 italic">
+                              <td colSpan={9} className="text-center py-6 text-slate-500 italic">
                                 Nenhum consumo registrado para a competência {selectedTokenMonth}.
                               </td>
                             </tr>
                           ) : (
                             tokenUsageList.map(cab => {
                               const cabMin = cab.modules?.minuta;
+                              const cabTurbo = cab.modules?.turbo;
+                              const cabCop = cab.modules?.copiloto;
                               const cabAudi = cab.modules?.audiencia;
                               const cabLupa = cab.modules?.lupa_magistrado;
                               const cabChat = cab.modules?.chat_refino;
@@ -3898,6 +4051,22 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                                     </div>
                                     <div className="text-[10px] text-slate-400">
                                       R$ {(cabMin?.costBrl || 0).toFixed(2)} ({cabMin?.requestCount || 0} req)
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    <div className="font-mono font-bold text-yellow-300">
+                                      {(cabTurbo?.totalTokens || 0).toLocaleString('pt-BR')}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      R$ {(cabTurbo?.costBrl || 0).toFixed(2)} ({cabTurbo?.requestCount || 0} req)
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    <div className="font-mono font-bold text-blue-300">
+                                      {(cabCop?.totalTokens || 0).toLocaleString('pt-BR')}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      R$ {(cabCop?.costBrl || 0).toFixed(2)} ({cabCop?.requestCount || 0} req)
                                     </div>
                                   </td>
                                   <td className="py-3 px-3">
@@ -4520,6 +4689,16 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                                         📝 Minutas: {usage.modules.minuta.totalTokens.toLocaleString('pt-BR')} (R$ {usage.modules.minuta.costBrl?.toFixed(2) || '0,00'})
                                       </span>
                                     )}
+                                    {usage.modules.turbo && usage.modules.turbo.totalTokens > 0 && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 font-mono">
+                                        ⚡ Turbo: {usage.modules.turbo.totalTokens.toLocaleString('pt-BR')} (R$ {usage.modules.turbo.costBrl?.toFixed(2) || '0,00'})
+                                      </span>
+                                    )}
+                                    {usage.modules.copiloto && usage.modules.copiloto.totalTokens > 0 && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-300 font-mono">
+                                        🤖 Copiloto: {usage.modules.copiloto.totalTokens.toLocaleString('pt-BR')} (R$ {usage.modules.copiloto.costBrl?.toFixed(2) || '0,00'})
+                                      </span>
+                                    )}
                                     {usage.modules.audiencia && usage.modules.audiencia.totalTokens > 0 && (
                                       <span className="text-[10px] px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 font-mono">
                                         ⚖️ Audiência: {usage.modules.audiencia.totalTokens.toLocaleString('pt-BR')} (R$ {usage.modules.audiencia.costBrl?.toFixed(2) || '0,00'})
@@ -4621,6 +4800,28 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                                             <div className="text-[10px] text-slate-500 mt-0.5">
                                               Última requisição: {uLastDate}
                                             </div>
+                                            {(u as any).modules && (
+                                              <div className="flex flex-wrap items-center gap-1 mt-1">
+                                                {(u as any).modules.minuta && (u as any).modules.minuta.totalTokens > 0 && (
+                                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 font-mono">📝 Minutas: {(u as any).modules.minuta.totalTokens.toLocaleString('pt-BR')}</span>
+                                                )}
+                                                {(u as any).modules.turbo && (u as any).modules.turbo.totalTokens > 0 && (
+                                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300 font-mono">⚡ Turbo: {(u as any).modules.turbo.totalTokens.toLocaleString('pt-BR')}</span>
+                                                )}
+                                                {(u as any).modules.copiloto && (u as any).modules.copiloto.totalTokens > 0 && (
+                                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 font-mono">🤖 Copiloto: {(u as any).modules.copiloto.totalTokens.toLocaleString('pt-BR')}</span>
+                                                )}
+                                                {(u as any).modules.audiencia && (u as any).modules.audiencia.totalTokens > 0 && (
+                                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 font-mono">⚖️ Audiência: {(u as any).modules.audiencia.totalTokens.toLocaleString('pt-BR')}</span>
+                                                )}
+                                                {(u as any).modules.lupa_magistrado && (u as any).modules.lupa_magistrado.totalTokens > 0 && (
+                                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 font-mono">🔍 Lupa: {(u as any).modules.lupa_magistrado.totalTokens.toLocaleString('pt-BR')}</span>
+                                                )}
+                                                {(u as any).modules.chat_refino && (u as any).modules.chat_refino.totalTokens > 0 && (
+                                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono">💬 Chat: {(u as any).modules.chat_refino.totalTokens.toLocaleString('pt-BR')}</span>
+                                                )}
+                                              </div>
+                                            )}
                                           </div>
                                         </div>
 
@@ -4703,6 +4904,30 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                       >
                         <FileText className="w-3 h-3" />
                         <span>Minutas ({recentLogs.filter(l => l.module === 'minuta').length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedModuleFilter('turbo')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                          selectedModuleFilter === 'turbo'
+                            ? 'bg-yellow-500 text-slate-950 font-black shadow-md shadow-yellow-500/20'
+                            : 'bg-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <Zap className="w-3 h-3" />
+                        <span>Turbo ({recentLogs.filter(l => l.module === 'turbo').length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedModuleFilter('copiloto')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                          selectedModuleFilter === 'copiloto'
+                            ? 'bg-blue-500 text-slate-950 font-black shadow-md shadow-blue-500/20'
+                            : 'bg-slate-800 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <Bot className="w-3 h-3" />
+                        <span>Copiloto ({recentLogs.filter(l => l.module === 'copiloto').length})</span>
                       </button>
                       <button
                         type="button"
@@ -4791,6 +5016,18 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                                     return (
                                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 font-sans font-bold text-[10px]">
                                         <FileText className="w-3 h-3" /> Minuta
+                                      </span>
+                                    );
+                                  case 'turbo':
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 font-sans font-bold text-[10px]">
+                                        <Zap className="w-3 h-3" /> Módulo Turbo
+                                      </span>
+                                    );
+                                  case 'copiloto':
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-300 font-sans font-bold text-[10px]">
+                                        <Bot className="w-3 h-3" /> Copiloto IA
                                       </span>
                                     );
                                   case 'audiencia':

@@ -33,6 +33,7 @@ import { InitialPetitionPanel } from "./components/InitialPetitionPanel";
 import { SupportTicketsModal } from "./components/SupportTicketsModal";
 import { HearingWorkbenchModal } from "./components/HearingWorkbenchModal";
 import { LateralAgentDrawer } from "./components/LateralAgentDrawer";
+import { TurboModuleModal } from "./components/TurboModuleModal";
 import { Toaster, toast } from 'react-hot-toast';
 import { extractTextFromPdf } from "./utils/pdfExtractor";
 import { getApiHeaders, checkUserAiAccess, checkResponseForRotatedKey } from "./utils/apiKeyManager";
@@ -265,6 +266,8 @@ export default function App() {
   const [sessionTokens, setSessionTokens] = useState<number>(0);
   const [isLegalDrawerOpen, setIsLegalDrawerOpen] = useState<boolean>(false);
   const [isLateralAgentOpen, setIsLateralAgentOpen] = useState<boolean>(false);
+  const [isTurboModalOpen, setIsTurboModalOpen] = useState<boolean>(false);
+  const [turboActiveMinute, setTurboActiveMinute] = useState<any>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [showInstructionsBanner, setShowInstructionsBanner] = useState<boolean>(true);
   const [historyList, setHistoryList] = useState<SavedAnalysis[]>([]);
@@ -689,10 +692,14 @@ export default function App() {
     setProcessNumber2ndGrau("");
     setDismissedParadigmId(null);
     setGenerationResult(null);
+    setTurboActiveMinute(null);
     setCurrentAnalysisId(null);
     setCurrentChatMessages([]);
     setErrorMessage(null);
     setIsFormCollapsed(false);
+    try {
+      localStorage.removeItem("assessor_lateral_agent_messages");
+    } catch (_) {}
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -704,7 +711,21 @@ export default function App() {
         console.warn("Could not delete current analysis from history:", err);
       }
     }
+    setTurboActiveMinute(null);
     handleClearAllProcess();
+  };
+
+  const handleAnalysisDeletedFromHistory = (deletedId: string, deletedProcessNumber?: string) => {
+    const isMatchingCurrent = currentAnalysisId === deletedId ||
+      (deletedProcessNumber && (
+        processNumber === deletedProcessNumber ||
+        turboActiveMinute?.processNumber === deletedProcessNumber ||
+        generationResult?.minute?.processNumber === deletedProcessNumber
+      ));
+
+    if (isMatchingCurrent) {
+      handleClearAllProcess();
+    }
   };
 
   const handleSelectPrompt = (prompt: CustomPrompt) => {
@@ -1570,6 +1591,61 @@ export default function App() {
     }
   };
 
+  const handleLoadTurboMinute = (minute: any, procNum?: string, text?: string, promptSelected?: CustomPrompt) => {
+    const effectiveProcessNum = minute.processNumber || procNum || "";
+    const authorName = minute.parties?.author || minute.author || "Parte Autora";
+    const defendantName = minute.parties?.defendant || minute.defendant || "Parte Ré";
+    const judicialUnitName = minute.judicialUnit || activeUnit?.name || "Vara Única";
+
+    const loadedResult: GenerationResult = {
+      minute: {
+        title: minute.title || "SENTENÇA",
+        header: minute.header || `${judicialUnitName}\nPROCESSO Nº ${effectiveProcessNum}`,
+        processNumber: effectiveProcessNum,
+        judicialUnit: judicialUnitName,
+        parties: {
+          author: authorName,
+          defendant: defendantName,
+        },
+        relatorio: minute.relatorio || "",
+        fundamentacao: minute.fundamentacao || "",
+        dispositivo: minute.dispositivo || "",
+        fullFormattedText: minute.fullFormattedText || "",
+        closing: minute.closing || "Publique-se. Registre-se. Intimem-se.",
+        proceduralPhase: minute.proceduralPhase || "",
+        priorDecisionsSummary: minute.priorDecisionsSummary || "",
+        pendingMatter: minute.pendingMatter || "",
+      },
+      holisticSynopsis: `Processo nº ${effectiveProcessNum} | ${authorName} vs ${defendantName}\n${minute.relatorio || minute.fullFormattedText?.substring(0, 1500) || ""}`,
+      auditAnalysis: {
+        fatoVsProva: [],
+        regularidadeDocumental: {} as any,
+        competenciaCheck: {} as any,
+        normasAplicadas: [],
+        alertasProcessuais: [
+          ...(minute.priorDecisionsSummary ? [`Decisões Anteriores: ${minute.priorDecisionsSummary}`] : []),
+          ...(minute.pendingMatter ? [`Matéria Pendente: ${minute.pendingMatter}`] : [])
+        ],
+      },
+    };
+    setGenerationResult(loadedResult);
+    if (effectiveProcessNum) setProcessNumber(effectiveProcessNum);
+    if (text) setProcessText(text);
+    if (promptSelected) setActivePrompt(promptSelected);
+    setIsFormCollapsed(true);
+  };
+
+  const handleOpenCopilotFromTurbo = (minute?: any, procNum?: string, text?: string) => {
+    if (minute) {
+      setTurboActiveMinute(minute);
+      handleLoadTurboMinute(minute, procNum, text);
+    } else if (procNum) {
+      setProcessNumber(procNum);
+      if (text) setProcessText(text);
+    }
+    setIsLateralAgentOpen(true);
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#f3f4f6] text-slate-900 font-sans selection:bg-slate-200">
       <Toaster position="bottom-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ duration: 4000, style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' } }} />
@@ -1617,6 +1693,7 @@ export default function App() {
         onOpenPresentation={() => setIsPresentationOpen(true)}
         onOpenMinuteAuditor={() => setIsMinuteAuditorOpen(true)}
         onOpenLateralAgent={() => setIsLateralAgentOpen(true)}
+        onOpenTurboModule={() => setIsTurboModalOpen(true)}
         onToggleGuide={() => setIsGuideVisible(prev => !prev)}
         isGuideVisible={isGuideVisible}
         onOpenSuperAdmin={() => setIsSuperAdminPanelOpen(true)}
@@ -2241,6 +2318,7 @@ export default function App() {
         onClose={() => setIsHistoryModalOpen(false)}
         onGoHome={handleClearAllProcess}
         onLoadAnalysis={handleLoadAnalysis}
+        onDeleteAnalysis={handleAnalysisDeletedFromHistory}
       />
 
       <XRayModal
@@ -2440,11 +2518,42 @@ export default function App() {
         isOpen={isLateralAgentOpen}
         onToggle={() => setIsLateralAgentOpen(prev => !prev)}
         onClose={() => setIsLateralAgentOpen(false)}
-        currentProcessNumber={generationResult?.minute?.processNumber || processNumber || (pdfFiles.length > 0 ? pdfFiles[0].name.replace(/\.pdf$/i, '') : undefined)}
-        caseSummary={generationResult?.holisticSynopsis || generationResult?.minute?.relatorio || (processText ? processText.substring(0, 1500) : undefined)}
-        activeMinuteSnippet={generationResult?.minute?.fundamentacao || generationResult?.minute?.dispositivo}
+        currentProcessNumber={
+          turboActiveMinute?.processNumber ||
+          generationResult?.minute?.processNumber ||
+          processNumber ||
+          (pdfFiles.length > 0 ? pdfFiles[0].name.replace(/\.pdf$/i, '') : undefined)
+        }
+        caseSummary={
+          turboActiveMinute
+            ? `Processo nº ${turboActiveMinute.processNumber || ""} | ${turboActiveMinute.parties?.author || turboActiveMinute.author || "Parte Autora"} vs ${turboActiveMinute.parties?.defendant || turboActiveMinute.defendant || "Parte Ré"}\n${turboActiveMinute.relatorio || ""}`
+            : (generationResult?.holisticSynopsis || generationResult?.minute?.relatorio || (processText ? processText.substring(0, 1500) : undefined))
+        }
+        activeMinuteSnippet={
+          turboActiveMinute
+            ? `Fundamentação: ${turboActiveMinute.fundamentacao || ""}\n\nDispositivo: ${turboActiveMinute.dispositivo || ""}`
+            : (generationResult?.minute?.fundamentacao || generationResult?.minute?.dispositivo)
+        }
         onOpenApiKeyConfig={() => setIsApiKeyModalOpen(true)}
         onLoadAnalysis={handleLoadAnalysis}
+        onUnlinkProcess={() => {
+          setTurboActiveMinute(null);
+          setProcessNumber("");
+          setProcessNumber2ndGrau("");
+        }}
+      />
+
+      <TurboModuleModal
+        isOpen={isTurboModalOpen}
+        onClose={() => setIsTurboModalOpen(false)}
+        onLoadMinuteToEditor={handleLoadTurboMinute}
+        onOpenCopilot={handleOpenCopilotFromTurbo}
+        onResetTurboProcess={() => setTurboActiveMinute(null)}
+        activeUnitName={activeUnit?.name}
+        activeUnitId={activeUnit?.id}
+        prompts={prompts}
+        activePrompt={activePrompt}
+        user={user}
       />
     </div>
     </div>

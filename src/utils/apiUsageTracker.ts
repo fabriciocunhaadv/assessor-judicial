@@ -82,7 +82,11 @@ export const recordApiExecution = async (params: {
   let detectedModule: ExecutionModuleType = params.module || 'outros';
   if (!params.module) {
     const lbl = (params.label || '').toLowerCase();
-    if (lbl.includes('audiência') || lbl.includes('audiencia') || lbl.includes('hearing') || lbl.includes('assentada') || lbl.includes('ata ')) {
+    if (lbl.includes('turbo')) {
+      detectedModule = 'turbo';
+    } else if (lbl.includes('copiloto') || lbl.includes('lateral')) {
+      detectedModule = 'copiloto';
+    } else if (lbl.includes('audiência') || lbl.includes('audiencia') || lbl.includes('hearing') || lbl.includes('assentada') || lbl.includes('ata ')) {
       detectedModule = 'audiencia';
     } else if (lbl.includes('lupa') || lbl.includes('auditoria') || lbl.includes('audit')) {
       detectedModule = 'lupa_magistrado';

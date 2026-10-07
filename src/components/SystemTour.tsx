@@ -178,7 +178,21 @@ export const SystemTour: React.FC<SystemTourProps> = ({
             <span>Agente Copiloto IA no Topo (ao lado de Configurações) 🤖⚡</span>
           </h3>
           <p className="text-sm text-slate-700 leading-relaxed">
-            Acesso direto ao assistente técnico do gabinete no topo da tela: consultas ao CPC, jurisprudência vinculante, análise dos autos e redação rápida de quesitos e despachos. Projetado em <strong>modo ultra-econômico (~200 a 600 tokens)</strong> para preservar 100% da cota gratuita da sua chave Gemini.
+            Acesso direto ao assistente técnico do gabinete no topo da tela: consultas ao CPC, jurisprudência vinculante, análise dos autos e redação rápida de quesitos e despachos. Projetado em <strong>modo ultra-econômico (~200 a 600 tokens)</strong> para preservar 100% da cota gratuita da sua chave Gemini. Possui <strong>desvinculação cirúrgica automática</strong> ao excluir o processo ou mudar de página, além de botão <em>[Desvincular]</em> sob demanda.
+          </p>
+        </div>
+      ),
+      placement: "bottom",
+    },
+    {
+      target: "#btn-header-turbo-top, #btn-header-turbo-top-mobile",
+      content: (
+        <div className="text-left font-sans space-y-1.5">
+          <h3 className="font-bold text-md text-amber-800 flex items-center gap-1.5">
+            <span>Módulo Turbo Independente (15 a 30s) ⚡🚀</span>
+          </h3>
+          <p className="text-sm text-slate-700 leading-relaxed">
+            Motor autônomo e de alta velocidade para análise rápida de PDFs ou autos colados sem passar pela esteira profunda. Gera a minuta completa (Sentença, Decisão ou Despacho) com fundamentação substancial e aprofundada (art. 489 do CPC), sem simplificações rasas, e formatação rica com parágrafos bem espaçados, negrito, itálico e citação de artigos de lei. Extrai minuciosamente do PDF todos os elementos fáticos e probatórios com <strong>indicação expressa de movimento, arquivo e página (mov., arq., p.)</strong>. Inclui botão de integração direta com o <strong>Copiloto IA</strong>, que puxa automaticamente os autos no modo <em>Autos em Tela</em> para tirar dúvidas ou ajustar a minuta. Faixa ideal: <strong>até 50 a 80 páginas</strong> (máx. 100 págs recomendadas).
           </p>
         </div>
       ),
