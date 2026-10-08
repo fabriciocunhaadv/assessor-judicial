@@ -1436,7 +1436,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             keyPool: extractApiKeyPool(req),
             isNativeAllowed: isRequestNativeAllowed(req),
             res,
-            primaryModel: "gemini-3.8-flash",
+            primaryModel: "gemini-3.1-flash-lite",
             fallbackModel: "gemini-flash-latest",
             contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }] }],
             config: {
