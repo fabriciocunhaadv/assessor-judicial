@@ -2528,7 +2528,15 @@ function readJsonFile(filename, defaultVal) {
 }
 
 function writeJsonFile(filename, data) {
-    fs.writeFileSync(filename, JSON.stringify(data));
+    try {
+        const dir = path.dirname(filename);
+        if (dir && dir !== "." && !fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(filename, JSON.stringify(data));
+    } catch(e) {
+        console.warn(`[writeJsonFile] Falha ao persistir ${filename}:`, e);
+    }
 }
 
 function detectApplicableLegalFrameworks(context) {
