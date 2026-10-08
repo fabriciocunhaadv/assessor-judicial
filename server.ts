@@ -675,7 +675,7 @@ ${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetT
                 candidatesTokenCount: response.usageMetadata?.candidatesTokenCount || 0,
                 totalTokenCount: response.usageMetadata?.totalTokenCount || 0
             },
-            modelUsed: response.modelVersion || "Gemini 3.8 Flash"
+            modelUsed: response.modelVersion || "Gemini Flash"
         });
 
     } catch (error) {
@@ -793,7 +793,7 @@ ${contextSection}`;
                 candidatesTokenCount: response.usageMetadata?.candidatesTokenCount || 0,
                 totalTokenCount: response.usageMetadata?.totalTokenCount || 0
             },
-            modelUsed: response.modelVersion || "Gemini 3.8 Flash"
+            modelUsed: response.modelVersion || "Gemini Flash"
         });
     } catch (error: any) {
         console.error("Erro no lateral-agent-chat:", error);
@@ -1519,7 +1519,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
                 candidatesTokenCount: response.usageMetadata?.candidatesTokenCount || 0,
                 totalTokenCount: response.usageMetadata?.totalTokenCount || 0
             },
-            modelUsed: response.modelVersion || "Gemini 3.8 Flash"
+            modelUsed: response.modelVersion || "Gemini Flash"
         };
 
         return res.json(finalResult);
