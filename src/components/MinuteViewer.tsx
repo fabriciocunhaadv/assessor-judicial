@@ -83,6 +83,8 @@ interface MinuteViewerProps {
   onChatMessagesUpdated?: (messages: ChatMessage[], updatedMinute?: MinuteData) => void;
   onInjectTextAsParadigm?: (text: string, processNumber?: string, category?: string) => void;
   onDeleteMinute?: () => void;
+  onProceedToStage2?: () => void;
+  isProceedingToStage2?: boolean;
 }
 
 export const MinuteViewer: React.FC<MinuteViewerProps> = ({
@@ -107,6 +109,8 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
   onChatMessagesUpdated,
   onInjectTextAsParadigm,
   onDeleteMinute,
+  onProceedToStage2,
+  isProceedingToStage2 = false,
 }) => {
   const { user, userProfile, isJudge } = useAuth();
   const userName = userProfile?.name?.split(" ")[0] || user?.displayName?.split(" ")[0] || "Gabinete";
@@ -1650,6 +1654,30 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
               </div>
             )}
 
+            {result?.canProceedToStage2 && onProceedToStage2 && (
+              <div className="max-w-4xl mx-auto px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0">
+                    <Zap className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-amber-950">1ª Etapa (Relatório & Provas) Concluída: </span>
+                    <span className="text-amber-900/90">A 2ª Etapa para Fundamentação Jurídica e Dispositivo Final está disponível para execução.</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onProceedToStage2}
+                  disabled={isProceedingToStage2}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0 disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                  <span>{isProceedingToStage2 ? "Executando..." : "Prosseguir para 2ª Etapa"}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-950" />
+                </button>
+              </div>
+            )}
+
             <div className="max-w-4xl mx-auto bg-white p-6 sm:p-10 border border-slate-200 rounded-lg shadow-2xs font-serif text-slate-900 text-xs sm:text-sm leading-relaxed space-y-5 select-text">
               {/* Judge Premium Seal Badge */}
               {isJudge && (
@@ -1773,6 +1801,53 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
                 {(minute.closing || "Mineiros - GO, data da assinatura digital.\n\nJuiz(a) de Direito").replace(/\\n/g, "\n")}
               </div>
             </div>
+
+            {/* CARD DESTACADO E SEMPRE DISPONÍVEL: AVANÇO PARA A 2ª ETAPA */}
+            {result?.canProceedToStage2 && onProceedToStage2 && (
+              <div className="max-w-4xl mx-auto p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-emerald-500/10 border-2 border-amber-400/60 shadow-lg space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md shadow-amber-500/20">
+                      <Zap className="w-5 h-5 text-slate-950" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
+                          1ª Etapa Concluída
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-medium">Relatório Fático e Provas Validados</span>
+                      </div>
+                      <h4 className="font-bold text-sm text-slate-900 mt-1">
+                        Deseja prosseguir para a 2ª Etapa (Fundamentação Jurídica & Dispositivo Final)?
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed mt-0.5">
+                        O sistema aproveitará integralmente o acervo probatório da 1ª etapa para aplicar os precedentes, diretrizes do Gabinete e redigir a peça judicial definitiva pronta para assinatura.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={onProceedToStage2}
+                    disabled={isProceedingToStage2}
+                    className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-md shadow-amber-500/25 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed group"
+                  >
+                    {isProceedingToStage2 ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                        <span>Elaborando 2ª Etapa...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 text-slate-950 group-hover:rotate-12 transition-transform" />
+                        <span>Prosseguir para 2ª Etapa</span>
+                        <ArrowRight className="w-4 h-4 text-slate-950 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

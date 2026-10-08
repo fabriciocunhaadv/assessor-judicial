@@ -205,6 +205,20 @@ export interface GenerationResult {
     duplicatesFound: number;
     charsSaved: number;
   };
+  currentStage?: 1 | 2;
+  canProceedToStage2?: boolean;
+  stage1Snapshot?: {
+    processNumber?: string;
+    author?: string;
+    defendant?: string;
+    judicialUnit?: string;
+    pendingMatter?: string;
+    actType?: string;
+    relatorio?: string;
+    fundamentacao?: string;
+    dispositivo?: string;
+    generatedAt?: number;
+  };
 }
 
 export interface ChatMessage {

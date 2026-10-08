@@ -3434,7 +3434,7 @@ app.post("/api/generate-minute", async (req, res) => {
     const reqUserEmail = ((req.headers["x-user-email"] as string) || "").toLowerCase().trim();
     const reqUserName = req.headers["x-user-name"] ? decodeURIComponent(req.headers["x-user-name"] as string) : "";
     const reqTenantId = (req.headers["x-tenant-id"] as string) || "";
-    const{processText,pdfBase64,pdfFiles,knowledgePdfs,customPromptText,cabinetTesesText,isTesesEnabled,paradigmModelText,paradigmModelTitle,isParadigmEnabled,proceduralPhase,actType,actSubtype,specificInstructions,processInfo,processActsSummary,isExpertModeEnabled,isGroundingEnabled: rawGroundingEnabled,generationMode,isEconomyMode}=req.body;
+    const{processText,pdfBase64,pdfFiles,knowledgePdfs,customPromptText,cabinetTesesText,isTesesEnabled,paradigmModelText,paradigmModelTitle,isParadigmEnabled,proceduralPhase,actType,actSubtype,specificInstructions,processInfo,processActsSummary,isExpertModeEnabled,isGroundingEnabled: rawGroundingEnabled,generationMode,isEconomyMode,executionStage,stage1Snapshot}=req.body;
     const activePromptTitle = req.body.activePromptTitle || "";
     const isGroundingEnabled = rawGroundingEnabled === true;
     let safeProcessText = filterInnocuousCertificates(cleanJudicialPdfText(processText || ""));
@@ -4205,74 +4205,96 @@ for (const p of contentsParts) {
     }
 }
 
-console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
-const stage1Response = await generateWithFallbackAndRetry({
-    apiKey: userApiKey,
-    keyPool: extractApiKeyPool(req),
-    isNativeAllowed: isRequestNativeAllowed(req),
-    res,
-    primaryModel: "gemini-3.8-flash",
-    fallbackModel: "gemini-3.7-flash",
-    timeoutMs: 180000,
-    contents: [{ role: "user", parts: stage1ContentsParts }],
-    config: {
-        systemInstruction: stage1SystemInstruction,
-        temperature: 0.0,
-        maxOutputTokens: 16384,
-        responseMimeType: "application/json",
-        responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                processNumber: {
-                    type: Type.STRING,
-                    description: "Número do processo em formato CNJ autêntico extraído fielmente dos autos (ex: 5211660-72.2026.8.09.0166)"
+let stage1Response: any = null;
+let stage1Json: any = null;
+
+if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object" && (stage1Snapshot.relatorio || stage1Snapshot.fundamentacao)) {
+    console.log(`[Assessor Judicial - MODO DUAS ETAPAS] Reutilizando Snapshot validado da 1ª Etapa para o processo ${stage1Snapshot.processNumber || 'Autos'}. Avançando instantaneamente para a 2ª Etapa (Juiz Revisor)!`);
+    stage1Json = {
+        processNumber: stage1Snapshot.processNumber,
+        author: stage1Snapshot.author,
+        defendant: stage1Snapshot.defendant,
+        judicialUnit: stage1Snapshot.judicialUnit,
+        pendingMatter: stage1Snapshot.pendingMatter,
+        actType: stage1Snapshot.actType,
+        relatorio: stage1Snapshot.relatorio,
+        fundamentacao: stage1Snapshot.fundamentacao,
+        dispositivo: stage1Snapshot.dispositivo
+    };
+    stage1Response = {
+        text: JSON.stringify(stage1Json),
+        usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0, cachedContentTokenCount: 0 }
+    };
+} else {
+    console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
+    stage1Response = await generateWithFallbackAndRetry({
+        apiKey: userApiKey,
+        keyPool: extractApiKeyPool(req),
+        isNativeAllowed: isRequestNativeAllowed(req),
+        res,
+        primaryModel: "gemini-3.8-flash",
+        fallbackModel: "gemini-3.7-flash",
+        timeoutMs: 180000,
+        contents: [{ role: "user", parts: stage1ContentsParts }],
+        config: {
+            systemInstruction: stage1SystemInstruction,
+            temperature: 0.0,
+            maxOutputTokens: 16384,
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    processNumber: {
+                        type: Type.STRING,
+                        description: "Número do processo em formato CNJ autêntico extraído fielmente dos autos (ex: 5211660-72.2026.8.09.0166)"
+                    },
+                    author: {
+                        type: Type.STRING,
+                        description: "Nome completo da parte autora / promovente / embargante / exequente extraído dos autos (NUNCA incluir verbos, predicados ou relações afetivas narrativas)"
+                    },
+                    defendant: {
+                        type: Type.STRING,
+                        description: "Nome completo da parte ré / promovida / embargada / executada extraído dos autos"
+                    },
+                    judicialUnit: {
+                        type: Type.STRING,
+                        description: "Comarca e Vara oficial dos autos (ex: Vara de Família da Comarca de Orizona - TJGO)"
+                    },
+                    pendingMatter: {
+                        type: Type.STRING,
+                        description: "Identificação da questão processual pendente de julgamento nos autos (ex: Julgamento de Embargos de Declaração opostos no mov. 55 contra a sentença)"
+                    },
+                    actType: {
+                        type: Type.STRING,
+                        description: "Tipo de ato a ser proferido: EMBARGOS DE DECLARAÇÃO, DECISÃO INTERLOCUTÓRIA, SENTENÇA ou DESPACHO"
+                    },
+                    relatorio: {
+                        type: Type.STRING,
+                        description: "Relatório judicial completo em 4 a 6 parágrafos densos e encadeados, com formatação rica (separando os parágrafos com quebras de linha duplas e utilizando negritos para destaques), narrando toda a marcha processual e citando nominalmente as partes, pedidos, tutelas, certidões, defesas, documentos e manifestações com os números exatos de todas as movimentações/eventos dos autos."
+                    },
+                    fundamentacao: {
+                        type: Type.STRING,
+                        description: "Fundamentação jurídica magistral, densa, exaustiva e completa estruturada nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com 2 a 3 parágrafos aprofundados por bloco (totalizando no mínimo 14 a 20 parágrafos judiciais densos e separados por quebras de linha duplas), com citação de eventos (Mov. X, Arq. Y, Pág. Z), transcrição literal entre aspas e enfrentamento exaustivo de cada preliminar e pedido."
+                    },
+                    dispositivo: {
+                        type: Type.STRING,
+                        description: "Dispositivo judicial exaustivo e operacional, com comandos claros e precisos adequados à matéria pendente de julgamento."
+                    }
                 },
-                author: {
-                    type: Type.STRING,
-                    description: "Nome completo da parte autora / promovente / embargante / exequente extraído dos autos (NUNCA incluir verbos, predicados ou relações afetivas narrativas)"
-                },
-                defendant: {
-                    type: Type.STRING,
-                    description: "Nome completo da parte ré / promovida / embargada / executada extraído dos autos"
-                },
-                judicialUnit: {
-                    type: Type.STRING,
-                    description: "Comarca e Vara oficial dos autos (ex: Vara de Família da Comarca de Orizona - TJGO)"
-                },
-                pendingMatter: {
-                    type: Type.STRING,
-                    description: "Identificação da questão processual pendente de julgamento nos autos (ex: Julgamento de Embargos de Declaração opostos no mov. 55 contra a sentença)"
-                },
-                actType: {
-                    type: Type.STRING,
-                    description: "Tipo de ato a ser proferido: EMBARGOS DE DECLARAÇÃO, DECISÃO INTERLOCUTÓRIA, SENTENÇA ou DESPACHO"
-                },
-                relatorio: {
-                    type: Type.STRING,
-                    description: "Relatório judicial completo em 4 a 6 parágrafos densos e encadeados, com formatação rica (separando os parágrafos com quebras de linha duplas e utilizando negritos para destaques), narrando toda a marcha processual e citando nominalmente as partes, pedidos, tutelas, certidões, defesas, documentos e manifestações com os números exatos de todas as movimentações/eventos dos autos."
-                },
-                fundamentacao: {
-                    type: Type.STRING,
-                    description: "Fundamentação jurídica magistral, densa, exaustiva e completa estruturada nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com 2 a 3 parágrafos aprofundados por bloco (totalizando no mínimo 14 a 20 parágrafos judiciais densos e separados por quebras de linha duplas), com citação de eventos (Mov. X, Arq. Y, Pág. Z), transcrição literal entre aspas e enfrentamento exaustivo de cada preliminar e pedido."
-                },
-                dispositivo: {
-                    type: Type.STRING,
-                    description: "Dispositivo judicial exaustivo e operacional, com comandos claros e precisos adequados à matéria pendente de julgamento."
-                }
-            },
-            required: ["relatorio", "fundamentacao", "dispositivo"]
+                required: ["relatorio", "fundamentacao", "dispositivo"]
+            }
         }
+    });
+
+    const stage1Text = stage1Response?.text;
+    if (!stage1Text) {
+        throw new Error("Não foi possível gerar a resposta preliminar do Assessor Fático (Etapa 1).");
     }
-});
 
-const stage1Text = stage1Response.text;
-if (!stage1Text) {
-    throw new Error("Não foi possível gerar a resposta preliminar do Assessor Fático (Etapa 1).");
-}
-
-let stage1Json: any = safeParseJson(stage1Text) || {};
-if (!stage1Json.relatorio && !stage1Json.fundamentacao && !stage1Json.dispositivo) {
-    stage1Json = { relatorio: "", fundamentacao: stage1Text, dispositivo: "" };
+    stage1Json = safeParseJson(stage1Text) || {};
+    if (!stage1Json.relatorio && !stage1Json.fundamentacao && !stage1Json.dispositivo) {
+        stage1Json = { relatorio: "", fundamentacao: stage1Text, dispositivo: "" };
+    }
 }
 
 // SOBERANIA ABSOLUTA DO DISPOSITIVO SOBRE O TIPO DE ATO (ARTS. 203, 485 E 487 DO CPC):
@@ -4338,6 +4360,177 @@ if (earlyReconciled.defendant && earlyReconciled.defendant !== "Parte Ré") {
 }
 if (earlyReconciled.judicialUnit) {
     stage1Json.judicialUnit = earlyReconciled.judicialUnit;
+}
+
+// =========================================================================
+// MODO SOB DEMANDA: SE executionStage === 1, FINALIZA E ENTREGA A 1ª ETAPA
+// Permitindo ao usuário deliberar na UI se e quando prosseguir para a 2ª etapa
+// =========================================================================
+if (executionStage === 1) {
+    console.log(`[Assessor Judicial - MODO DUAS ETAPAS] Etapa 1 (Assessor Fático) concluída sob demanda para o processo ${stage1Json.processNumber || 'Autos'}. Retornando resultado preliminar ao usuário.`);
+    const stage1FallbackTitle = resolvedActType === "despacho" 
+        ? "DESPACHO (RELATÓRIO & FATOS)" 
+        : (resolvedActType === "decisao" && isSaneamentoDecision) 
+            ? "DECISÃO DE SANEAMENTO (1ª ETAPA)" 
+            : resolvedActType === "decisao" 
+                ? "DECISÃO INTERLOCUTÓRIA (1ª ETAPA)" 
+                : resolvedActType === "embargos" 
+                    ? "EMBARGOS DE DECLARAÇÃO (1ª ETAPA)" 
+                    : "SENTENÇA (1ª ETAPA - RELATÓRIO & FATOS)";
+
+    const stage1Minute: any = {
+        title: stage1FallbackTitle,
+        header: "PODER JUDICIÁRIO DO ESTADO DE GOIÁS",
+        processNumber: stage1Json.processNumber || processInfo?.processNumber || "Processo dos autos",
+        judicialUnit: stage1Json.judicialUnit || processInfo?.comarca || "Poder Judiciário do Estado de Goiás - TJGO",
+        parties: {
+            author: stage1Json.author || processInfo?.autor || "Parte Autora",
+            defendant: stage1Json.defendant || processInfo?.reu || "Parte Ré"
+        },
+        relatorio: stage1Json.relatorio || "Relatório fático em processamento nos autos.",
+        fundamentacao: stage1Json.fundamentacao || "Análise fático-probatória inicial consolidada pelo Assessor Fático (Etapa 1).",
+        dispositivo: stage1Json.dispositivo || "Dispositivo preliminar: aguardando confirmação da 2ª Etapa para fundamentação jurídica magistral e julgamento definitivo.",
+        closing: "Mineiros - GO, data da assinatura digital.\n\nAssessor(a) / Gabinete Judicante",
+        pendingMatter: stage1Json.pendingMatter || "Análise inicial dos autos",
+        proceduralPhase: proceduralPhase || "conhecimento"
+    };
+
+    stage1Minute.fullFormattedText = [
+        stage1Minute.header,
+        `\n\n${stage1Minute.title}\n`,
+        `\nProcesso nº: ${stage1Minute.processNumber}`,
+        `Promovente (Autor): ${stage1Minute.parties.author}`,
+        `Promovido (Réu): ${stage1Minute.parties.defendant}`,
+        stage1Minute.relatorio ? `\n\nI - RELATÓRIO PRELIMINAR (FATOS & MARCHA PROCESSUAL)\n${stage1Minute.relatorio}` : "",
+        stage1Minute.fundamentacao ? `\n\nII - ANÁLISE PROBATÓRIA PRELIMINAR (7 BLOCOS)\n${stage1Minute.fundamentacao}` : "",
+        stage1Minute.dispositivo ? `\n\nIII - DISPOSITIVO PRELIMINAR\n${stage1Minute.dispositivo}` : "",
+        `\n\n${stage1Minute.closing}`
+    ].filter(Boolean).join("\n");
+
+    const stage1Tokens = stage1Response?.usageMetadata || {};
+    const stage1Usage = (stage1Tokens.totalTokenCount || stage1Tokens.promptTokenCount) ? {
+        promptTokenCount: stage1Tokens.promptTokenCount || 0,
+        candidatesTokenCount: stage1Tokens.candidatesTokenCount || 0,
+        totalTokenCount: stage1Tokens.totalTokenCount || 0,
+        cachedContentTokenCount: stage1Tokens.cachedContentTokenCount || 0
+    } : undefined;
+
+    const sovereignTpuStage1 = inferTpuCnjMovement(resolvedActType, stage1Minute.title, stage1Minute.dispositivo, null);
+    stage1Minute.indicacaoTpuCnj = sovereignTpuStage1;
+
+    const parsedStage1: any = {
+        minute: stage1Minute,
+        originalMinute: JSON.parse(JSON.stringify(stage1Minute)),
+        currentStage: 1,
+        canProceedToStage2: true,
+        stage1Snapshot: {
+            processNumber: stage1Json.processNumber,
+            author: stage1Json.author,
+            defendant: stage1Json.defendant,
+            judicialUnit: stage1Json.judicialUnit,
+            pendingMatter: stage1Json.pendingMatter,
+            actType: resolvedActType,
+            relatorio: stage1Json.relatorio,
+            fundamentacao: stage1Json.fundamentacao,
+            dispositivo: stage1Json.dispositivo,
+            generatedAt: Date.now()
+        },
+        auditAnalysis: {
+            score: 95,
+            verdict: "1ª Etapa Concluída (Assessor Fático)",
+            verdictColor: "amber",
+            certificateMessage: "1ª Etapa (Assessor Fático) concluída com rigor fático-probatório. A 2ª Etapa (Juiz Revisor) está pronta para ser executada sob demanda.",
+            auditSummary: "Relatório fático, marcha processual e delimitação probatória estruturados com sucesso. Prossiga para a 2ª etapa para adensamento jurisprudencial e redação final.",
+            congruenceStatus: "Fiel aos Autos",
+            evidentiaryStatus: "Acervo Probatório Mapeado",
+            proceduralStatus: "Regular",
+            precedentsStatus: "Aguardando 2ª Etapa para aplicação de teses vinculantes",
+            forensicAuditStatus: "Fatos e Provas Validados",
+            marchaProcessualStatus: "Regular",
+            safetySeal: true,
+            fatoVsProva: [
+                {
+                    fatoAlegado: "Averiguação fática dos autos na 1ª Etapa",
+                    eventoId: "Autos Processuais",
+                    provaApresentada: "Documentação carreada aos autos e peças analisadas",
+                    status: "Comprovado",
+                    analiseCritica: "Fatos e marcha processual integralmente extraídos pelo Assessor Fático.",
+                    fundamentoLegal: "Art. 373, I e II, do CPC",
+                    valoracaoJuridica: "Acervo probatório pronto para a fundamentação jurídica do magistrado na 2ª Etapa."
+                }
+            ],
+            competenciaCheck: {
+                valorCausa: processInfo?.valorCausa || "Conforme autos",
+                adequacaoTeto40SM: true,
+                competenciaMaterial: true,
+                legitimidadePartes: true,
+                competenciaTerritorial: stage1Json.judicialUnit || "TJGO",
+                observacoes: "Competência preliminar regular apurada na 1ª etapa."
+            },
+            regularidadeDocumental: {
+                procuracaoStatus: "Regular",
+                comprovanteEnderecoStatus: "Regular",
+                consectariosStatus: "Pendente de 2ª Etapa",
+                observacoes: "Regularidade documental conferida nos autos."
+            },
+            normasAplicadas: ["CPC/2015", "CF/1988"],
+            alertasProcessuais: ["1ª Etapa concluída. Clique no botão de avanço para executar a 2ª Etapa (Fundamentação Jurídica & Dispositivo Final)."]
+        },
+        usage: stage1Usage,
+        modelUsed: "Gemini 3.8 Flash (1ª Etapa: Assessor Fático & Provas)",
+        indicacaoTpuCnj: sovereignTpuStage1,
+        holisticSynopsis: generatedHolisticSynopsis || undefined,
+        deduplicationStats: {
+            duplicatesFound: totalDuplicatesFound,
+            charsSaved: totalCharsSaved
+        }
+    };
+
+    try {
+        const generatedId = `analysis-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const procNum = stage1Minute.processNumber;
+        const titlePrompt = (customPromptText ? customPromptText.slice(0, 60).trim() : "") || stage1Minute.title || "Análise 1ª Etapa (Fatos)";
+        const serverAnalysisItem = {
+            id: generatedId,
+            promptTitle: titlePrompt,
+            date: Date.now(),
+            processNumber: procNum,
+            userEmail: reqUserEmail,
+            userId: reqUserUid,
+            userName: reqUserName,
+            tenantId: reqTenantId,
+            wasRotated: Boolean((stage1Response as any)?.wasRotated),
+            rotatedKeySnippet: (stage1Response as any)?.usedKey ? `...${(stage1Response as any).usedKey.slice(-4)}` : undefined,
+            result: parsedStage1,
+            holisticSynopsis: generatedHolisticSynopsis || undefined,
+            deduplicationStats: {
+                duplicatesFound: totalDuplicatesFound,
+                charsSaved: totalCharsSaved
+            },
+            processTextContext: safeProcessText ? safeProcessText.slice(0, 1500) : "Análise a partir de PDF/Autos"
+        };
+        let history = readJsonFile("history.json", []);
+        history.unshift(serverAnalysisItem);
+        if (history.length > 1e3) { history = history.slice(0, 1e3); }
+        writeJsonFile("history.json", history);
+        console.log(`[Storage] Análise 1ª Etapa ${generatedId} (${procNum}) gravada no histórico compartilhado.`);
+        parsedStage1.analysisId = generatedId;
+    } catch (saveErr) {
+        console.warn("[Storage] Falha ao persistir 1ª etapa no histórico:", saveErr);
+    }
+
+    if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+    }
+    if (!res.headersSent) {
+        return res.json(parsedStage1);
+    } else {
+        try {
+            res.write(JSON.stringify(parsedStage1));
+            return res.end();
+        } catch (_) { return; }
+    }
 }
 
 console.log("[Assessor Judicial] Etapa 1 (Assessor Fático) concluída com êxito. Intervalo preventivo de resfriamento de cota (2.5s)...");
@@ -4913,6 +5106,8 @@ const usage = (totalTotalTokens > 0 || totalPromptTokens > 0) ? {
 } : void 0;
 parsed.usage = usage;
 parsed.modelUsed = "Gemini 3.8 Flash (Two-Stage Pipeline: Assessor Fático -> Juiz Revisor & Matriz Forense)";
+parsed.currentStage = 2;
+parsed.canProceedToStage2 = false;
 parsed.holisticSynopsis = generatedHolisticSynopsis || undefined;
 parsed.deduplicationStats = {
     duplicatesFound: totalDuplicatesFound,

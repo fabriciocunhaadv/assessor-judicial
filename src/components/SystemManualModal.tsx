@@ -4904,6 +4904,22 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Item Telemetria e Auditoria Super Admin Turbo e Copiloto */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <BarChart3 className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200">Telemetria & Discriminação Completa do Módulo Turbo e Copiloto</h3>
+                        <time className="text-xs font-mono text-amber-600 dark:text-amber-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        Integração completa dos módulos <strong>Módulo Turbo</strong> e <strong>Copiloto IA</strong> na Matriz Comparativa de Gabinetes, nos Cards de Métricas e no detalhamento por usuário do Painel Super Admin. Os consumos de tokens, custos em Reais (R$) e filtros de logs agora discriminam as execuções de ambos os módulos com máxima transparência contábil e auditoria em tempo real.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item Restauração do Modelo Unificado e Prioridade de Chave Nativa */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
