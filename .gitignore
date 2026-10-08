@@ -4,5 +4,11 @@ dist/
 coverage/
 .DS_Store
 *.log
+*.tar
+*.tar.gz
+*.tgz
+history.json
+diagnostic_runs.json
+latest_run_telemetry.json
 .env*
 !.env.example

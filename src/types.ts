@@ -590,11 +590,45 @@ export interface AuditComparisonResult {
   proceduralDelta?: { before: number; after: number };
 }
 
+export interface ProceduralChain4Points {
+  genese: {
+    movement: string;
+    causeOfAction: string;
+    originalClaims: string;
+    assessorFaithfulness: string;
+  };
+  cadeiaDecisoes: {
+    summary: string;
+    preclusaoRespected: boolean;
+    contradictionsAlert: string;
+    notes: string;
+  };
+  atosSubsequentes: {
+    partiesReaction: string;
+    clerkActs: string;
+    notes: string;
+  };
+  estadoAtual: {
+    proceduralStage: "maduro_sentenca" | "maduro_saneamento" | "decisao_tutela_pendente" | "curso_prazo_legal" | "cumprimento_sentenca";
+    stageDiagnosis: string;
+    assessorActAdequacy: string;
+  };
+}
+
+export interface DocumentInspectionResult {
+  totalExamined?: string;
+  manuscriptsAndAnnexes?: string;
+  expertReportsAndContracts?: string;
+  divergencesFound?: string;
+}
+
 export interface AssessorDraftAuditResult {
   score: number;
   verdict: "Aprovada sem Ressalvas" | "Aprovada com Ressalvas" | "Requer Correções Obrigatórias" | "Crítica / Risco de Nulidade";
   verdictColor: "emerald" | "amber" | "rose" | "indigo";
   summary: string;
+  proceduralChain?: ProceduralChain4Points;
+  documentInspection?: DocumentInspectionResult;
   congruence: {
     score: number;
     summary: string;

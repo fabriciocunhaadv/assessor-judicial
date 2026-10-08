@@ -45,6 +45,11 @@ interface LateralAgentDrawerProps {
   currentProcessNumber?: string;
   caseSummary?: string;
   activeMinuteSnippet?: string;
+  isAuditedProcess?: boolean;
+  auditScore?: number;
+  auditVerdict?: string;
+  initialQuery?: string;
+  onClearInitialQuery?: () => void;
   onOpenApiKeyConfig?: () => void;
   onLoadAnalysis?: (analysis: SavedAnalysis) => void;
   onUnlinkProcess?: () => void;
@@ -95,6 +100,11 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
   currentProcessNumber,
   caseSummary,
   activeMinuteSnippet,
+  isAuditedProcess,
+  auditScore,
+  auditVerdict,
+  initialQuery,
+  onClearInitialQuery,
   onOpenApiKeyConfig,
   onLoadAnalysis,
   onUnlinkProcess,
@@ -130,6 +140,17 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastLoadedProcessRef = useRef<string | null>(null);
 
+  // Injeta query inicial caso passada (ex: vinda de clique na Lupa do Magistrado)
+  useEffect(() => {
+    if (isOpen && initialQuery) {
+      setInputText(initialQuery);
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 150);
+      onClearInitialQuery?.();
+    }
+  }, [isOpen, initialQuery, onClearInitialQuery]);
+
   // Sincroniza e puxa automaticamente os dados do processo em tela quando abrir o Copiloto
   // Caso o processo tenha sido excluído, limpo ou o usuário esteja em outra página, desacopla cirurgicamente
   useEffect(() => {
@@ -144,7 +165,12 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
           const caseInfo = caseSummary ? `\n\n**Resumo dos Autos / Marcha:**\n> ${caseSummary.substring(0, 320).replace(/\n/g, ' ')}...` : "";
           const minuteNotice = activeMinuteSnippet ? `\n\n*Minuta do ato (relatório, fundamentação e dispositivo) vinculada com sucesso ao Copiloto.*` : "";
 
-          const contextMsg: LateralAgentMessage = {
+          const contextMsg: LateralAgentMessage = isAuditedProcess ? {
+            id: `msg-case-loaded-${Date.now()}`,
+            sender: "assistant",
+            text: `🔍⚖️ **Processo Auditado Conectado à Lupa do Magistrado:**\n\n**Processo nº:** \`${currentProcessNumber}\`\n📊 **Veredito da Auditoria:** **${auditScore !== undefined ? `${auditScore}/100` : "Concluída"}** ${auditVerdict ? `(${auditVerdict})` : ""}${caseInfo}${minuteNotice}\n\nO Copiloto já carregou o espelho da auditoria e os autos para dialogar diretamente com o magistrado. Como deseja proceder?\n\n• *Debater as falhas ou incongruências apontadas*\n• *Sanar contradições no relatório ou fundamentação*\n• *Ajustar comandos do dispositivo para adequação ao CPC*\n• *Sugerir fundamentação substitutiva para a minuta*`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          } : {
             id: `msg-case-loaded-${Date.now()}`,
             sender: "assistant",
             text: `⚖️ **Processo Conectado aos Autos em Tela:**\n\n**Processo nº:** \`${currentProcessNumber}\`${caseInfo}${minuteNotice}\n\nO Copiloto já puxou os autos no modo **Autos em Tela** e está pronto para consultas do gabinete. Como posso auxiliar com este processo agora?\n\n• *Revisar fundamentação jurídica ou teses*\n• *Sugerir ou ajustar comandos do dispositivo*\n• *Consultar súmulas, legislação e prazos aplicáveis*`,
@@ -164,15 +190,15 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
 
         // Remove do chat qualquer mensagem automática anterior que anunciava processo conectado
         setMessages((prev) => {
-          const hasStaleCaseMsg = prev.some(m => m.id.startsWith("msg-case-loaded-") || m.text.includes("Processo Conectado aos Autos"));
+          const hasStaleCaseMsg = prev.some(m => m.id.startsWith("msg-case-loaded-") || m.text.includes("Processo Conectado aos Autos") || m.text.includes("Processo Auditado Conectado"));
           if (hasStaleCaseMsg) {
-            return prev.filter(m => !m.id.startsWith("msg-case-loaded-") && !m.text.includes("Processo Conectado aos Autos"));
+            return prev.filter(m => !m.id.startsWith("msg-case-loaded-") && !m.text.includes("Processo Conectado aos Autos") && !m.text.includes("Processo Auditado Conectado"));
           }
           return prev;
         });
       }
     }
-  }, [isOpen, currentProcessNumber, caseSummary, activeMinuteSnippet]);
+  }, [isOpen, currentProcessNumber, caseSummary, activeMinuteSnippet, isAuditedProcess, auditScore, auditVerdict]);
 
   const handleUnlinkProcess = () => {
     lastLoadedProcessRef.current = null;
@@ -352,6 +378,11 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
           caseSummary: (attachCaseContext && activeMode === "autos" && currentProcessNumber) ? caseSummary : undefined,
           activeMinuteSnippet: (attachCaseContext && activeMode === "autos" && currentProcessNumber) ? activeMinuteSnippet : undefined,
           matchedProcess: matchedProcessPayload,
+          auditDetails: (attachCaseContext && isAuditedProcess) ? {
+            processNumber: currentProcessNumber,
+            score: auditScore,
+            verdict: auditVerdict,
+          } : undefined,
         }),
       });
 
@@ -420,7 +451,7 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
           aria-label="Painel do Agente Copiloto de Gabinete"
           className={`fixed top-0 right-0 h-full ${
             isExpanded ? "w-full md:w-[620px]" : "w-full sm:w-[420px] md:w-[460px]"
-          } bg-[#0b111a]/98 border-l border-indigo-500/30 shadow-2xl z-[60] flex flex-col text-slate-100 backdrop-blur-xl animate-in slide-in-from-right duration-300 transition-all`}
+          } bg-[#0b111a]/98 border-l border-indigo-500/30 shadow-2xl z-[120] flex flex-col text-slate-100 backdrop-blur-xl animate-in slide-in-from-right duration-300 transition-all`}
         >
           {/* TOPO / HEADER DO AGENTE LATERAL */}
           <div className="p-3.5 bg-gradient-to-r from-slate-950 via-indigo-950/40 to-slate-950 border-b border-indigo-500/20 flex items-center justify-between shrink-0">
@@ -557,12 +588,21 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
 
             {/* VÍNCULO COM O PROCESSO ATUAL (QUANDO DISPONÍVEL) */}
             {currentProcessNumber && (
-              <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-indigo-950/30 border border-indigo-500/20 text-[11px]">
+              <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] ${
+                isAuditedProcess
+                  ? "bg-amber-950/40 border border-amber-500/40 text-amber-200"
+                  : "bg-indigo-950/30 border border-indigo-500/20 text-slate-300"
+              }`}>
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-                  <span className="text-slate-300 truncate font-mono text-[10px]">
-                    Autos: {currentProcessNumber}
+                  <span className={`w-1.5 h-1.5 rounded-full ${isAuditedProcess ? "bg-amber-400" : "bg-indigo-400"} shrink-0 animate-pulse`} />
+                  <span className="truncate font-mono text-[10px]">
+                    {isAuditedProcess ? `🔍 Lupa: ${currentProcessNumber}` : `Autos: ${currentProcessNumber}`}
                   </span>
+                  {isAuditedProcess && auditScore !== undefined && (
+                    <span className="px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 text-[9px] font-black font-mono shrink-0">
+                      {auditScore}/100
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
                   <label className="flex items-center gap-1 text-[10px] text-indigo-300 font-semibold cursor-pointer">
@@ -572,7 +612,7 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
                       onChange={(e) => setAttachCaseContext(e.target.checked)}
                       className="rounded border-slate-700 text-indigo-500 focus:ring-0 w-3 h-3"
                     />
-                    <span>Vincular resumo</span>
+                    <span>Vincular</span>
                   </label>
                   <button
                     onClick={handleUnlinkProcess}

@@ -51,6 +51,9 @@ import {
   ArrowDownRight,
   PlusCircle,
   CheckCheck,
+  Bot,
+  Eye,
+  Workflow,
 } from "lucide-react";
 import {
   AssessorDraftAuditResult,
@@ -77,6 +80,7 @@ import { recordApiExecution } from "../utils/apiUsageTracker";
 import { useAuth } from "../lib/AuthContext";
 import { TripleConferenceBench } from "./TripleConferenceBench";
 import { PdfViewerPane } from "./PdfViewerPane";
+import { toast } from "react-hot-toast";
 
 export interface ProcessDossierGroup {
   normalizedProcessNumber: string;
@@ -99,6 +103,15 @@ interface MinuteAuditorModalProps {
   initialPdfs?: UploadedPdf[];
   prompts?: CustomPrompt[];
   activePrompt?: CustomPrompt;
+  onOpenCopilot?: (data: {
+    processNumber?: string;
+    caseSummary?: string;
+    activeMinuteSnippet?: string;
+    isAuditedProcess?: boolean;
+    auditScore?: number;
+    auditVerdict?: string;
+    initialQuery?: string;
+  }) => void;
 }
 
 export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
@@ -108,6 +121,7 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
   initialPdfs = [],
   prompts = [],
   activePrompt: initialActivePrompt,
+  onOpenCopilot,
 }) => {
   const { user, userProfile } = useAuth();
   
@@ -136,8 +150,8 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
   const [currentAuditId, setCurrentAuditId] = useState<string | null>(null);
   const [auditResult, setAuditResult] = useState<AssessorDraftAuditResult | null>(null);
   const [activeAnalysisSubTab, setActiveAnalysisSubTab] = useState<
-    "congruence" | "evidentiary" | "procedural" | "feedback" | "correction" | "comparison" | "synopsis"
-  >("congruence");
+    "proceduralChain" | "congruence" | "evidentiary" | "procedural" | "feedback" | "correction" | "comparison" | "synopsis"
+  >("proceduralChain");
   const [comparisonDraftView, setComparisonDraftView] = useState<"current" | "previous" | "sideBySide">("current");
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
 
@@ -181,6 +195,83 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
   const [teseTarget, setTeseTarget] = useState<"caderno" | "paradigma">("caderno");
   const [isSavingTese, setIsSavingTese] = useState<boolean>(false);
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ type: 'record' | 'group' | 'all'; id?: string; group?: ProcessDossierGroup } | null>(null);
+
+  // Abertura do Agente Copiloto para dialogar com o processo auditado
+  const handleOpenCopilotForActiveAudit = (customQuery?: string, targetRecord?: AuditedProcessRecord) => {
+    try {
+      const rec = targetRecord || auditedRecords.find((r) => r.id === currentAuditId) || null;
+      const activeProcNum = (
+        rec?.processNumber ||
+        processNumberInput ||
+        (pdfFiles.length > 0 ? pdfFiles[0].name.replace(/\.pdf$/i, "") : "Processo sob Auditoria")
+      );
+
+      const activeScore = rec?.score ?? auditResult?.score ?? 85;
+      const activeVerdict = rec?.verdict || auditResult?.verdict || "Concluída";
+
+      // Extração concisa e ultra-resiliente dos alertas críticos da auditoria
+      const activeResult = rec?.auditResult || auditResult;
+      let alertsText = "";
+      if (activeResult?.criticalAlerts && Array.isArray(activeResult.criticalAlerts)) {
+        alertsText = activeResult.criticalAlerts
+          .map((a: any) => {
+            if (!a) return "";
+            if (typeof a === "string") return `• [ALERTA] ${a}`;
+            const tag = (a?.severity || a?.pillar || a?.type || "ALERTA").toString().toUpperCase();
+            const title = a?.title || a?.name || "";
+            const desc = a?.description || a?.details || a?.notes || a?.suggestedFix || "";
+            return `• [${tag}] ${title}${desc ? `: ${desc}` : ""}`;
+          })
+          .filter(Boolean)
+          .join("\n");
+      }
+
+      const pillarsText = activeResult
+        ? `Adstrição: ${activeResult.congruence?.score || 0}% | Provas: ${activeResult.evidentiary?.score || 0}% | Rito: ${activeResult.procedural?.score || 0}%`
+        : "";
+
+      let caseSummaryText = `Processo nº ${activeProcNum} | LUPA DO MAGISTRADO (AUDITORIA OURO)\n`;
+      if (rec?.assessorName || assessorNameInput) {
+        caseSummaryText += `Assessor(a): ${rec?.assessorName || assessorNameInput}\n`;
+      }
+      caseSummaryText += `Veredito: ${activeScore}/100 (${activeVerdict})\n`;
+      if (pillarsText) caseSummaryText += `Pilares: ${pillarsText}\n`;
+      if (activeResult?.summary) caseSummaryText += `Diagnóstico do Juiz: ${activeResult.summary}\n`;
+      if (alertsText) caseSummaryText += `Alertas Críticos Identificados:\n${alertsText}\n`;
+
+      const rawProcessText = rec?.processText || processText || "";
+      if (rawProcessText) {
+        caseSummaryText += `\nTrecho Fático dos Autos:\n${rawProcessText.substring(0, 2000)}`;
+      }
+
+      const activeMinuteText = (
+        rec?.assessorDraft ||
+        editingDraftText ||
+        draftText ||
+        systemGeneratedMinute ||
+        activeResult?.suggestedCorrectionSnippet ||
+        ""
+      );
+
+      if (onOpenCopilot) {
+        onOpenCopilot({
+          processNumber: activeProcNum,
+          caseSummary: caseSummaryText,
+          activeMinuteSnippet: activeMinuteText,
+          isAuditedProcess: true,
+          auditScore: activeScore,
+          auditVerdict: activeVerdict,
+          initialQuery: customQuery,
+        });
+        toast.success("Processo auditado conectado ao Agente Copiloto! 🤖⚖️");
+      } else {
+        toast.error("Copiloto não configurado no momento.");
+      }
+    } catch (err: any) {
+      console.error("Erro ao conectar processo da Lupa ao Copiloto:", err);
+      toast.error("Não foi possível conectar o processo ao Copiloto.");
+    }
+  };
 
   // Load audits from DB on open or sync event
   const loadAuditsList = async () => {
@@ -1499,6 +1590,19 @@ ${reAuditNotes}`
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenCopilot && (
+              <button
+                type="button"
+                onClick={() => handleOpenCopilotForActiveAudit()}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md shadow-indigo-950/40 border border-indigo-400/40 cursor-pointer group hover:scale-[1.02]"
+                title="Abrir o Agente Copiloto IA de Gabinete para dialogar com este processo auditado"
+              >
+                <Bot className="w-3.5 h-3.5 text-indigo-100 group-hover:rotate-12 transition-transform" />
+                <span>Copiloto IA</span>
+                <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+              </button>
+            )}
+
             {auditResult && (
               <button
                 onClick={() => setIsXRayOpen(true)}
@@ -1607,6 +1711,18 @@ ${reAuditNotes}`
           {/* Quick Action Tools on Header */}
           {auditResult && (
             <div className="flex items-center gap-2">
+              {onOpenCopilot && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenCopilotForActiveAudit()}
+                  className="px-2.5 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="Conversar com o Agente Copiloto IA sobre os achados da auditoria deste processo"
+                >
+                  <Bot className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Dialogar no Copiloto</span>
+                </button>
+              )}
+
               <button
                 onClick={() => handleOpenSaveTeseModal()}
                 className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
@@ -1713,6 +1829,7 @@ ${reAuditNotes}`
                   onGenerateIdealMinute={handleGenerateIdealMinuteOnDemand}
                   isGeneratingIdealMinute={isGeneratingIdealMinute}
                   isSaving={isSavingEdit}
+                  onOpenCopilot={() => handleOpenCopilotForActiveAudit()}
                 />
               )}
             </div>
@@ -2235,6 +2352,23 @@ ${reAuditNotes}`
                               <ChevronRight className="w-3.5 h-3.5" />
                             </button>
 
+                            {/* Copilot Dialogue */}
+                            {onOpenCopilot && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectRecord(latest);
+                                  handleOpenCopilotForActiveAudit(undefined, latest);
+                                }}
+                                className="px-2.5 py-2 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-500/40 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs group"
+                                title="Dialogar com o Copiloto IA sobre este processo auditado"
+                              >
+                                <Bot className="w-3.5 h-3.5 text-indigo-300 group-hover:rotate-12 transition-transform" />
+                                <span className="hidden sm:inline">Copiloto</span>
+                              </button>
+                            )}
+
                             {/* Editor */}
                             <button
                               type="button"
@@ -2499,9 +2633,125 @@ ${reAuditNotes}`
                       <span>Lançar Minuta Corrigida</span>
                     </button>
                   )}
+
+                  {onOpenCopilot && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCopilotForActiveAudit()}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-950/40 border border-indigo-400/40 shrink-0 group hover:scale-[1.02]"
+                      title="Abrir o Copiloto IA para dialogar com este processo auditado"
+                    >
+                      <Bot className="w-4 h-4 text-indigo-100 group-hover:rotate-12 transition-transform" />
+                      <span>Dialogar no Copiloto</span>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                    </button>
+                  )}
                 </div>
 
               </div>
+
+              {/* CARD DE DIÁLOGO DIRETO COM O COPILOTO DA LUPA DO MAGISTRADO */}
+              {onOpenCopilot && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-slate-900 to-indigo-950/40 border border-indigo-500/30 shadow-lg space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 flex items-center justify-center shrink-0">
+                        <Bot className="w-4 h-4 text-indigo-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>Diálogo do Magistrado com o Processo Auditado</span>
+                          <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 text-[9px] font-mono font-bold">
+                            AGENTE COPILOTO
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-slate-300">
+                          Clique em uma das dúvidas forenses abaixo ou abra o chat para deliberar sobre a minuta com a IA:
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCopilotForActiveAudit()}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs shrink-0"
+                    >
+                      <Bot className="w-3.5 h-3.5" />
+                      <span>Abrir Chat do Copiloto</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenCopilotForActiveAudit(
+                          `Com base no score de ${auditResult.score}/100 e no veredito (${auditResult.verdict}), por que a minuta perdeu pontos e quais as falhas fático-probatórias ou de adstrição mais críticas?`
+                        )
+                      }
+                      className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-indigo-950/70 border border-slate-800 hover:border-indigo-500/40 text-left transition group cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold text-indigo-300 block mb-0.5">
+                        ⚖️ Avaliação do Score
+                      </span>
+                      <span className="text-[11px] text-slate-200 line-clamp-2">
+                        Por que a minuta perdeu pontos na congruência ou provas?
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenCopilotForActiveAudit(
+                          "Confronte a petição inicial e a contestação com a minuta sob auditoria. Houve alguma alegação relevante desconsiderada ou vício de ultra/extra/citra petita?"
+                        )
+                      }
+                      className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-indigo-950/70 border border-slate-800 hover:border-indigo-500/40 text-left transition group cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold text-emerald-300 block mb-0.5">
+                        🔍 Confronto Probatório
+                      </span>
+                      <span className="text-[11px] text-slate-200 line-clamp-2">
+                        Confrontar alegações e documentos com os autos do processo
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenCopilotForActiveAudit(
+                          "Considerando as falhas apontadas nesta auditoria, elabore um dispositivo judicial substitutivo líquido e detalhado, com prazos, astreintes e sucumbência nos termos do CPC."
+                        )
+                      }
+                      className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-indigo-950/70 border border-slate-800 hover:border-indigo-500/40 text-left transition group cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold text-amber-300 block mb-0.5">
+                        📝 Dispositivo Saneado
+                      </span>
+                      <span className="text-[11px] text-slate-200 line-clamp-2">
+                        Redigir dispositivo corrigido nos termos do CPC/15
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenCopilotForActiveAudit(
+                          "Elabore uma fundamentação jurídica substitutiva para o tópico mais frágil desta minuta, enfrentando os argumentos das partes (art. 489, § 1º, CPC)."
+                        )
+                      }
+                      className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-indigo-950/70 border border-slate-800 hover:border-indigo-500/40 text-left transition group cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold text-purple-300 block mb-0.5">
+                        🛡️ Refino de Fundamentação
+                      </span>
+                      <span className="text-[11px] text-slate-200 line-clamp-2">
+                        Substituir fundamentação frágil conforme o art. 489 do CPC
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* COMPARISON BANNER IF RE-AUDITED OR COMPARISON AVAILABLE */}
               {(auditResult.comparison || (auditedRecords.find((r) => r.id === currentAuditId)?.version || 1) > 1) && (
@@ -2597,8 +2847,64 @@ ${reAuditNotes}`
                 </div>
               )}
 
+              {/* MINI-PAINEL DO MAPEAMENTO ENCADEADO EM 4 PONTOS */}
+              {auditResult.proceduralChain && (
+                <div className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/30 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="font-bold text-amber-300 flex items-center gap-1">
+                      <Workflow className="w-3.5 h-3.5 text-amber-400" />
+                      Cadeia Processual (4 Pontos):
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[11px]" title="Ponto 1: Gênese">
+                      1. Gênese: <strong className="text-amber-300">{auditResult.proceduralChain.genese?.movement || "Mov. 1"}</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[11px]" title="Ponto 2: Cadeia de Decisões">
+                      2. Preclusão: <strong className={auditResult.proceduralChain.cadeiaDecisoes?.preclusaoRespected !== false ? "text-emerald-300" : "text-rose-300"}>
+                        {auditResult.proceduralChain.cadeiaDecisoes?.preclusaoRespected !== false ? "Respeitada" : "Risco"}
+                      </strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[11px]" title="Ponto 3: Atos Subsequentes">
+                      3. Atos Subsequentes: <strong className="text-purple-300">Confrontados</strong>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[11px]" title="Ponto 4: Estado Atual">
+                      4. Estado: <strong className="text-emerald-300 uppercase">
+                        {auditResult.proceduralChain.estadoAtual?.proceduralStage?.replace(/_/g, " ") || "Maduro"}
+                      </strong>
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveAnalysisSubTab("proceduralChain")}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Ver Mapeamento Detalhado</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+
               {/* ANALYSIS SUB-TABS */}
               <div className="border-b border-slate-800 flex flex-wrap gap-2">
+                {/* Mapeamento Encadeado em 4 Pontos & Inspeção */}
+                <button
+                  onClick={() => setActiveAnalysisSubTab("proceduralChain")}
+                  className={`px-3.5 py-2 rounded-t-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    activeAnalysisSubTab === "proceduralChain"
+                      ? "bg-slate-800 text-amber-300 border-t-2 border-amber-400 font-black shadow-sm"
+                      : "text-amber-300/80 hover:text-white bg-amber-950/20"
+                  }`}
+                  title="Mapeamento encadeado em 4 pontos (Gênese, Cadeia Decisória, Atos Subsequentes e Estado Atual) e inspeção cronológica de provas"
+                >
+                  <Workflow className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Mapeamento Encadeado (4 Pontos) & Inspeção</span>
+                  {auditResult.proceduralChain?.estadoAtual?.proceduralStage && (
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      {auditResult.proceduralChain.estadoAtual.proceduralStage.replace(/_/g, " ")}
+                    </span>
+                  )}
+                </button>
+
                 {/* Comparativo Antes vs Depois Tab Button (Highlight) */}
                 {(auditResult.comparison || (auditedRecords.find((r) => r.id === currentAuditId)?.version || 1) > 1) && (
                   <button
@@ -3008,6 +3314,256 @@ ${reAuditNotes}`
                 </div>
               )}
 
+              {/* SUB-TAB: PROCEDURAL CHAIN (4 PONTOS) & INSPEÇÃO CRONOLÓGICA */}
+              {activeAnalysisSubTab === "proceduralChain" && (
+                <div className="space-y-5">
+                  {/* Header do Mapeamento Encadeado */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                        <Workflow className="w-3.5 h-3.5" />
+                        Lupa do Magistrado • Auditoria Ouro em 4 Pontos & Inspeção Probatória
+                      </span>
+                      <h3 className="text-base font-black text-white mt-0.5">
+                        Mapeamento Encadeado da Marcha & Diagnóstico de Maturidade Decisória
+                      </h3>
+                      <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                        Confronto cronológico das peças, laudos e decisões anteriores para blindar contra provimentos contraditórios, preclusão pro judicato e decisões precipitadas.
+                      </p>
+                    </div>
+
+                    {auditResult.proceduralChain?.estadoAtual?.proceduralStage && (
+                      <div className="shrink-0 flex items-center gap-2">
+                        <span className={`px-3 py-1.5 rounded-xl text-xs font-black border flex items-center gap-1.5 shadow-sm ${
+                          auditResult.proceduralChain.estadoAtual.proceduralStage === "maduro_sentenca"
+                            ? "bg-emerald-950/90 text-emerald-300 border-emerald-500/50"
+                            : auditResult.proceduralChain.estadoAtual.proceduralStage === "maduro_saneamento"
+                            ? "bg-blue-950/90 text-blue-300 border-blue-500/50"
+                            : auditResult.proceduralChain.estadoAtual.proceduralStage === "decisao_tutela_pendente"
+                            ? "bg-amber-950/90 text-amber-300 border-amber-500/50"
+                            : auditResult.proceduralChain.estadoAtual.proceduralStage === "curso_prazo_legal"
+                            ? "bg-rose-950/90 text-rose-300 border-rose-500/60 animate-pulse"
+                            : "bg-purple-950/90 text-purple-300 border-purple-500/50"
+                        }`}>
+                          <Activity className="w-3.5 h-3.5" />
+                          <span>
+                            {auditResult.proceduralChain.estadoAtual.proceduralStage === "maduro_sentenca" && "Feito Maduro para Sentença"}
+                            {auditResult.proceduralChain.estadoAtual.proceduralStage === "maduro_saneamento" && "Maduro para Saneamento (Art. 357 CPC)"}
+                            {auditResult.proceduralChain.estadoAtual.proceduralStage === "decisao_tutela_pendente" && "Tutela de Urgência Pendente"}
+                            {auditResult.proceduralChain.estadoAtual.proceduralStage === "curso_prazo_legal" && "Em Curso de Prazo Legal (Atenção!)"}
+                            {auditResult.proceduralChain.estadoAtual.proceduralStage === "cumprimento_sentenca" && "Fase de Cumprimento de Sentença"}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Os 4 Cards Encadeados */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Ponto 1: Gênese (Mov. 1) */}
+                    <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-md space-y-3">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-black text-xs flex items-center justify-center border border-amber-500/40">
+                            1
+                          </span>
+                          <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                            Gênese (Mov. 1): Causa de Pedir & Pedidos
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-mono text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/30">
+                          {auditResult.proceduralChain?.genese?.movement || "Mov. 1 - Petição Inicial"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Causa de Pedir Originária:</span>
+                          <p className="text-slate-200 mt-0.5 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                            {auditResult.proceduralChain?.genese?.causeOfAction || "Causa de pedir extraída da petição inicial."}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Pedidos Originários (Exordial):</span>
+                          <p className="text-slate-200 mt-0.5 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                            {auditResult.proceduralChain?.genese?.originalClaims || "Rol integral de pedidos formulados na inicial."}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Fidelidade Estrita da Minuta (Anti-Inferência):</span>
+                          <p className="text-amber-200 mt-0.5 leading-relaxed bg-amber-950/20 p-2.5 rounded-lg border border-amber-500/30">
+                            {auditResult.proceduralChain?.genese?.assessorFaithfulness || "A minuta deve refletir a causa de pedir e pedidos sem inferências (arts. 2º, 141 e 492 do CPC)."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ponto 2: Cadeia das Últimas Decisões */}
+                    <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-md space-y-3">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 font-black text-xs flex items-center justify-center border border-blue-500/40">
+                            2
+                          </span>
+                          <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                            Cadeia das Últimas Decisões (Preclusão)
+                          </h4>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          auditResult.proceduralChain?.cadeiaDecisoes?.preclusaoRespected !== false
+                            ? "bg-emerald-950 text-emerald-300 border-emerald-500/40"
+                            : "bg-rose-950 text-rose-300 border-rose-500/50"
+                        }`}>
+                          {auditResult.proceduralChain?.cadeiaDecisoes?.preclusaoRespected !== false
+                            ? "✓ Preclusão Respeitada"
+                            : "⚠️ Alerta de Preclusão"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Exame das Decisões Pretéritas do Magistrado:</span>
+                          <p className="text-slate-200 mt-0.5 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                            {auditResult.proceduralChain?.cadeiaDecisoes?.summary || "Cadeia decisória examinada nos autos."}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Confronto c/ Arts. 505 e 507 CPC (Preclusão Pro Judicato):</span>
+                          <p className="text-slate-200 mt-0.5 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                            {auditResult.proceduralChain?.cadeiaDecisoes?.contradictionsAlert || "Nenhuma contradição com decisões anteriores."}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Coerência Decisória com a Minuta:</span>
+                          <p className="text-blue-200 mt-0.5 leading-relaxed bg-blue-950/20 p-2.5 rounded-lg border border-blue-500/30">
+                            {auditResult.proceduralChain?.cadeiaDecisoes?.notes || "Observância estrita da preclusão pro judicato e da marcha processual."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ponto 3: Atos Subsequentes */}
+                    <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-md space-y-3">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-400 font-black text-xs flex items-center justify-center border border-purple-500/40">
+                            3
+                          </span>
+                          <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                            Atos Subsequentes: Reação das Partes & Serventia
+                          </h4>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Reação das Partes (Cumprimentos, Inércias, Provas):</span>
+                          <p className="text-slate-200 mt-0.5 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                            {auditResult.proceduralChain?.atosSubsequentes?.partiesReaction || "Manifestações e reações das partes aos provimentos judiciais."}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Atos e Certidões Cartorárias da Serventia:</span>
+                          <p className="text-slate-200 mt-0.5 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                            {auditResult.proceduralChain?.atosSubsequentes?.clerkActs || "Certidões de decurso de prazo, citações e intimações."}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Consideração pela Minuta:</span>
+                          <p className="text-purple-200 mt-0.5 leading-relaxed bg-purple-950/20 p-2.5 rounded-lg border border-purple-500/30">
+                            {auditResult.proceduralChain?.atosSubsequentes?.notes || "A minuta confrontou adequadamente as reações supervenientes das partes."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ponto 4: Estado Atual & Maturidade */}
+                    <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-md space-y-3">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 font-black text-xs flex items-center justify-center border border-emerald-500/40">
+                            4
+                          </span>
+                          <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                            Estado Atual: Maturidade do Feito
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/30">
+                          {auditResult.proceduralChain?.estadoAtual?.proceduralStage || "maduro_sentenca"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Diagnóstico de Maturidade da Causa:</span>
+                          <p className="text-slate-200 mt-0.5 leading-relaxed bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+                            {auditResult.proceduralChain?.estadoAtual?.stageDiagnosis || "Exame da prontidão da lide para julgamento ou saneamento."}
+                          </p>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-400 block">Adequação do Tipo de Ato Redigido:</span>
+                          <p className="text-emerald-200 mt-0.5 leading-relaxed bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-500/30">
+                            {auditResult.proceduralChain?.estadoAtual?.assessorActAdequacy || "Ato processual adequado para o estágio presente dos autos."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Painel Especial de Inspeção Visual e Documental de Manuscritos, Laudos e Contratos */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-indigo-500/30 shadow-md space-y-3">
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-indigo-400" />
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                          Inspeção Cronológica de Manuscritos, Laudos Periciais & Documentos Anexos
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-indigo-300 bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-500/30">
+                        Inspeção Forense Visual & Probatória
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 block">Peças e Documentos Cronologicamente Examinados:</span>
+                        <p className="text-slate-200 leading-relaxed">
+                          {auditResult.documentInspection?.totalExamined || "Leitura exaustiva de petições, contestações, réplicas, laudos periciais e contratos anexos."}
+                        </p>
+                      </div>
+
+                      <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 block">Inspeção de Manuscritos e Títulos (Recibos, Cheques, Promissórias, Rasuras):</span>
+                        <p className="text-slate-200 leading-relaxed">
+                          {auditResult.documentInspection?.manuscriptsAndAnnexes || "Inspeção visual de documentos manuscritos, notas promissórias, recibos de próprio punho e autenticações."}
+                        </p>
+                      </div>
+
+                      <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 block">Laudos Periciais & Contratos Anexos:</span>
+                        <p className="text-slate-200 leading-relaxed">
+                          {auditResult.documentInspection?.expertReportsAndContracts || "Confronto analítico de laudos periciais (nomes dos peritos, especialidades e conclusões) e contratos."}
+                        </p>
+                      </div>
+
+                      <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
+                        <span className="text-[11px] font-bold text-slate-400 block">Divergências Materiais Detectadas:</span>
+                        <p className="text-amber-300 leading-relaxed">
+                          {auditResult.documentInspection?.divergencesFound || "Nenhuma divergência fática ou documental relevante identificada."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* SUB-TAB 1: CONGRUENCE */}
               {activeAnalysisSubTab === "congruence" && (
                 <div className="space-y-3">
@@ -3274,6 +3830,18 @@ ${reAuditNotes}`
                     <BookmarkPlus className="w-3.5 h-3.5 text-amber-400" />
                     <span>Salvar como Paradigma</span>
                   </button>
+
+                  {onOpenCopilot && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCopilotForActiveAudit()}
+                      className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-500/40 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs group"
+                      title="Dialogar com o Copiloto IA sobre o texto desta minuta"
+                    >
+                      <Bot className="w-3.5 h-3.5 text-indigo-300 group-hover:rotate-12 transition-transform" />
+                      <span>Copiloto IA</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={handleSaveAuditEdits}

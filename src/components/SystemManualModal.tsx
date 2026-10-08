@@ -1588,6 +1588,97 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Caderno de Teses Soberano na 1ª Etapa & Suspeição por Foro Íntimo */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-500 text-slate-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Scale className="w-5 h-5 text-slate-950" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-400 dark:border-amber-600 bg-amber-500/10 dark:bg-amber-950/40 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Soberania Total do Caderno de Teses (Todas as Teses Normativas Dinâmicas)</span>
+                          <span className="bg-amber-500 text-slate-950 text-[10px] px-1.5 py-0.5 rounded font-mono font-black">NORMATIVO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Obediência Dinâmica a 100% das Teses do Gabinete:</strong> O sistema obedece rigorosamente a <strong>todas as teses normativas</strong> que o usuário inserir, acrescentar, editar ou remover no Caderno de Teses, tanto na <strong>1ª Etapa (Assessor Fático)</strong> quanto na <strong>2ª Etapa (Juiz Revisor)</strong>, garantindo soberania total sobre qualquer classificação genérica.<br />
+                        • <strong>Aferição Fática Estrita & Eliminação de Falsos Positivos em Regras Condicionais:</strong> Em teses condicionais (como a diretriz de <em>Suspeição por Foro Íntimo do magistrado</em> vinculada à atuação de determinada(o) advogada(o) ou parte), o sistema realiza a conferência fidedigna nos autos (procurações, substabelecimentos e peças). Se a(o) profissional <strong>não atuar no processo em exame</strong>, é vedado aplicar restrições indevidas, prosseguindo-se com o julgamento regular da causa. Apenas quando <strong>comprovada a efetiva atuação nos autos</strong> é que o sistema declara a suspeição por foro íntimo (art. 145, § 1º, do CPC) e veda sentença de mérito.<br />
+                        • <strong>Aplicação Plena de Teses Materiais, Processuais e Extintivas:</strong> Quaisquer teses cadastradas (juros bancários, dano moral, repetição de indébito, extinção pelo pagamento do art. 924, II do CPC, alvará, sucumbência e gratuidade da justiça) são incorporadas com fidelidade à fundamentação e ao dispositivo operacional.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Lupa do Magistrado - Mapeamento Encadeado em 4 Pontos & Inspeção Cronológica */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-500 text-slate-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Sparkles className="w-5 h-5 text-slate-950" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-400 dark:border-amber-600 bg-amber-500/10 dark:bg-amber-950/40 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Lupa do Magistrado: Mapeamento Encadeado em 4 Pontos & Inspeção Cronológica</span>
+                          <span className="bg-amber-500 text-slate-950 text-[10px] px-1.5 py-0.5 rounded font-mono font-black">PADRÃO OURO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Leitura Cronológica Exaustiva & Autos sem Truncamento:</strong> Eliminação do truncamento prematuro de autos na Lupa do Magistrado. O motor agora preserva a cronologia integral até a janela plena dos modelos de raciocínio profundo, inspecionando petições, emendas, contestações, réplicas, laudos periciais e manifestações sem perder as decisões recentes do juiz.<br />
+                        • <strong>Inspeção Visual de Manuscritos & Documentos Anexos:</strong> Auditoria visual minuciosa de notas promissórias, recibos de próprio punho, cheques, rasuras, anotações de juros, assinaturas físicas vs digitais e contratos anexos, confrontando datas e valores reais com as afirmações da minuta do assessor.<br />
+                        • <strong>Mapeamento Encadeado em 4 Pontos Obrigatórios:</strong><br />
+                        &nbsp;&nbsp;1. <em>Gênese (Mov. 1):</em> Causa de pedir e pedidos originários da exordial, com aferição de fidelidade estrita da minuta (arts. 2º, 141 e 492 do CPC);<br />
+                        &nbsp;&nbsp;2. <em>Cadeia das Últimas Decisões:</em> Exame das decisões anteriores do magistrado para respeitar rigorosamente a preclusão pro judicato (arts. 505 e 507 do CPC) e banir provimentos contraditórios;<br />
+                        &nbsp;&nbsp;3. <em>Atos Subsequentes:</em> Reação das partes (cumprimentos, inércias, perícias) e certidões da serventia após as últimas intimações;<br />
+                        &nbsp;&nbsp;4. <em>Estado Atual & Maturidade:</em> Diagnóstico categórico se o processo está maduro para sentença, saneamento (art. 357 CPC), decisão interlocutória/tutela ou se ainda transcorre prazo legal (alerta bloqueante contra julgamento prematuro).<br />
+                        • <strong>Subaba Primária & Mini-Painel de Auditoria:</strong> Criação da subaba dedicada <em>"🔗 Mapeamento Encadeado (4 Pontos) & Inspeção"</em> no relatório da auditoria e mini-painel com chips de status na Bancada de Tripla Conferência.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Aplicação de Paradigma & Súmulas na 1ª Etapa e Copiloto Blindado na Lupa */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Minuta Paradigma & Súmulas Readequadas na 2ª Etapa e Copiloto na Lupa</span>
+                          <span className="bg-amber-500 text-slate-950 text-[10px] px-1.5 py-0.5 rounded font-mono font-black">ATUALIZAÇÃO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>1ª Etapa Leve & Ágil (Assessor Fático):</strong> A 1ª Etapa volta a focar exclusivamente na extração probatória, partes, cadeia de decisões (fio da meada), delimitação fática e redação preliminar, mantendo o consumo de tokens enxuto e o tempo de resposta ágil sem carregar modelos externos de paradigma ou catálogo amplo de súmulas.<br />
+                        • <strong>Minuta Paradigma e Súmulas Consolidadas na 2ª Etapa (Juiz Revisor):</strong> A clonagem estrutural da <em>Minuta Paradigma</em> (espelho de estilo, ordem capitular e tese do juiz) e o catálogo de <em>Súmulas e Teses Vinculantes</em> (STF, STJ, TNU e TJGO) foram realocados para a <strong>2ª Etapa</strong>, onde o Juiz Revisor adensa a fundamentação, aplica o modelo paradigma e gera a <em>Matriz de Auditoria Forense Completa</em> (`auditAnalysis`).<br />
+                        • <strong>Correção e Abertura Blindada do Copiloto na Lupa do Magistrado:</strong> O <em>Agente Copiloto</em> na Lupa do Magistrado conta com prioridade máxima de empilhamento visual (z-index 120) e proteção total contra alertas críticos incompletos ou nulos, garantindo abertura instantânea e debate fluido do processo auditado com o magistrado.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Item: Agente Copiloto Integrado à Lupa do Magistrado (Auditoria Ouro) & Execução em 2 Etapas */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-950/20 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Agente Copiloto na Lupa do Magistrado & Execução em 2 Etapas</span>
+                          <span className="bg-amber-500 text-slate-950 text-[10px] px-1.5 py-0.5 rounded font-mono font-black">LUPA & COPILOTO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-amber-800 dark:text-amber-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Diálogo do Magistrado com seu Processo Auditado no Copiloto IA:</strong> Integração completa do <em>Agente Copiloto</em> diretamente dentro da <strong>Lupa do Magistrado (Auditoria Ouro)</strong>. O magistrado agora pode dialogar instantaneamente sobre o caso sob auditoria clicando no botão [Copiloto IA] no cabeçalho dourado, na Bancada de Tripla Conferência, no cartão de Resultado & Análise e no editor de minutas.<br />
+                        • <strong>Sincronização Forense Automática com Autos e Veredito:</strong> Ao ser acionado na auditoria, o Copiloto recebe o número CNJ, partes, síntese fática dos autos, score obtido, veredito e alertas críticos identificados, permitindo debater com precisão as falhas da minuta sem sair da tela do processo.<br />
+                        • <strong>Chips Rápidos de Deliberação Judicial:</strong> Disponibilização de atalhos temáticos de 1 clique no painel de auditoria: <em>"Por que a minuta perdeu pontos na congruência/provas?"</em>, <em>"Confrontar alegações com os autos"</em>, <em>"Redigir dispositivo corrigido líquido nos termos do CPC"</em> e <em>"Substituir fundamentação frágil conforme o art. 489 do CPC"</em>.<br />
+                        • <strong>Execução em 2 Etapas com Parada Estratégica como Padrão:</strong> A esteira principal agora opera com a execução em 2 etapas ativada por padrão (com persistência em <em>localStorage</em>). Ao analisar um PDF ou texto, o sistema processa e entrega primeiramente a <strong>1ª Etapa (Assessor Fático / Relatório e Provas)</strong>, disponibilizando a minuta fática preliminar para que o magistrado avalie e decida conscientemente se e quando avançar para a <strong>2ª Etapa (Juiz Revisor / Fundamentação e Dispositivo)</strong>. O botão de ação sinaliza expressamente a fase ativa.<br />
+                        • <strong>Certificação Integral do Caderno de Teses na Minuta:</strong> Aperfeiçoamento no crachá e painel do Caderno de Teses na visualização da minuta, eliminando contagens numéricas artificiais (ex.: "6 Teses Aplicadas"). O sistema agora atesta de forma fidedigna que as diretrizes vinculantes e o Caderno de Teses do Gabinete foram aplicados integralmente na fundamentação e no dispositivo.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Módulo Turbo Independente de Análise Ágil de Autos */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">

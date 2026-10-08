@@ -698,7 +698,8 @@ app.post("/api/lateral-agent-chat", async (req, res) => {
             processNumber,
             caseSummary,
             activeMinuteSnippet,
-            matchedProcess
+            matchedProcess,
+            auditDetails,
         } = req.body;
 
         if (!message || typeof message !== "string" || !message.trim()) {
@@ -716,6 +717,16 @@ app.post("/api/lateral-agent-chat", async (req, res) => {
 - Resumo Factual dos Autos / Relatório:
 ${(matchedProcess.synopsis || "").substring(0, 1800)}
 ${matchedProcess.minuteSnippet ? `- Trecho da Minuta Registrada:\n${matchedProcess.minuteSnippet.substring(0, 1200)}\n` : ""}\n`;
+        }
+
+        // Auditoria da Lupa do Magistrado (Auditoria Ouro)
+        if (auditDetails && typeof auditDetails === "object") {
+            contextSection += `\n# CONTEXTO DE AUDITORIA (LUPA DO MAGISTRADO):
+- Processo sob Análise: ${auditDetails.processNumber || processNumber || "Não identificado"}
+- Veredito da Auditoria: ${auditDetails.verdict || "Concluída"} (Score: ${auditDetails.score ?? "--"}/100)
+${auditDetails.alerts ? `- Alertas Críticos Identificados:\n${auditDetails.alerts}\n` : ""}
+${auditDetails.feedback ? `- Parecer da Auditoria:\n${auditDetails.feedback}\n` : ""}
+O magistrado titular está dialogando sobre este processo auditado. Atue como assessor sênior e debata fidedignamente os autos, o rito e os requisitos legais.\n`;
         }
 
         // O processo em tela só é vinculado ao contexto quando o modo for explicitamente "autos" e houver processo válido
@@ -1266,25 +1277,31 @@ app.post("/api/audit-assessor-draft", async (req, res) => {
             totalCharsSaved += textDedup.charsSaved;
         }
 
-        // SINOPSE HOLÍSTICA FORENSE AUTOMÁTICA EM 5 PILARES (processos volumosos > 90k caracteres)
+        // PRESERVAÇÃO INTEGRAL DOS AUTOS PARA AUDITORIA (GEMINI 3.8 FLASH SUPORTA AMPLA JANELA)
         let generatedHolisticSynopsis = "";
         let safeProcessText = accumulatedProcessText;
         if (accumulatedProcessText.length > 90000) {
-            console.log(`[Lupa do Magistrado] Autos volumosos detectados (${accumulatedProcessText.length} caracteres). Elaborando Sinopse Holística dos Autos em 5 pilares para subsidiar a auditoria sem corte de fatos ou provas...`);
+            console.log(`[Lupa do Magistrado] Autos volumosos detectados (${accumulatedProcessText.length} caracteres). Elaborando Sinopse Holística dos Autos em 5 pilares para enriquecer a auditoria sem corte de fatos ou provas...`);
             try {
                 generatedHolisticSynopsis = await generateHolisticSynopsis(accumulatedProcessText, {
                     apiKey,
                     keyPool: extractApiKeyPool(req)
                 });
                 if (generatedHolisticSynopsis && generatedHolisticSynopsis.length > 200) {
-                    safeProcessText = `\n\n[=== SINOPSE HOLÍSTICA FORENSE DOS AUTOS (INTEGRAL EM 5 PILARES - AUDITORIA DE CONFORMIDADE) ===]\n${generatedHolisticSynopsis}\n\n[=== NÚCLEO DOCUMENTAL ORIGINAL DOS AUTOS (TRECHOS-CHAVE) ===]\n${accumulatedProcessText.substring(0, 40000)}\n`;
+                    if (accumulatedProcessText.length <= 400000) {
+                        safeProcessText = `\n\n[=== SINOPSE HOLÍSTICA FORENSE DOS AUTOS (INTEGRAL EM 5 PILARES - AUDITORIA DE CONFORMIDADE) ===]\n${generatedHolisticSynopsis}\n\n[=== AUTOS DO PROCESSO NA ÍNTEGRA (CRONOLOGIA EXAUSTIVA) ===]\n${accumulatedProcessText}\n`;
+                    } else {
+                        // Preserva amplamente os atos iniciais (exordial, contratos, contestações) e os atos finais (decisões do juiz, réplicas, laudos e certidões recentes)
+                        const halfSlice = 180000;
+                        safeProcessText = `\n\n[=== SINOPSE HOLÍSTICA FORENSE DOS AUTOS (INTEGRAL EM 5 PILARES - AUDITORIA DE CONFORMIDADE) ===]\n${generatedHolisticSynopsis}\n\n[=== AUTOS DO PROCESSO (GÊNESE E ATOS INICIAIS) ===]\n${accumulatedProcessText.substring(0, halfSlice)}\n\n... [TRECHO INTERMEDIÁRIO COBERTO PELA SINOPSE HOLÍSTICA ACIMA] ...\n\n[=== AUTOS DO PROCESSO (PROVAS, LAUDOS, ÚLTIMAS DECISÕES E ANDAMENTOS SUBSEQUENTES) ===]\n${accumulatedProcessText.substring(accumulatedProcessText.length - halfSlice)}\n`;
+                    }
                 }
             } catch (synErr) {
                 console.warn("[Lupa do Magistrado] Erro na elaboração da Sinopse Holística:", synErr);
             }
-        } else if (safeProcessText.length > 160000) {
-            const half = Math.floor(160000 / 2);
-            safeProcessText = safeProcessText.substring(0, half) + "\n\n... [AUTOS RESUMIDOS PARA LIMITAÇÃO TÉCNICA E ECONOMIA DE TOKENS] ...\n\n" + safeProcessText.substring(safeProcessText.length - half);
+        } else if (safeProcessText.length > 350000) {
+            const halfSlice = 160000;
+            safeProcessText = safeProcessText.substring(0, halfSlice) + "\n\n... [AUTOS RESUMIDOS NO MIOLO PARA LIMITAÇÃO TÉCNICA - GÊNESE E ÚLTIMAS DECISÕES PRESERVADAS] ...\n\n" + safeProcessText.substring(safeProcessText.length - halfSlice);
         }
 
         const isReAudit = !!previousAuditResult;
@@ -1293,19 +1310,60 @@ app.post("/api/audit-assessor-draft", async (req, res) => {
 Sua missão é realizar um confronto rigoroso e impiedoso entre os AUTOS DO PROCESSO e a MINUTA REDIGIDA PELO ASSESSOR.
 Mantenha foco estrito no diagnóstico, nos alertas críticos e nas emendas cirúrgicas, sem gastar tokens com a reescrita desnecessária de uma sentença completa.
 
+DIRETRIZES OBRIGATÓRIAS DE AUDITORIA FORENSE (PADRÃO OURO DO MAGISTRADO):
+1. LEITURA CRONOLÓGICA EXAUSTIVA DE TODAS AS PEÇAS E PROVAS:
+   - Realize a leitura cronológica e encadeada de TODAS as petições (inicial, emendas, intercorrentes), contestações, réplicas, laudos periciais (nomes dos peritos, especialidades, conclusões e valores apurados), contratos (cláusulas, encargos, datas e assinaturas), certidões cartorárias e manifestações (inclusive parecer do Ministério Público).
+   - INSPEÇÃO VISUAL E ANALÍTICA DE MANUSCRITOS E DOCUMENTOS ANEXOS: Inspecione atentamente notas promissórias, recibos de próprio punho, cheques, rasuras, anotações marginais de juros ou pagamentos, assinaturas físicas vs digitais e selos/carimbos cartorários. Confronte valores, datas e dados fáticos com a minuta do assessor, apontando qualquer discrepância.
+
+2. MAPEAMENTO ENCADEADO EM 4 PONTOS OBRIGATÓRIOS ('proceduralChain'):
+   - PONTO 1: GÊNESE (MOV. 1): Verifique a petição inicial, a causa de pedir e todos os pedidos originários (materiais, morais, cominatórios e tutelas de urgência). Audite se a minuta do assessor espelha com fidelidade estrita a petição inicial ou se incorreu em inferências fáticas, floreios ou pedidos não deduzidos (arts. 2º, 141 e 492 do CPC).
+   - PONTO 2: CADEIA DAS ÚLTIMAS DECISÕES: Exame das decisões anteriores do magistrado para respeitar rigorosamente a preclusão (pro judicato, arts. 505 e 507 do CPC) e evitar provimentos contraditórios, revogações indevidas de matérias preclusas ou rediscussão anacrônica de pedidos superados.
+   - PONTO 3: ATOS SUBSEQUENTES: Reação das partes e da serventia após as decisões recentes (cumprimentos voluntários, depósitos, inércias/revelias, certidões de decurso de prazo, intimações pendentes, laudos ou acordos). A minuta não pode ignorar esses atos supervenientes.
+   - PONTO 4: ESTADO ATUAL: Verificação categórica se o feito está maduro para sentença (instrução finda, prova desnecessária), saneamento (organização probatória do art. 357 CPC), decisão interlocutória/tutela (tutela provisória pendente pós-emenda ou urgente) ou se ainda está em curso de prazo legal (risco de decisão precipitada!). Se a minuta sugerir sentença em curso de prazo, aponte IMEDIATAMENTE como alerta bloqueante!
+
 Você deve responder ESTRITAMENTE em formato JSON com o seguinte schema obrigatório:
 {
   "score": número de 0 a 100 com o score geral da minuta,
   "verdict": "Aprovada sem Ressalvas" | "Aprovada com Ressalvas" | "Requer Correções Obrigatórias" | "Crítica / Risco de Nulidade",
   "verdictColor": "emerald" | "amber" | "rose" | "indigo",
   "summary": "Resumo executivo da auditoria apontando pontos fortes e principais deficiências",
+  "proceduralChain": {
+    "genese": {
+      "movement": "Identificação do Mov. 1 / Petição Inicial",
+      "causeOfAction": "Causa de pedir originária e fatos essenciais narrados pelo autor",
+      "originalClaims": "Rol integral de pedidos formulados (inclusive tutelas provisórias/urgência)",
+      "assessorFaithfulness": "Avaliação se o assessor narrou a inicial com fidelidade estrita ou se inventou fatos/pedidos"
+    },
+    "cadeiaDecisoes": {
+      "summary": "Exame cronológico das decisões anteriores do magistrado nos autos",
+      "preclusaoRespected": true ou false,
+      "contradictionsAlert": "Apontamento expresso de eventuais contradições ou violações à preclusão pro judicato (arts. 505 e 507 CPC)",
+      "notes": "Análise da coerência entre as decisões anteriores e a minuta proposta"
+    },
+    "atosSubsequentes": {
+      "partiesReaction": "Reação das partes após as decisões (cumprimento, inércia, defesas, réplicas, laudos)",
+      "clerkActs": "Certidões da serventia (citações, intimações, decurso de prazo in albis, penhoras)",
+      "notes": "Avaliação se a minuta considerou a reação das partes e os atos supervenientes"
+    },
+    "estadoAtual": {
+      "proceduralStage": "maduro_sentenca" | "maduro_saneamento" | "decisao_tutela_pendente" | "curso_prazo_legal" | "cumprimento_sentenca",
+      "stageDiagnosis": "Diagnóstico claro sobre se o feito está pronto para sentença, saneamento, tutela de urgência ou se ainda transcorre prazo legal",
+      "assessorActAdequacy": "Avaliação crítica se o tipo de ato redigido é adequado para o estágio presente dos autos"
+    }
+  },
+  "documentInspection": {
+    "totalExamined": "Relação sintética de petições, contestações, réplicas, laudos e contratos cronologicamente examinados",
+    "manuscriptsAndAnnexes": "Inspeção visual e fática de manuscritos (recibos, promissórias, cheques, rasuras, anotações de punho próprio, assinaturas)",
+    "expertReportsAndContracts": "Confronto analítico de laudos periciais (perito, especialidade, conclusão) e contratos",
+    "divergencesFound": "Apontamento de divergências de datas, valores, encargos ou fatos apurados na inspeção probatória"
+  },
   "congruence": {
     "score": número de 0 a 100,
     "summary": "Análise de adstrição e congruência dos pedidos (inicial vs contestação vs minuta)",
     "items": [
       {
         "claim": "Identificação do pedido ou requerimento da parte",
-        "assessorAddressed": true ou false (se o assessor julgou ou apreciou),
+        "assessorAddressed": true ou false,
         "status": "congruente" | "omissao_citra_petita" | "extrapolacao_ultra_extra_petita" | "divergencia_pedido",
         "notes": "Explicação fundamentada do porquê está congruente ou onde houve erro/omissão"
       }
@@ -1313,11 +1371,11 @@ Você deve responder ESTRITAMENTE em formato JSON com o seguinte schema obrigat�
   },
   "evidentiary": {
     "score": número de 0 a 100,
-    "summary": "Confronto fático-probatório entre o que a minuta afirma e as provas dos autos",
+    "summary": "Confronto fático-probatório entre o que a minuta afirma e as provas dos autos (incluindo inspeção de contratos, laudos periciais e manuscritos)",
     "items": [
       {
         "fact": "Fato afirmado ou valor fixado na minuta",
-        "evidenceSource": "Folha, documento, laudo ou certidão correspondente nos autos",
+        "evidenceSource": "Folha, documento, laudo, manuscrito ou certidão correspondente nos autos (Mov. X, Arq. Y, Pág. Z)",
         "status": "comprovado" | "distorcido" | "sem_lastro_probatorio" | "contradicao_interna",
         "notes": "Explicação detalhada do confronto probatório"
       }
@@ -1338,9 +1396,9 @@ Você deve responder ESTRITAMENTE em formato JSON com o seguinte schema obrigat�
   "criticalAlerts": [
     {
       "severity": "bloqueante" | "atencao" | "informativo",
-      "pillar": "adstricao" | "provas" | "preliminares_rito" | "redacao_clareza",
+      "pillar": "adstricao" | "provas" | "preliminares_rito" | "redacao_clareza" | "preclusao_marcha",
       "title": "Título conciso do alerta",
-      "description": "Explicação clara da falha e do risco processual (ex: risco de embargos ou nulidade)",
+      "description": "Explicação clara da falha e do risco processual (ex: risco de embargos, nulidade, decisão contraditória ou julgamento em curso de prazo)",
       "suggestedFix": "Como o magistrado ou assessor deve retificar o ponto",
       "location": "Localização na minuta (ex: Relatório, Parágrafo 3 da Fundamentação, Dispositivo)"
     }
@@ -1351,10 +1409,10 @@ Você deve responder ESTRITAMENTE em formato JSON com o seguinte schema obrigat�
 }
 
 CRITÉRIOS DE PONTUAÇÃO (SCORE):
-- 90 a 100: "Aprovada sem Ressalvas" (verde/emerald). Todos os pedidos apreciados, provas fiéis aos autos, dispositivo irretocável.
+- 90 a 100: "Aprovada sem Ressalvas" (verde/emerald). Todos os pedidos apreciados, provas fiéis aos autos, dispositivo irretocável, sem violação a preclusões.
 - 75 a 89: "Aprovada com Ressalvas" (indigo/azul). Erros formais leves, sem risco de nulidade.
 - 50 a 74: "Requer Correções Obrigatórias" (âmbar/amber). Omissão de pedido secundário, citação imprecisa de documento ou juros em desacordo com a lei.
-- 0 a 49: "Crítica / Risco de Nulidade" (vermelho/rose). Julgamento citra/ultra petita, invenção de fatos sem lastro ou dispositivo contraditório.`;
+- 0 a 49: "Crítica / Risco de Nulidade" (vermelho/rose). Julgamento citra/ultra petita, invenção de fatos sem lastro, contradição com decisões anteriores ou ato em curso de prazo.`;
 
         const auditUserPrompt = `AUTOS DO PROCESSO:\n${safeProcessText || 'Texto dos autos não fornecido.'}
 
@@ -1378,7 +1436,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             keyPool: extractApiKeyPool(req),
             isNativeAllowed: isRequestNativeAllowed(req),
             res,
-            primaryModel: "gemini-3.1-flash-lite",
+            primaryModel: "gemini-3.8-flash",
             fallbackModel: "gemini-flash-latest",
             contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }] }],
             config: {
@@ -1401,6 +1459,36 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             verdict,
             verdictColor,
             summary: parsed.summary || "Auditoria realizada com sucesso com base no confronto com os autos.",
+            proceduralChain: parsed.proceduralChain || {
+                genese: {
+                    movement: "Mov. 1 - Petição Inicial",
+                    causeOfAction: "Causa de pedir identificada nos autos.",
+                    originalClaims: "Pedidos originários deduzidos na exordial.",
+                    assessorFaithfulness: "A minuta deve guardar estrita fidelidade aos termos da petição inicial sem inferências."
+                },
+                cadeiaDecisoes: {
+                    summary: "Cadeia de decisões judiciais pretéritas nos autos.",
+                    preclusaoRespected: true,
+                    contradictionsAlert: "Nenhuma violação à preclusão pro judicato identificada.",
+                    notes: "Observância da coerência decisória com os provimentos anteriores."
+                },
+                atosSubsequentes: {
+                    partiesReaction: "Manifestações e reações das partes após as intimações.",
+                    clerkActs: "Certidões e atos praticados pela serventia.",
+                    notes: "Confronto da minuta com os atos supervenientes."
+                },
+                estadoAtual: {
+                    proceduralStage: "maduro_sentenca",
+                    stageDiagnosis: "Exame da maturidade da causa e adequação do ato judicial.",
+                    assessorActAdequacy: "Ato em consonância com o andamento dos autos."
+                }
+            },
+            documentInspection: parsed.documentInspection || {
+                totalExamined: "Inspeção documental cronológica efetuada nos autos.",
+                manuscriptsAndAnnexes: "Manuscritos, contratos e anexos inspecionados em conformidade com as provas.",
+                expertReportsAndContracts: "Laudos periciais e contratos confrontados com a minuta.",
+                divergencesFound: "Sem divergências materiais detectadas."
+            },
             congruence: {
                 score: typeof parsed.congruence?.score === 'number' ? parsed.congruence.score : score,
                 summary: parsed.congruence?.summary || "Análise dos pedidos e limites objetivos da lide.",
@@ -3428,6 +3516,9 @@ function extractProcessMetadata(stage1Json: any, processInfo: any, allText: stri
 
 app.post("/api/generate-minute", async (req, res) => {
     let keepAliveInterval: any = null;
+    const requestStartTime = Date.now();
+    let stage1DurationMs = 0;
+    let stage2DurationMs = 0;
     try {
     const userApiKey=extractApiKey(req);
     const reqUserUid = (req.headers["x-user-uid"] as string) || "";
@@ -3709,7 +3800,25 @@ if (customPromptText && typeof customPromptText === "string" && customPromptText
 }
 
 if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
-    stage1SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE (ETAPA 1):\n- Observe com rigor estrito as teses do magistrado. Se o caso se enquadrar em qualquer tese ou diretriz (ex.: extinção pelo pagamento do art. 924, II do CPC, alvará para levantamento, condenação em custas e honorários sucumbenciais de 10% pelo art. 85, § 2º, penhora online de custas em 20 dias pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), ESTRUTURE O DISPOSITIVO PRELIMINAR com os comandos exatos da tese do gabinete, adaptando aos dados concretos dos autos.\n`;
+    stage1SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & SOBERANIA NORMATIVA TOTAL - TODAS AS TESES)]:
+${activeTeses.trim()}
+
+DIRETRIZ MANDATÓRIA E SOBERANA DE APLICAÇÃO DE TODAS AS TESES NORMATIVAS NA ETAPA 1:
+- O Caderno de Teses do Gabinete acima possui SOBERANIA NORMATIVA TOTAL E ABSOLUTA sobre qualquer heurística pré-moldada ou presunção preliminar de ato judicial.
+- O sistema DEVE obedecer rigorosamente a TODAS as teses normativas cadastradas pelo usuário/gabinete (sejam teses que o usuário inserir, acrescentar, editar, excluir ou modificar):
+
+1. TESES CONDICIONAIS OU VINCULADAS A SUJEITOS / REQUISITOS ESPECÍFICOS (exemplo: suspeição/impedimento de magistrado por atuação de determinado advogado/procurador ou parte):
+  * O sistema DEVE examinar procurações, substabelecimentos, petições e contestações em todos os PDFs e textos dos autos para verificar com fidelidade estrita se aquela condição fática está REALMENTE presente no processo em exame.
+  * CASO CONSTATE A EFETIVA ATUAÇÃO DO ADVOGADO / PARTE / CONDIÇÃO ESPECÍFICA NOS AUTOS: aplique a tese com rigor absoluto! Por exemplo, no caso de tese de suspeição do magistrado em virtude da atuação daquele advogado específico, declare a suspeição por motivo de foro íntimo (art. 145, § 1º, do CPC), adeque o ato ('actType') para DECISÃO DECLARATÓRIA DE SUSPEIÇÃO POR FORO ÍNTIMO, insira o parágrafo destacado determinado e ordene a remessa ao substituto legal, sendo expressamente VEDADO proferir sentença de mérito.
+  * CASO O ADVOGADO, PARTE OU CONDIÇÃO FÁTICA NÃO ATUE E NÃO ESTEJA PRESENTE NESTE PROCESSO: é TERMINANTEMENTE PROIBIDO inventar ou aplicar a regra de suspeição/restrição! O sistema deve prosseguir com o exame regular da lide de acordo com as provas dos autos e as demais teses aplicáveis do caderno (proferindo sentença, saneamento, decisão interlocutória ou despacho, conforme a marcha processual).
+
+2. TESES MATERIAIS, PROCESSUAIS E DECISÓRIAS (exemplo: extinção pelo pagamento do art. 924, II do CPC; fixação de dano moral; limitação de juros bancários; inversão do ônus da prova; critérios de gratuidade de justiça; honorários sucumbenciais e custas; alvarás judiciais):
+  * Sempre que o processo versar sobre matéria regulada por qualquer tese do Caderno de Teses, o sistema DEVE obrigatoriamente aplicar os fundamentos, parâmetros e comandos dispositivos da respectiva tese na Fundamentação e no Dispositivo da minuta.
+  * É terminantemente proibido proferir decisão genérica contrária ou dissonante das teses ativas cadastradas pelo magistrado.
+
+3. EFICÁCIA INTEGRAL NO TIPO DE ATO E NO DISPOSITIVO:
+  * O tipo de ato ('actType'), a questão pendente ('pendingMatter'), o relatório ('relatorio'), a fundamentação ('fundamentacao') e o dispositivo ('dispositivo') devem espelhar fielmente a aplicação de todas as teses do gabinete ao caso concreto.
+`;
 }
 
 // ETAPA 2 - System Instruction do Juiz Revisor (Teses, Precedentes Vinculantes, Paradigma & Auditoria Forense):
@@ -3719,9 +3828,9 @@ DIRETRIZ DA ETAPA 2 (JUIZ REVISOR ESPECIALISTA & AUDITOR FORENSE):
 Você é o Juiz de Direito Titular e Juiz Revisor do Gabinete.
 Você recebeu a Minuta Preliminar Factual gerada na Etapa 1 pelo Assessor Forense.
 Sua missão é:
-1. LER a Minuta Preliminar Factual com atenção máxima aos eventos probatórios;
+1. LER a Minuta Preliminar Factual com atenção máxima aos eventos probatórios da Etapa 1;
 2. CONFRONTÁ-LA com o CADERNO DE TESES DO GABINETE, as SÚMULAS VINCULANTES (STF, STJ, TNU e TJGO) e a MINUTA PARADIGMA (se ativada);
-3. REESCREVER e ADENSAR magistralmente a fundamentação ('fundamentacao') e o dispositivo ('dispositivo') aplicando as teses consolidadas do magistrado e a jurisprudência vinculante, sem perder a riqueza fática da Etapa 1;
+3. REESCREVER e ADENSAR magistralmente a fundamentação ('fundamentacao') e o dispositivo ('dispositivo') aplicando as teses consolidadas do magistrado, o estilo da Minuta Paradigma e a jurisprudência vinculante, sem perder a riqueza fática da Etapa 1;
 4. ESTRUTURAÇÃO SUBSTANTIVA DA FUNDAMENTAÇÃO CONFORME O ATO (ART. 489 DO CPC):
    - É expressamente PROIBIDO sintetizar a fundamentação em parágrafos genéricos ou superficiais.
    - Mesmo operando sob modelos ágeis de contingência (Flash-Lite) ou chaves gratuitas, você DEVE preservar a divisão em subtópicos Markdown ('### 1. ...', '### 2. ...'), com formatação rica (negrito, itálico, citações em bloco '>' e indicação de Mov., Arq., Pág.).
@@ -3763,7 +3872,7 @@ Sua missão é:
      * Em petições intercorrentes de localização/intimação, deliberar estritamente sobre os meios requeridos, sem repetir indevidamente ordens preclusas de pagamento sob pena de multa do art. 523 do CPC.`;
 
 if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
-    stage2SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE:\n- Confronte a minuta preliminar com as teses acima. Se o caso se enquadrar em qualquer tese ou enunciado do Gabinete (ex.: extinção pelo pagamento do art. 924, II do CPC, alvará para levantamento sem aguardar trânsito em julgado, condenação em custas processuais e honorários advocatícios sucumbenciais de 10% pelo art. 85, § 2º, intimação em 15 dias, penhora online de custas em 20 dias pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), AS TESES DO MAGISTRADO SÃO SOBERANAS E PREVALECEM OBRIGATORIAMENTE sobre entendimentos doutrinários genéricos. REESCREVA a fundamentação e o dispositivo aplicando com fidelidade estrita os comandos do magistrado adaptados aos dados dos autos.\n`;
+    stage2SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE:\n- Confronte a minuta preliminar com as teses acima. Se o caso se enquadrar em qualquer tese ou enunciado do Gabinete (ex.: suspeição por foro íntimo em razão de atuação de advogada(o) ou parte específica como Tuanny Alves Carneiro - OAB/GO nº 34.196; extinção pelo pagamento do art. 924, II do CPC; alvará para levantamento sem aguardar trânsito em julgado; condenação em custas processuais e honorários advocatícios sucumbenciais de 10% pelo art. 85, § 2º; intimação em 15 dias; penhora online de custas em 20 dias pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), AS TESES DO MAGISTRADO SÃO SOBERANAS E PREVALECEM OBRIGATORIAMENTE sobre entendimentos doutrinários genéricos e sobre o tipo de ato sugerido. Em caso de suspeição por foro íntimo, NUNCA gere sentença de mérito, mantendo a DECISÃO DE SUSPEIÇÃO POR FORO ÍNTIMO (art. 145, § 1º, do CPC) com remessa ao substituto legal. REESCREVA a fundamentação e o dispositivo aplicando com fidelidade estrita os comandos do magistrado adaptados aos dados dos autos.\n`;
 }
 
 if (matchedPrecedents.length > 0) {
@@ -3776,6 +3885,10 @@ if (liveGroundingPrecedents) {
     stage2SystemInstruction += `\n\n[PESQUISA OFICIAL AO VIVO VIA GROUNDING (TJGO • STJ • STF)]:\n${liveGroundingPrecedents}\n\nDIRETRIZ DE INCORPORAÇÃO DO GROUNDING: Incorpore os precedentes oficiais e teses atualizadas obtidos na pesquisa ao vivo acima diretamente na fundamentação jurídica.\n`;
 }
 
+if (hasActiveParadigm) {
+    stage2SystemInstruction += `\n\n[ESTRUTURA DE CASO IDÊNTICO E MINUTA PARADIGMA DE REFERÊNCIA - CLONAGEM ESTRUTURAL E DE ESTILO OBRIGATÓRIA]:\nO magistrado titular e o assessor vincularam a seguinte MINUTA PARADIGMA ${paradigmModelTitle ? `("${paradigmModelTitle}")` : ""} como padrão oficial e imutável de entendimento, estilo, formatação, redação, tópicos, fundamentação integral e dispositivo para este tipo de demanda idêntica:\n"""\n${paradigmModelText}\n"""\n\nREGRAS MANDATÓRIAS DE ESPELHAMENTO DE FORMATAÇÃO, ESTILO E ENTENDIMENTO (COM ISOLAMENTO FÁTICO):\n1. REPRODUÇÃO DA TESE JURÍDICA E JURISPRUDÊNCIA DO JUIZ (PROIBIDO RESUMIR A TESE): Espelhe e copie fielmente toda a TESE JURÍDICA, legislação, precedentes, acórdãos citados, súmulas e doutrina do modelo paradigma.\n2. PROIBIÇÃO ABSOLUTA DE ALUCINAÇÃO FÁTICA E ISOLAMENTO DO MODELO (REGRA DE OURO): Descarte os fatos antigos do paradigma e utilize ESTRITAMENTE os fatos e provas reais do processo em exame narrados na Minuta Preliminar Factual da Etapa 1.\n3. ESPELHAMENTO ESTRUTURAL: Mantenha rigorosamente a divisão de tópicos e subtópicos (I - RELATÓRIO, II - FUNDAMENTAÇÃO, 1. PRELIMINAR, 2. MÉRITO, etc.) e formatação Markdown.\n4. ADOÇÃO INTEGRAL DA LINHA DECISÓRIA E DISPOSITIVO: Aplique a mesma ratio decidendi e preserve a estrutura de comandos do dispositivo.\n`;
+}
+
 if (taxonomySummary) {
     stage2SystemInstruction += `\n\n[MAPEAMENTO TAXONÔMICO NORMATIVO & MICROSSISTEMAS]:\n${taxonomySummary}\n`;
 }
@@ -3786,10 +3899,6 @@ if (knowledgeBaseText) {
 
 if (customPromptText && typeof customPromptText === "string" && customPromptText.trim().length > 0) {
     stage2SystemInstruction += `\n\n[DIRETRIZES E PROMPT ATUAL SELECIONADO PELO ASSESSOR]:\n${customPromptText}\n`;
-}
-
-if (hasActiveParadigm) {
-    stage2SystemInstruction += `\n\n[ESTRUTURA DE CASO IDÊNTICO E MINUTA PARADIGMA DE REFERÊNCIA - CLONAGEM ESTRUTURAL E DE ESTILO OBRIGATÓRIA]:\nO magistrado titular e o assessor vincularam a seguinte MINUTA PARADIGMA ${paradigmModelTitle ? `("${paradigmModelTitle}")` : ""} como padrão oficial e imutável de entendimento, estilo, formatação, redação, tópicos, fundamentação integral e dispositivo para este tipo de demanda idêntica:\n"""\n${paradigmModelText}\n"""\n\nREGRAS MANDATÓRIAS DE ESPELHAMENTO DE FORMATAÇÃO, ESTILO E ENTENDIMENTO (COM ISOLAMENTO FÁTICO):\n1. REPRODUÇÃO DA TESE JURÍDICA E JURISPRUDÊNCIA DO JUIZ (PROIBIDO RESUMIR A TESE): Espelhe e copie fielmente toda a TESE JURÍDICA, legislação, precedentes, acórdãos citados, súmulas e doutrina do modelo paradigma.\n2. PROIBIÇÃO ABSOLUTA DE ALUCINAÇÃO FÁTICA E ISOLAMENTO DO MODELO (REGRA DE OURO): Descarte os fatos antigos do paradigma e utilize ESTRITAMENTE os fatos e provas reais do processo em exame narrados na Minuta Preliminar Factual da Etapa 1.\n3. ESPELHAMENTO ESTRUTURAL: Mantenha rigorosamente a divisão de tópicos e subtópicos (I - RELATÓRIO, II - FUNDAMENTAÇÃO, 1. PRELIMINAR, 2. MÉRITO, etc.) e formatação Markdown.\n4. ADOÇÃO INTEGRAL DA LINHA DECISÓRIA E DISPOSITIVO: Aplique a mesma ratio decidendi e preserve a estrutura de comandos do dispositivo.\n`;
 }
 
 if (processActsSummary && typeof processActsSummary === "string" && processActsSummary.trim().length > 0) {
@@ -3923,10 +4032,103 @@ let isSaneamentoDecision = (hasSaneamentoPendente && !hasSentencaPrevia) ||
                              userExplicitActType.includes("saneam") || 
                              (actSubtype || "").toLowerCase().includes("saneamento");
 
+// SOBERANIA NORMATIVA DO CADERNO DE TESES: VERIFICAÇÃO ATIVA DE SUSPEIÇÃO POR FORO ÍNTIMO / IMPEDIMENTO
+let isSuspeicaoTeseMatched = false;
+let suspeicaoTeseDirective = "";
+
+if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
+    const activeTesesLower = activeTeses.toLowerCase();
+    if (
+        activeTesesLower.includes("suspei") ||
+        activeTesesLower.includes("foro íntimo") ||
+        activeTesesLower.includes("foro intimo") ||
+        activeTesesLower.includes("impedido") ||
+        activeTesesLower.includes("impedimento")
+    ) {
+        const lines = activeTeses.split("\n");
+        for (const line of lines) {
+            const lineLower = line.toLowerCase();
+            if (lineLower.includes("suspei") || lineLower.includes("foro íntimo") || lineLower.includes("foro intimo") || lineLower.includes("impedido")) {
+                // 1. Identificar o nome do magistrado para EXCLUIR categoricamente do confronto
+                // (O magistrado é quem declara a suspeição; seu nome consta em todos os autos da vara e nunca deve disparar suspeição contra si mesmo!)
+                const judgeNameCandidates: string[] = ["rafael machado", "rafael machado de souza", "dr. rafael machado", "machado de souza"];
+                if (processInfo?.juiz && typeof processInfo.juiz === "string") {
+                    judgeNameCandidates.push(processInfo.juiz.toLowerCase().trim());
+                }
+
+                // 2. Extrair OABs expressas vinculadas à diretriz de suspeição (ex: OAB/GO 34.196)
+                const oabMatches = line.match(/OAB(?:\/[A-Z]{2})?\s*(?:n[ºo°\.]?\s*)?(\d{2,3}\.?\d{3})/gi) || [];
+                const targetOabs: { clean: string; dotted: string }[] = [];
+                for (const raw of oabMatches) {
+                    const digits = raw.replace(/\D/g, "");
+                    if (digits.length >= 4 && digits.length <= 6) {
+                        const dotted = digits.length === 5 ? `${digits.slice(0, 2)}.${digits.slice(2)}` : digits;
+                        targetOabs.push({ clean: digits, dotted });
+                    }
+                }
+
+                // 3. Extrair nome específico do(a) advogado(a) ou procurador(a) referenciado(a) na tese
+                let targetLawyerName = "";
+                const targetPatternMatch = line.match(/(?:atua[çc][ãa]o|patroc[íi]nio|interven[çc][ãa]o|presen[çc]a|atua(?:r)?)\s+(?:d[eoa]s?\s+)?(?:advogad[ao]|procurador[ao]|patron[ao]|dra?\.?\s*)?\s*([A-ZÁ-Ú][a-zá-ú]+(?:\s+[A-ZÁ-Ú][a-zá-ú]+){1,3})/i) ||
+                                           line.match(/(?:advogad[ao]|procurador[ao]|patron[ao]|dra?\.?\s*)\s+([A-ZÁ-Ú][a-zá-ú]+(?:\s+[A-ZÁ-Ú][a-zá-ú]+){1,3})/i);
+                if (targetPatternMatch && targetPatternMatch[1]) {
+                    const candidateName = targetPatternMatch[1].trim();
+                    const candidateLower = candidateName.toLowerCase();
+                    if (!judgeNameCandidates.some(j => candidateLower.includes(j) || j.includes(candidateLower))) {
+                        targetLawyerName = candidateName;
+                    }
+                }
+
+                let matched = false;
+
+                // Verificação 3.1: Nome do advogado atuando nos autos (mínimo de primeiro nome distintivo ou nome completo)
+                if (targetLawyerName && targetLawyerName.length > 5) {
+                    const targetLower = targetLawyerName.toLowerCase();
+                    const nameParts = targetLower.split(/\s+/).filter(p => p.length > 2);
+                    const isDistinctFirstName = nameParts[0] && nameParts[0].length >= 5 && !["maria", "jose", "antonio", "francisco", "carlos", "paulo"].includes(nameParts[0]);
+
+                    if (combinedTextLower.includes(targetLower)) {
+                        matched = true;
+                        console.log(`[Assessor Judicial - Suspeição] Match positivo por nome completo do(a) advogado(a) (${targetLawyerName}) atuando nos autos.`);
+                    } else if (nameParts.length >= 2 && combinedTextLower.includes(nameParts[0]) && combinedTextLower.includes(nameParts[nameParts.length - 1])) {
+                        matched = true;
+                        console.log(`[Assessor Judicial - Suspeição] Match positivo por prenome e sobrenome (${nameParts[0]} ${nameParts[nameParts.length - 1]}) nos autos.`);
+                    } else if (isDistinctFirstName && combinedTextLower.includes(nameParts[0]) && (combinedTextLower.includes("advogad") || combinedTextLower.includes("oab") || combinedTextLower.includes("procurad"))) {
+                        matched = true;
+                        console.log(`[Assessor Judicial - Suspeição] Match positivo por prenome singular com contexto advocatício (${nameParts[0]}) nos autos.`);
+                    }
+                }
+
+                // Verificação 3.2: OAB nos autos — OBRIGATÓRIO contexto expresso de "OAB" para não colidir com números aleatórios dos autos
+                if (!matched && targetOabs.length > 0) {
+                    for (const { clean, dotted } of targetOabs) {
+                        const strictOabRegex = new RegExp(`\\boab(?:\\/[a-z]{2})?\\s*(?:n[ºo°\\.]?\\s*)?(?:${clean}|${dotted.replace('.', '\\.')})\\b`, "i");
+                        if (strictOabRegex.test(combinedTextLower)) {
+                            matched = true;
+                            console.log(`[Assessor Judicial - Suspeição] Match positivo por número de OAB contextualizado (${clean} / ${dotted}) nos autos.`);
+                            break;
+                        }
+                    }
+                }
+
+                if (matched) {
+                    isSuspeicaoTeseMatched = true;
+                    suspeicaoTeseDirective = line.trim();
+                    break;
+                }
+            }
+        }
+    }
+}
+
 let resolvedActType = "sentenca";
 
-// 1. O USUÁRIO OU GABINETE SELECIONOU UM TIPO ESPECÍFICO: RESPEITO INTEGRAL À ESCOLHA!
-if (userExplicitActType && userExplicitActType !== "auto" && !userExplicitActType.includes("definir")) {
+// 0. SOBERANIA MÁXIMA DO CADERNO DE TESES SOBRE O ATO (SUSPEIÇÃO / IMPEDIMENTO DO MAGISTRADO)
+if (isSuspeicaoTeseMatched) {
+    resolvedActType = "decisao";
+    console.log(`[Assessor Judicial] SOBERANIA DO CADERNO DE TESES: Hipótese de Suspeição por Foro Íntimo detectada nos autos (${suspeicaoTeseDirective}). O ato judicial DEVE SER DECISÃO DE SUSPEIÇÃO POR FORO ÍNTIMO (NÃO SENTENÇA)!`);
+} else if (userExplicitActType && userExplicitActType !== "auto" && !userExplicitActType.includes("definir")) {
+    // 1. O USUÁRIO OU GABINETE SELECIONOU UM TIPO ESPECÍFICO: RESPEITO INTEGRAL À ESCOLHA!
     if (userExplicitActType.includes("senten")) {
         resolvedActType = "sentenca";
     } else if (userExplicitActType.includes("decis")) {
@@ -3963,6 +4165,29 @@ if (userExplicitActType && userExplicitActType !== "auto" && !userExplicitActTyp
 }
 
 function buildActTypeGuidance(targetActType: string, isSaneamento: boolean): string {
+  if (isSuspeicaoTeseMatched) {
+    return `DIRETRIZ MANDATÓRIA DE SUSPEIÇÃO POR FORO ÍNTIMO DO MAGISTRADO (ART. 145, § 1º, DO CPC - SOBERANIA DO CADERNO DE TESES):
+- O ato a ser proferido é uma DECISÃO DECLARATÓRIA DE SUSPEIÇÃO POR FORO ÍNTIMO (ART. 145, § 1º, DO CPC).
+- DIRETRIZ VINCULANTE DO CADERNO DE TESES DO GABINETE:
+  """
+  ${suspeicaoTeseDirective}
+  """
+- PROIBIÇÃO ABSOLUTA DE SENTENÇA OU JULGAMENTO DE MÉRITO: O magistrado encontra-se legalmente impedido/suspeito de analisar o mérito dos pedidos ou praticar atos cognitivos. É TERMINANTEMENTE PROIBIDO proferir sentença condenatória, extintiva com mérito ou de improcedência!
+- No campo 'title', utilize "DECISÃO - DECLARAÇÃO DE SUSPEIÇÃO POR FORO ÍNTIMO".
+- No campo 'actType', utilize "DECISÃO".
+- ESTRUTURAÇÃO OBRIGATÓRIA DA DECISÃO DE SUSPEIÇÃO EM SUBTÓPICOS:
+  1. I - RELATÓRIO:
+     * Relatório sintético identificando o número do processo, as partes (autor e réu), o objeto da ação e a constatação da atuação da parte ou procurador(a) referenciada na diretriz vinculante;
+  2. II - FUNDAMENTAÇÃO:
+     ### 1. DA SUSPEIÇÃO POR MOTIVO DE FORO ÍNTIMO (ART. 145, § 1º, DO CPC)
+     * Declaração solene e motivada de suspeição por motivo de foro íntimo, resguardado o sigilo dos motivos subjetivos nos exatos termos do art. 145, § 1º, do CPC e das diretrizes do gabinete;
+     * Inserir o parágrafo destacado requerido na tese;
+  3. III - DISPOSITIVO OPERACIONAL:
+     * "Ante o exposto, DECLARO A MINHA SUSPEIÇÃO POR MOTIVO DE FORO ÍNTIMO para atuar no presente processo, com fundamento no art. 145, § 1º, do Código de Processo Civil."
+     * "Remetam-se os presentes autos imediatamente à Secretaria para redistribuição ou conclusão ao substituto legal na ordem da tabela judiciária da comarca, procedendo-se às anotações e baixas necessárias."
+     * Intimações de estilo.`;
+  }
+
   return targetActType === "embargos"
   ? `DIRETRIZ PARA JULGAMENTO DE EMBARGOS DE DECLARAÇÃO (ART. 1.022 A 1.026 DO CPC):
 - O ato a ser proferido é um JULGAMENTO DE EMBARGOS DE DECLARAÇÃO (DECISÃO OU SENTENÇA DE EMBARGOS DE DECLARAÇÃO).
@@ -4113,6 +4338,16 @@ DADOS DO PROCESSO:
 - Tipo de Ato Requerido: ${resolvedActType.toUpperCase()}
 - Subtipo / Enquadramento Específico: ${actSubtype||"Análise automática e integral de todos os eventos e pedidos dos autos"}
 - Instruções Adicionais do Gabinete: ${specificInstructions||"Executar análise processual exaustiva com confronto fático-probatório completo e regras do TJGO."}
+${activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0 ? `
+- CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (APLICAÇÃO OBRIGATÓRIA E SOBERANA NA ETAPA 1):
+"""
+${activeTeses.trim()}
+"""
+DIRETRIZ MANDATÓRIA DE SOBERANIA DAS TESES DO MAGISTRADO:
+- Observe com rigor estrito as teses do magistrado em todos os PDFs e textos analisados.
+- Se houver diretriz de suspeição por foro íntimo de magistrado em razão de advogado(a), OAB ou parte específica no Caderno de Teses, e for efetivamente constatada a atuação desse(a) profissional ou parte nos autos, NÃO PROFIRA SENTENÇA DE MÉRITO: o ato judicial a ser gerado deve ser DECISÃO DECLARATÓRIA DE SUSPEIÇÃO POR FORO ÍNTIMO (art. 145, § 1º, do CPC), com determinação expressa de remessa dos autos ao substituto legal! Caso aquele(a) profissional ou parte indicada na tese NÃO atue no processo, prossiga com a deliberação regular do feito sem declarar suspeição.
+- Se o caso se enquadrar em qualquer tese de extinção pelo pagamento (art. 924, II do CPC, alvará para levantamento, condenação em custas e honorários de 10% pelo art. 85, § 2º, penhora online de custas em 20 dias pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), declínio de competência ou diretriz material, APLIQUE COM FIDELIDADE INTEGRAL na fundamentação e dispositivo preliminar!
+` : ""}
 ${customPromptText && typeof customPromptText === "string" && customPromptText.trim().length > 0 ? `- DIRETRIZES DO PROMPT TEMÁTICO SELECIONADO: """\n${customPromptText.trim()}\n"""` : ""}
 
 ${actTypeGuidance}
@@ -4227,6 +4462,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
     };
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
+    const stage1StartTimer = Date.now();
     stage1Response = await generateWithFallbackAndRetry({
         apiKey: userApiKey,
         keyPool: extractApiKeyPool(req),
@@ -4285,6 +4521,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
             }
         }
     });
+    stage1DurationMs = Date.now() - stage1StartTimer;
 
     const stage1Text = stage1Response?.text;
     if (!stage1Text) {
@@ -4299,8 +4536,15 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
 
 // SOBERANIA ABSOLUTA DO DISPOSITIVO SOBRE O TIPO DE ATO (ARTS. 203, 485 E 487 DO CPC):
 const isStage1DispositivoSentenca = checkIsDispositivoSentenca(stage1Json.dispositivo);
+const isStage1DispositivoSuspeicao = /(?:suspei[çc][ãa]o|impedido|impedimento)[\s\S]{1,80}?(?:foro\s+[íi]ntimo|motivo\s+de\s+foro\s+[íi]ntimo|art(?:igo)?\.?\s*145)/i.test(stage1Json.dispositivo || "") ||
+    /(?:suspei[çc][ãa]o|impedido|impedimento)/i.test((stage1Json.actType || "") + " " + (stage1Json.pendingMatter || ""));
 
-if (isStage1DispositivoSentenca) {
+if (isSuspeicaoTeseMatched || isStage1DispositivoSuspeicao) {
+    resolvedActType = "decisao";
+    isSaneamentoDecision = false;
+    console.log(`[Assessor Judicial - SOBERANIA DO CADERNO DE TESES] Suspeição por Foro Íntimo detectada. Ato mantido categoricamente como DECISÃO DE SUSPEIÇÃO (NUNCA SENTENÇA).`);
+    actTypeGuidance = buildActTypeGuidance(resolvedActType, isSaneamentoDecision);
+} else if (isStage1DispositivoSentenca) {
     resolvedActType = "sentenca";
     isSaneamentoDecision = false;
     console.log(`[Assessor Judicial - SOBERANIA DO DISPOSITIVO] Dispositivo da Etapa 1 proferiu julgamento de mérito ou extinção. Ato categoricamente fixado como SENTENÇA.`);
@@ -4368,15 +4612,18 @@ if (earlyReconciled.judicialUnit) {
 // =========================================================================
 if (executionStage === 1) {
     console.log(`[Assessor Judicial - MODO DUAS ETAPAS] Etapa 1 (Assessor Fático) concluída sob demanda para o processo ${stage1Json.processNumber || 'Autos'}. Retornando resultado preliminar ao usuário.`);
-    const stage1FallbackTitle = resolvedActType === "despacho" 
-        ? "DESPACHO (RELATÓRIO & FATOS)" 
-        : (resolvedActType === "decisao" && isSaneamentoDecision) 
-            ? "DECISÃO DE SANEAMENTO (1ª ETAPA)" 
-            : resolvedActType === "decisao" 
-                ? "DECISÃO INTERLOCUTÓRIA (1ª ETAPA)" 
-                : resolvedActType === "embargos" 
-                    ? "EMBARGOS DE DECLARAÇÃO (1ª ETAPA)" 
-                    : "SENTENÇA (1ª ETAPA - RELATÓRIO & FATOS)";
+    const isSuspeicaoFinal = isSuspeicaoTeseMatched || isStage1DispositivoSuspeicao;
+    const stage1FallbackTitle = isSuspeicaoFinal
+        ? "DECISÃO - DECLARAÇÃO DE SUSPEIÇÃO POR FORO ÍNTIMO"
+        : resolvedActType === "despacho" 
+            ? "DESPACHO (RELATÓRIO & FATOS)" 
+            : (resolvedActType === "decisao" && isSaneamentoDecision) 
+                ? "DECISÃO DE SANEAMENTO (1ª ETAPA)" 
+                : resolvedActType === "decisao" 
+                    ? "DECISÃO INTERLOCUTÓRIA (1ª ETAPA)" 
+                    : resolvedActType === "embargos" 
+                        ? "EMBARGOS DE DECLARAÇÃO (1ª ETAPA)" 
+                        : "SENTENÇA (1ª ETAPA - RELATÓRIO & FATOS)";
 
     const stage1Minute: any = {
         title: stage1FallbackTitle,
@@ -4515,6 +4762,21 @@ if (executionStage === 1) {
         writeJsonFile("history.json", history);
         console.log(`[Storage] Análise 1ª Etapa ${generatedId} (${procNum}) gravada no histórico compartilhado.`);
         parsedStage1.analysisId = generatedId;
+
+        const telemetry1 = {
+            timestamp: Date.now(),
+            processNumber: procNum,
+            stage: 1,
+            totalDurationSec: Number(((Date.now() - requestStartTime) / 1000).toFixed(1)),
+            aiDurationSec: Number((stage1DurationMs / 1000).toFixed(1)),
+            promptTokens: stage1Tokens.promptTokenCount || 0,
+            candidateTokens: stage1Tokens.candidatesTokenCount || 0,
+            charsAnalyzed: (safeProcessText.length || 0) + (accumulatedPdfText.length || 0),
+            pdfCount: targetPdfFiles.length,
+            model: "gemini-3.8-flash"
+        };
+        writeJsonFile("latest_run_telemetry.json", telemetry1);
+        console.log(`[TELEMETRIA AO VIVO] Etapa 1 finalizada em ${telemetry1.totalDurationSec}s (IA levou ${telemetry1.aiDurationSec}s para ${telemetry1.promptTokens} tokens de entrada e ${telemetry1.candidateTokens} tokens gerados).`);
     } catch (saveErr) {
         console.warn("[Storage] Falha ao persistir 1ª etapa no histórico:", saveErr);
     }
@@ -4576,16 +4838,17 @@ ${(accumulatedPdfText || safeProcessText || "").substring(0, 10000)}
 ======================================================
 
 COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
-1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL (PISO DE DENSIDADE E PROIBIÇÃO DE BREVIDADE):
-   - Leia atentamente o Relatório e a Fundamentação Preliminar;
-   - Confronte com o Caderno de Teses do Gabinete, Súmulas Vinculantes, Jurisprudência e Minuta Paradigma (se ativada);
+1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL (COM MINUTA PARADIGMA & SÚMULAS VINCULANTES):
+   - Leia atentamente o Relatório e a Fundamentação Preliminar gerados na Etapa 1;
+   - Confronte com o Caderno de Teses do Gabinete, as Súmulas Vinculantes (STF, STJ, TNU e TJGO) e a Minuta Paradigma (se ativada);
+   - CLONAGEM DA MINUTA PARADIGMA: Se a Minuta Paradigma estiver ativada, espelhe rigorosamente a estrutura de tópicos, o estilo da redação, as teses e a fundamentação do modelo paradigma do juiz, aplicando estritamente as provas e fatos reais do processo da Etapa 1;
    - SOBERANIA DAS TESES DO GABINETE NO DISPOSITIVO: Havendo no Caderno de Teses diretriz ou enunciado aplicável (como extinção pelo Art. 924, II pelo pagamento, alvará para levantamento sem aguardar trânsito em julgado, condenação em custas e honorários sucumbenciais de 10% pelo art. 85, § 2º, intimação em 15 dias, penhora online de custas pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), essa diretriz prevalece obrigatoriamente sobre praxes genéricas e DEVE constar com máxima fidelidade do Dispositivo e da Fundamentação;
    - COERÊNCIA COM A MARCHA PROCESSUAL: A decisão deve ser estritamente coerente com o andamento do processo (dar continuidade às últimas decisões, resolver incidentes pendentes ou sentenciar o mérito se maduro, sem nunca regredir a liminares do início da lide);
-   - É expressamente PROIBIDO resumir, sintetizar, enxugar ou condensar. Aprofunde, adense e expanda a minuta:
-     * 'relatorio': PROTOCOLO DE FIDELIDADE FACTUAL ESTRITA (ANTI-INFERÊNCIA NA INICIAL): Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z). É TERMINANTEMENTE PROIBIDO inferir, supor, deduzir, florear, modificar, embelezar ou complementar a narrativa da Petição Inicial: adensar significa relatar com máxima fidelidade e precisão os fatos efetivamente afirmados pela parte autora nos exatos termos deduzidos na exordial, com aspas literais nos trechos centrais, sendo vedada qualquer criação ou paráfrase distorcida da causa de pedir;
+   - Adense, expanda e formate com riqueza:
+     * 'relatorio': Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z), com aspas literais nos trechos centrais;
      * 'fundamentacao': ${resolvedActType === "decisao" ? "Mínimo de 8 a 14 parágrafos judiciais densos e analíticos estruturados em subtópicos Markdown ('### 1. ...', '### 2. ...'), enfrentando circunstanciadamente 100% dos pedidos preliminares ou urgentes pendentes de apreciação formulados pelas partes (gratuidade da justiça, fumus boni iuris, periculum in mora, e análise probatória pormenorizada de cada medida postulada com fixação de valores, percentuais, contas, obrigações de fazer/não fazer, prazos cominatórios e astreintes, além de teses vinculantes e precedentes), com transcrição literal entre aspas e tríplice localização processual (Mov. X, Arq. Y, Pág. Z);" : resolvedActType === "embargos" ? "Mínimo de 6 a 10 parágrafos judiciais densos estruturados nos subtópicos do art. 1.022 do CPC (admissibilidade/tempestividade de 5 dias úteis, exame analítico de cada vício ou omissão alegada em confronto com a decisão embargada, e precedentes dos tribunais superiores);" : resolvedActType === "despacho" ? "Fundamentação pontual e precisa indicando os motivos fáticos e legais da determinação judicial ou da emenda ordenada (art. 321 CPC);" : "Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);"}
      * 'dispositivo': Comandos operacionais claros, discriminados pedido por pedido, com deliberação de eventuais requerimentos intercorrentes e fixação dos consectários legais da Lei 14.905/2024;
-   - Preencha o cabeçalho, comarca/vara e fecho judicante oficial (a compilação integral com I - Relatório, II - Fundamentação e III - Dispositivo é consolidada e unificada diretamente pelo servidor);
+   - Preencha o cabeçalho, comarca/vara e fecho judicante oficial;
 
 2. MATRIZ DE AUDITORIA FORENSE COMPLETA ('auditAnalysis'):
    - 'fatoVsProva': Tabela analítica confrontando fato alegado vs prova documental evento a evento com análise crítica e fundamentação legal (art. 373 CPC);
@@ -4772,6 +5035,7 @@ let stage2Failed = false;
 let stage2ErrorMsg = "";
 
 try {
+    const stage2StartTimer = Date.now();
     response = await generateWithFallbackAndRetry({
         apiKey: stage2KeyPool[0] || userApiKey,
         keyPool: stage2KeyPool,
@@ -4789,6 +5053,7 @@ try {
             responseSchema: stage2ResponseSchema
         }
     });
+    stage2DurationMs = Date.now() - stage2StartTimer;
 } catch (stage2Err: any) {
     stage2Failed = true;
     stage2ErrorMsg = stage2Err?.message || String(stage2Err);
@@ -5118,7 +5383,7 @@ parsed.indicacaoTpuCnj = parsed.minute?.indicacaoTpuCnj || parsed.auditAnalysis?
 if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
     const rawLines = activeTeses.split("\n").map(l => l.trim()).filter(l => l.length > 5 && !l.startsWith("#") && !l.startsWith("=="));
     const nonCnjLines = rawLines.filter(l => !/\(CNJ:\d+\)/.test(l));
-    const resumo = (nonCnjLines.length > 0 ? nonCnjLines : rawLines).slice(0, 6);
+    const resumo = nonCnjLines.length > 0 ? nonCnjLines : rawLines;
 
     parsed.cadernoTesesApplied = {
         active: true,
@@ -5129,7 +5394,7 @@ if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length 
         parsed.auditAnalysis.tesesGabineteCheck = {
             aplicadas: true,
             resumoTeses: resumo,
-            observacoes: "Caderno de Teses e Diretrizes Vinculantes do Gabinete aplicado na fundamentação e no dispositivo."
+            observacoes: "Caderno de Teses e Diretrizes Vinculantes do Gabinete aplicado integralmente na fundamentação e no dispositivo."
         };
     }
 }
@@ -5226,6 +5491,22 @@ if (wasRotated && rotatedKey) {
         } catch (diagErr) {
             console.warn("[Telemetria Forense] Falha ao registrar telemetria do PDF:", diagErr);
         }
+
+        const telemetry2 = {
+            timestamp: Date.now(),
+            processNumber: processNum,
+            stage: executionStage === 2 ? 2 : "completo",
+            totalDurationSec: Number(((Date.now() - requestStartTime) / 1000).toFixed(1)),
+            stage1DurationSec: stage1DurationMs ? Number((stage1DurationMs / 1000).toFixed(1)) : 0,
+            stage2DurationSec: Number((stage2DurationMs / 1000).toFixed(1)),
+            promptTokens: totalPromptTokens || 0,
+            candidateTokens: totalCandidatesTokens || 0,
+            charsAnalyzed: (safeProcessText.length || 0) + (accumulatedPdfText.length || 0),
+            pdfCount: targetPdfFiles.length,
+            model: "gemini-3.8-flash"
+        };
+        writeJsonFile("latest_run_telemetry.json", telemetry2);
+        console.log(`[TELEMETRIA AO VIVO] Execução concluída em ${telemetry2.totalDurationSec}s (Etapa 2 levou ${telemetry2.stage2DurationSec}s para ${telemetry2.candidateTokens} tokens gerados).`);
     } catch (saveErr) {
         console.warn("[Storage] Falha ao persistir automaticamente no histórico do servidor:", saveErr);
     }

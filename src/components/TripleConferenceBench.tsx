@@ -26,6 +26,7 @@ import {
   Loader2,
   ThumbsUp,
   Send,
+  Bot,
 } from "lucide-react";
 import { AssessorDraftAuditResult, UploadedPdf, AuditedProcessRecord } from "../types";
 import { PdfViewerPane } from "./PdfViewerPane";
@@ -46,6 +47,7 @@ interface TripleConferenceBenchProps {
   onGenerateIdealMinute?: () => Promise<void>;
   isGeneratingIdealMinute?: boolean;
   isSaving?: boolean;
+  onOpenCopilot?: () => void;
 }
 
 export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
@@ -64,6 +66,7 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
   onGenerateIdealMinute,
   isGeneratingIdealMinute,
   isSaving = false,
+  onOpenCopilot,
 }) => {
   const [layoutMode, setLayoutMode] = useState<"triple" | "gabaritoVsAssessor" | "pdfVsAssessor" | "pdfFull">(
     "triple"
@@ -189,6 +192,20 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
             {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 text-amber-400" />}
             <span>Salvar Edições</span>
           </button>
+
+          {/* Botão Copiloto IA na Bancada de Tripla Conferência */}
+          {onOpenCopilot && (
+            <button
+              type="button"
+              onClick={onOpenCopilot}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-950/40 border border-indigo-400/40 group hover:scale-[1.02]"
+              title="Abrir o Copiloto IA para dialogar com este processo e confrontar os autos"
+            >
+              <Bot className="w-3.5 h-3.5 text-indigo-100 group-hover:rotate-12 transition-transform" />
+              <span>Copiloto IA</span>
+              <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -340,6 +357,14 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
                   }`}>
                     Score: {score}/100
                   </span>
+                  {auditResult?.proceduralChain?.estadoAtual?.proceduralStage && (
+                    <span
+                      className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-blue-950 text-blue-300 border border-blue-500/40 uppercase hidden sm:inline-block"
+                      title={`Diagnóstico da Marcha: ${auditResult.proceduralChain.estadoAtual.stageDiagnosis}`}
+                    >
+                      {auditResult.proceduralChain.estadoAtual.proceduralStage.replace(/_/g, " ")}
+                    </span>
+                  )}
                 </div>
                 <span className="text-[10px] text-slate-400 block truncate">
                   {currentRecord?.assessorName ? `Elaborada por: ${currentRecord.assessorName}` : "Pré-análise sob revisão judicial"}
@@ -369,7 +394,10 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
                   {auditResult.criticalAlerts.length} Alerta(s) Crítico(s) Detectado(s):
                 </span>
                 <p className="text-[11px] text-rose-200/90 truncate">
-                  {auditResult.criticalAlerts.map((a) => a.title).join(" • ")}
+                  {auditResult.criticalAlerts
+                    .map((a: any) => (typeof a === "string" ? a : a?.title || a?.description || ""))
+                    .filter(Boolean)
+                    .join(" • ")}
                 </p>
               </div>
             </div>

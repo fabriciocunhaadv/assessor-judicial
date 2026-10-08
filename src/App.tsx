@@ -266,6 +266,21 @@ export default function App() {
   const [sessionTokens, setSessionTokens] = useState<number>(0);
   const [isLegalDrawerOpen, setIsLegalDrawerOpen] = useState<boolean>(false);
   const [isLateralAgentOpen, setIsLateralAgentOpen] = useState<boolean>(false);
+  const [auditorActiveProcessNumber, setAuditorActiveProcessNumber] = useState<string>("");
+  const [auditorActiveCaseSummary, setAuditorActiveCaseSummary] = useState<string>("");
+  const [auditorActiveMinuteSnippet, setAuditorActiveMinuteSnippet] = useState<string>("");
+  const [auditorAuditScore, setAuditorAuditScore] = useState<number | undefined>(undefined);
+  const [auditorAuditVerdict, setAuditorAuditVerdict] = useState<string | undefined>(undefined);
+  const [auditorInitialQuery, setAuditorInitialQuery] = useState<string>("");
+  const [isTwoStageExecution, setIsTwoStageExecution] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("agaia_two_stage_execution");
+      return saved !== null ? saved === "true" : true; // Padrão: TRUE (Garante que a 1ª etapa seja devolvida primeiro para o magistrado validar)
+    } catch {
+      return true;
+    }
+  });
+  const [isProceedingToStage2, setIsProceedingToStage2] = useState<boolean>(false);
   const [isTurboModalOpen, setIsTurboModalOpen] = useState<boolean>(false);
   const [turboActiveMinute, setTurboActiveMinute] = useState<any>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
@@ -971,6 +986,7 @@ export default function App() {
           assunto: activePrompt.title,
         },
         specificInstructions: "",
+        executionStage: isTwoStageExecution ? 1 : undefined,
       });
 
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -1646,6 +1662,101 @@ export default function App() {
     setIsLateralAgentOpen(true);
   };
 
+  const handleOpenCopilotFromAuditor = (data: {
+    processNumber?: string;
+    caseSummary?: string;
+    activeMinuteSnippet?: string;
+    isAuditedProcess?: boolean;
+    auditScore?: number;
+    auditVerdict?: string;
+    initialQuery?: string;
+  }) => {
+    if (data.processNumber) setAuditorActiveProcessNumber(data.processNumber);
+    if (data.caseSummary) setAuditorActiveCaseSummary(data.caseSummary);
+    if (data.activeMinuteSnippet) setAuditorActiveMinuteSnippet(data.activeMinuteSnippet);
+    setAuditorAuditScore(data.auditScore);
+    setAuditorAuditVerdict(data.auditVerdict);
+    if (data.initialQuery) setAuditorInitialQuery(data.initialQuery);
+    setIsLateralAgentOpen(true);
+  };
+
+  const handleProceedToStage2 = async () => {
+    if (!generationResult?.canProceedToStage2) return;
+    setIsProceedingToStage2(true);
+    const toastId = toast.loading("Executando 2ª Etapa: Juiz Revisor e Matriz Forense...");
+    try {
+      const stage1Snapshot = generationResult.stage1Snapshot || {
+        processNumber: generationResult.minute?.processNumber,
+        author: generationResult.minute?.parties?.author,
+        defendant: generationResult.minute?.parties?.defendant,
+        judicialUnit: generationResult.minute?.judicialUnit,
+        actType: generationResult.minute?.title || (generationResult.minute as any)?.decisionType,
+        relatorio: generationResult.minute?.relatorio,
+        fundamentacao: generationResult.minute?.fundamentacao,
+        dispositivo: generationResult.minute?.dispositivo,
+        generatedAt: Date.now(),
+      };
+
+      const freshTeses = await getCabinetTeses().catch(() => tesesData);
+      const effectiveTesesText = (freshTeses && freshTeses.isEnabled !== false && typeof freshTeses.text === "string" && freshTeses.text.trim())
+        ? freshTeses.text.trim()
+        : (tesesData && tesesData.isEnabled !== false && typeof tesesData.text === "string" ? tesesData.text.trim() : "");
+
+      const payload = {
+        executionStage: 2,
+        stage1Snapshot,
+        processText: (processText || "").trim(),
+        pdfFiles: pdfFiles.map((p) => ({
+          name: p.name,
+          extractedText: p.extractedText || "",
+        })),
+        knowledgePdfs: [],
+        customPromptText: activePrompt?.promptText || "",
+        activePromptTitle: activePrompt?.title || "",
+        isTesesEnabled: Boolean(effectiveTesesText),
+        cabinetTesesText: effectiveTesesText,
+        isParadigmEnabled: isParadigmEnabled,
+        paradigmModelText: isParadigmEnabled
+          ? (selectedParadigmId
+              ? getJudgeParadigms().find((p) => p.id === selectedParadigmId)?.fullText || customParadigmText
+              : customParadigmText)
+          : "",
+        paradigmModelTitle: isParadigmEnabled
+          ? (selectedParadigmId
+              ? getJudgeParadigms().find((p) => p.id === selectedParadigmId)?.title || "Minuta Paradigma"
+              : "Minuta Paradigma")
+          : "",
+        actType: selectedActType !== "auto" ? selectedActType : (activePrompt?.actTypeHint || "auto"),
+        processInfo: {
+          processNumber: processNumber || generationResult.minute?.processNumber || "Autos",
+          comarca: activeUnit?.name ? `Comarca de ${activeUnit.name.split("/")[0].trim()} - TJGO` : "Comarca",
+          vara: activeUnit?.name ? (activeUnit.name.split("/")[1]?.trim() || activeUnit.name) : "Vara Cível",
+          juiz: "Juiz(a) de Direito",
+        },
+      };
+
+      const res = await fetch("/api/generate-minute", {
+        method: "POST",
+        headers: getApiHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Erro ao executar 2ª etapa.");
+      }
+
+      const completedResult: GenerationResult = await res.json();
+      setGenerationResult(completedResult);
+      toast.success("2ª Etapa concluída com sucesso! Minuta definitiva consolidada.", { id: toastId });
+    } catch (err: any) {
+      console.error("Erro na 2ª etapa:", err);
+      toast.error(err.message || "Erro na 2ª etapa da minuta.", { id: toastId });
+    } finally {
+      setIsProceedingToStage2(false);
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#f3f4f6] text-slate-900 font-sans selection:bg-slate-200">
       <Toaster position="bottom-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ duration: 4000, style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' } }} />
@@ -2156,6 +2267,34 @@ export default function App() {
                   </div>
                 )}
                 
+                {/* Opção de Execução em 2 Etapas com Parada Estratégica */}
+                <div className="flex items-center justify-between px-1 py-1 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={isTwoStageExecution}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setIsTwoStageExecution(checked);
+                        try {
+                          localStorage.setItem("agaia_two_stage_execution", String(checked));
+                        } catch {}
+                      }}
+                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
+                    />
+                    <span className="font-semibold flex items-center gap-1.5 text-xs text-slate-800 dark:text-slate-200">
+                      <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>Execução em 2 Etapas</span>
+                      <span className="text-[10px] text-slate-500 font-normal hidden sm:inline">(Pausa pedagógica: Fatos ➔ Juiz Revisor)</span>
+                    </span>
+                  </label>
+                  {isTwoStageExecution && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">
+                      2 Etapas Ativo
+                    </span>
+                  )}
+                </div>
+
                 {/* Big Action Execution Button + Clear Button */}
                 <div className="pt-1 flex items-center gap-2">
                   <button
@@ -2181,9 +2320,13 @@ export default function App() {
                       <>
                         <Sparkles className="w-4 h-4 text-amber-300" />
                         <span>
-                          {inputMode === "pdf" && pdfFiles.length > 0
-                            ? `Gerar Minuta no PDF (${pdfFiles.length})`
-                            : "Gerar Minuta Judicial"}
+                          {isTwoStageExecution
+                            ? (inputMode === "pdf" && pdfFiles.length > 0
+                                ? `Gerar 1ª Etapa no PDF (${pdfFiles.length})`
+                                : "Gerar Minuta - 1ª Etapa (Fatos & Relatório)")
+                            : (inputMode === "pdf" && pdfFiles.length > 0
+                                ? `Gerar Minuta Direta (${pdfFiles.length} PDFs)`
+                                : "Gerar Minuta Judicial Completa")}
                         </span>
                       </>
                     )}
@@ -2256,6 +2399,8 @@ export default function App() {
                 setIsTesesModalOpen(true);
               }}
               onDeleteMinute={handleDeleteCurrentMinute}
+              onProceedToStage2={handleProceedToStage2}
+              isProceedingToStage2={isProceedingToStage2}
             />
           </div>
         </div>
@@ -2418,11 +2563,20 @@ export default function App() {
 
       <MinuteAuditorModal
         isOpen={(isSuperAdmin || isJudge) && isMinuteAuditorOpen}
-        onClose={() => setIsMinuteAuditorOpen(false)}
+        onClose={() => {
+          setIsMinuteAuditorOpen(false);
+          setAuditorActiveProcessNumber("");
+          setAuditorActiveCaseSummary("");
+          setAuditorActiveMinuteSnippet("");
+          setAuditorAuditScore(undefined);
+          setAuditorAuditVerdict(undefined);
+          setAuditorInitialQuery("");
+        }}
         initialProcessText={processText}
         initialPdfs={pdfFiles}
         prompts={prompts}
         activePrompt={activePrompt}
+        onOpenCopilot={handleOpenCopilotFromAuditor}
       />
 
       <SystemManualModal
@@ -2517,26 +2671,43 @@ export default function App() {
       <LateralAgentDrawer
         isOpen={isLateralAgentOpen}
         onToggle={() => setIsLateralAgentOpen(prev => !prev)}
-        onClose={() => setIsLateralAgentOpen(false)}
+        onClose={() => {
+          setIsLateralAgentOpen(false);
+          setAuditorInitialQuery("");
+        }}
         currentProcessNumber={
+          auditorActiveProcessNumber ||
           turboActiveMinute?.processNumber ||
           generationResult?.minute?.processNumber ||
           processNumber ||
           (pdfFiles.length > 0 ? pdfFiles[0].name.replace(/\.pdf$/i, '') : undefined)
         }
         caseSummary={
-          turboActiveMinute
+          auditorActiveCaseSummary ||
+          (turboActiveMinute
             ? `Processo nº ${turboActiveMinute.processNumber || ""} | ${turboActiveMinute.parties?.author || turboActiveMinute.author || "Parte Autora"} vs ${turboActiveMinute.parties?.defendant || turboActiveMinute.defendant || "Parte Ré"}\n${turboActiveMinute.relatorio || ""}`
-            : (generationResult?.holisticSynopsis || generationResult?.minute?.relatorio || (processText ? processText.substring(0, 1500) : undefined))
+            : (generationResult?.holisticSynopsis || generationResult?.minute?.relatorio || (processText ? processText.substring(0, 1500) : undefined)))
         }
         activeMinuteSnippet={
-          turboActiveMinute
+          auditorActiveMinuteSnippet ||
+          (turboActiveMinute
             ? `Fundamentação: ${turboActiveMinute.fundamentacao || ""}\n\nDispositivo: ${turboActiveMinute.dispositivo || ""}`
-            : (generationResult?.minute?.fundamentacao || generationResult?.minute?.dispositivo)
+            : (generationResult?.minute?.fundamentacao || generationResult?.minute?.dispositivo))
         }
+        isAuditedProcess={Boolean(auditorActiveProcessNumber || auditorActiveCaseSummary)}
+        auditScore={auditorAuditScore}
+        auditVerdict={auditorAuditVerdict}
+        initialQuery={auditorInitialQuery}
+        onClearInitialQuery={() => setAuditorInitialQuery("")}
         onOpenApiKeyConfig={() => setIsApiKeyModalOpen(true)}
         onLoadAnalysis={handleLoadAnalysis}
         onUnlinkProcess={() => {
+          setAuditorActiveProcessNumber("");
+          setAuditorActiveCaseSummary("");
+          setAuditorActiveMinuteSnippet("");
+          setAuditorAuditScore(undefined);
+          setAuditorAuditVerdict(undefined);
+          setAuditorInitialQuery("");
           setTurboActiveMinute(null);
           setProcessNumber("");
           setProcessNumber2ndGrau("");
