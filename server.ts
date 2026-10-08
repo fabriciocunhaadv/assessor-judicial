@@ -3680,7 +3680,7 @@ Retorne de 1 a 3 precedentes oficiais aplicáveis (informando o tribunal, númer
         if (effectiveKey) {
             const groundingAi = new GoogleGenAI({ apiKey: effectiveKey });
             const groundingRes = await groundingAi.models.generateContent({
-                model: "gemini-3.8-flash",
+                model: "gemini-3.1-flash-lite",
                 contents: groundingPrompt,
                 config: {
                     tools: [{ googleSearch: {} }]
