@@ -469,7 +469,7 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
                 <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
                   <span>Consultoria jurídica & redação ágil</span>
                   <span className="w-1 h-1 rounded-full bg-slate-600" />
-                  <span className="text-emerald-400 font-semibold">Gemini 3.8 Flash</span>
+                  <span className="text-emerald-400 font-semibold">Gemini Flash</span>
                 </p>
               </div>
             </div>
