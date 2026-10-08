@@ -621,8 +621,9 @@ ${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetT
             keyPool: extractApiKeyPool(req),
             isNativeAllowed: isRequestNativeAllowed(req),
             res,
-            primaryModel: "gemini-3.8-flash",
-            fallbackModel: "gemini-3.7-flash",
+            primaryModel: "gemini-3.1-flash-lite",
+            fallbackModel: "gemini-3.8-flash",
+            customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-latest"],      // 1º 3.1; reservas: 3.8 e 3.7; por último o latest
             contents: [
                 { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
             ],
