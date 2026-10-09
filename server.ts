@@ -624,6 +624,8 @@ ${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetT
             primaryModel: "gemini-3.1-flash-lite",
             fallbackModel: "gemini-3.8-flash",
             customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-latest"],      // 1º 3.1; reservas: 3.8 e 3.7; por último o latest
+            timeoutMs: 45000,
+            maxCycles: 1,
             contents: [
                 { role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }
             ],
@@ -675,7 +677,7 @@ ${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetT
                 candidatesTokenCount: response.usageMetadata?.candidatesTokenCount || 0,
                 totalTokenCount: response.usageMetadata?.totalTokenCount || 0
             },
-            modelUsed: response.modelVersion || "Gemini Flash"
+            modelUsed: response.modelVersion || "Gemini 3.1 Flash-Lite"
         });
 
     } catch (error) {
@@ -793,7 +795,7 @@ ${contextSection}`;
                 candidatesTokenCount: response.usageMetadata?.candidatesTokenCount || 0,
                 totalTokenCount: response.usageMetadata?.totalTokenCount || 0
             },
-            modelUsed: response.modelVersion || "Gemini Flash"
+            modelUsed: response.modelVersion || "Gemini 3.1 Flash-Lite"
         });
     } catch (error: any) {
         console.error("Erro no lateral-agent-chat:", error);
@@ -1193,7 +1195,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
             stats: {
                 elapsedMs,
                 elapsedSeconds: (elapsedMs / 1000).toFixed(1),
-                modelUsed: response.modelVersion || "Gemini 3.8 Flash (Turbo)",
+                modelUsed: response.modelVersion || "Gemini Flash (Turbo)",
                 tokensUsed: response.usageMetadata?.totalTokenCount || 0,
                 promptTokens: response.usageMetadata?.promptTokenCount || 0,
                 candidatesTokens: response.usageMetadata?.candidatesTokenCount || 0
@@ -1438,7 +1440,10 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             isNativeAllowed: isRequestNativeAllowed(req),
             res,
             primaryModel: "gemini-3.1-flash-lite",
-            fallbackModel: "gemini-flash-latest",
+            fallbackModel: "gemini-3.8-flash",
+            customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-latest"],      // para priorizar rigor: ponha "gemini-3.8-flash" em 1º
+            timeoutMs: 120000,
+            maxCycles: 2,
             contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }] }],
             config: {
                 systemInstruction: "Você é um juiz de direito auditor rigoroso. Responda apenas com JSON válido e completo.",
@@ -1519,7 +1524,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
                 candidatesTokenCount: response.usageMetadata?.candidatesTokenCount || 0,
                 totalTokenCount: response.usageMetadata?.totalTokenCount || 0
             },
-            modelUsed: response.modelVersion || "Gemini Flash"
+            modelUsed: response.modelVersion || "Gemini 3.1 Flash-Lite"
         };
 
         return res.json(finalResult);
@@ -2087,6 +2092,51 @@ async function extractTextFromPdfBuffer(buffer) {
     }
 }
 
+// ========================================================================
+// CONTROLE DE CONSUMO POR CHAVE E POR MODELO (chaves gratuitas / pool de chaves)
+// Evita estourar tokens por minuto: escolhe a chave com mais folga em cada modelo,
+// lembra chaves que deram 429 (usando o retryDelay informado pelo Google) e só espera
+// quando NENHUMA chave tem folga. Só modelos Flash. Ajuste os limites ao seu painel.
+// ========================================================================
+const TPM_POR_MODELO: Record<string, number> = {
+    "gemini-3.8-flash": 3_000_000, "gemini-3.7-flash": 3_000_000, "gemini-3.6-flash": 3_000_000,
+    "gemini-3.5-flash": 3_000_000, "gemini-3-flash": 3_000_000,
+    "gemini-3.5-flash-lite": 10_000_000, "gemini-3.1-flash-lite": 10_000_000
+};
+const TPM_PADRAO = Number(process.env.FREE_TPM_LIMIT || 1_000_000);     // modelos fora da tabela
+const tpmDe = (m: string) => Math.floor((TPM_POR_MODELO[m] || TPM_PADRAO) * 0.85);      // 15% de margem
+const usoJanela: Map<string, { t: number; n: number }[]> = ((globalThis as any).__usoTokens ||= new Map());
+const cotaAte: Map<string, number> = ((globalThis as any).__cotaAte ||= new Map());
+const modeloAte: Map<string, number> = ((globalThis as any).__modeloAte ||= new Map());      // modelo sobrecarregado (503/timeout): vale para todas as chaves
+const modeloBloqueado = (m: string, pool: string[]) =>
+    (modeloAte.get(m) || 0) > Date.now() || (pool.length > 0 && pool.every(k => (cotaAte.get(k + "|" + m) || 0) > Date.now()));
+const usadoNoMinuto = (k: string, m: string) => {
+    const a = (usoJanela.get(k + "|" + m) || []).filter(x => Date.now() - x.t < 60000);
+    usoJanela.set(k + "|" + m, a);
+    return a.reduce((acc, x) => acc + x.n, 0);
+};
+const registrarUso = (k: string, m: string, n: number) => {
+    const a = usoJanela.get(k + "|" + m) || [];
+    a.push({ t: Date.now(), n });
+    usoJanela.set(k + "|" + m, a);
+};
+const estimarTokens = (contents: any, sys?: any) => {
+    try { return Math.ceil((JSON.stringify(contents || "").length + String(typeof sys === "string" ? sys : JSON.stringify(sys || "")).length) / 3.2); } catch { return 0; }
+};
+async function prepararChaves(pool: string[], modelo: string, est: number): Promise<string[]> {
+    if (pool.length === 0) return pool;
+    const emCota = (k: string) => Math.max(0, (cotaAte.get(k + "|" + modelo) || 0) - Date.now());
+    const ordenadas = [...pool].sort((a, b) => (emCota(a) > 0 ? 1 : 0) - (emCota(b) > 0 ? 1 : 0) || usadoNoMinuto(a, modelo) - usadoNoMinuto(b, modelo));
+    const melhor = ordenadas[0];
+    const folga = tpmDe(modelo) - usadoNoMinuto(melhor, modelo);
+    if (emCota(melhor) > 0 || est > folga) {
+        const espera = Math.min(65000, Math.max(emCota(melhor), 8000));      // só espera se nenhuma chave tem folga
+        console.log(`[Cota] nenhuma chave com folga em ${modelo} (estimado ${est} tokens); aguardando ${Math.round(espera / 1000)}s`);
+        await new Promise(r => setTimeout(r, espera));
+    }
+    return ordenadas;
+}
+
 async function generateWithFallbackAndRetry(options) {
     // 1. Constrói o pool de chaves em ordem de prioridade (ativa primeiro, depois reservas)
     let keyPool: string[] = [];
@@ -2113,16 +2163,16 @@ async function generateWithFallbackAndRetry(options) {
 
     // ESTEIRA DE MÁXIMA PROFUNDIDADE PRIMEIRO:
     // Todos os modelos de raciocínio profundo primeiro (3.8, 3.7, 3.6, 3.5), acionando ao final os modelos latest e lite
-    let pModel = options.primaryModel || 'gemini-3.8-flash';
-    let fbModel = options.fallbackModel || 'gemini-3.7-flash';
+    let pModel = options.primaryModel || 'gemini-3.1-flash-lite';
+    let fbModel = options.fallbackModel || 'gemini-3.8-flash';
     const defaultFlashQueue = [
+        "gemini-3.1-flash-lite",
         "gemini-3.8-flash",
         "gemini-3.7-flash",
         "gemini-3.6-flash",
         "gemini-3.5-flash",
         "gemini-flash-latest",
         "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
         "gemini-flash-lite-latest"
     ];
     const initialList = [pModel];
@@ -2144,6 +2194,7 @@ async function generateWithFallbackAndRetry(options) {
         delete activeConfig.responseSchema;
     }
     let activeContents = options.contents ? JSON.parse(JSON.stringify(options.contents)) : [];
+    const estTokensChamada = estimarTokens(activeContents, activeConfig?.systemInstruction);
 
     // CICLOS COMPLETOS DA ESTEIRA: Se toda a esteira de modelos sofrer indisponibilidade temporária (503 / timeout na fila do Google),
     // o sistema reinicia a esteira desde o primeiro modelo, realizando os intervalos preventivos necessários para não estourar a cota nem sobrecarregar o cluster.
@@ -2171,6 +2222,14 @@ async function generateWithFallbackAndRetry(options) {
         // assegurando que cotas isoladas por modelo não impeçam o assessor de concluir a minuta com sucesso!
         for (let mIdx = 0; mIdx < modelsToTry.length; mIdx++) {
             const modelName = modelsToTry[mIdx];
+            // Modelo em resfriamento (503 recente ou todas as chaves em 429): pula direto, a menos que seja a última opção
+            const restantes = modelsToTry.slice(mIdx + 1).some(m => !modeloBloqueado(m, keyPool));
+            if (modeloBloqueado(modelName, keyPool) && restantes) {
+                console.log(`[Assessor Judicial - Esteira] ${modelName} em resfriamento; pulando para o próximo modelo.`);
+                continue;
+            }
+            keyPool = await prepararChaves(keyPool, modelName, estTokensChamada);      // chave com mais folga primeiro
+            let falhasDemanda = 0;      // 503/timeouts neste modelo: 503 é do modelo, não da chave
 
             for (let kIdx = 0; kIdx < keyPool.length; kIdx++) {
                 const currentKey = keyPool[kIdx];
@@ -2224,6 +2283,8 @@ async function generateWithFallbackAndRetry(options) {
 
                     // Sucesso absoluto! Registra metadados da chave vencedora
                     (response as any).usedKey = currentKey;
+                    (response as any).usedModel = modelName;
+                    registrarUso(currentKey, modelName, (response as any)?.usageMetadata?.totalTokenCount || estTokensChamada);
                     (response as any).usedKeyIndex = kIdx;
                     (response as any).wasRotated = kIdx > 0;
 
@@ -2276,6 +2337,7 @@ async function generateWithFallbackAndRetry(options) {
                     if (isDemandOverloaded) {
                         anyDemandOverloadedInCycle = true;
                     }
+                    if (isTimeout) registrarUso(currentKey, modelName, estTokensChamada);      // tempo esgotado: o Google pode ter contado os tokens da tentativa
 
                     const statusReason = isTimeout ? `Fila do Google retida (Timeout ${modelTimeoutMs / 1000}s)` :
                                          errMsg.includes("503") || errMsg.includes("high demand") ? "Alta demanda temporária no cluster Google (503)" :
@@ -2302,15 +2364,17 @@ async function generateWithFallbackAndRetry(options) {
 
                     // Se for erro de cota / rate limit (429):
                     if (isQuotaError) {
+                        const mr = errMsg.match(/retry in ([\d.]+)s/i) || errMsg.match(/"retryDelay":\s*"(\d+)s"/i);
+                        cotaAte.set(currentKey + "|" + modelName, Date.now() + (mr ? Math.ceil(Number(mr[1])) * 1000 : 60000));
                         if (kIdx < keyPool.length - 1) {
-                            console.log(`[Assessor Judicial - FAILOVER AUTOMÁTICO DE COTA] Cota da chave ${kIdx + 1}/${keyPool.length} esgotada no modelo ${modelName}. Pausa suave (1.5s) e alternando para chave reserva ${kIdx + 2}/${keyPool.length}...`);
-                            await new Promise(r => setTimeout(r, 1500));
+                            console.log(`[Assessor Judicial - FAILOVER AUTOMÁTICO DE COTA] Cota da chave ${kIdx + 1}/${keyPool.length} esgotada no modelo ${modelName}. Alternando para chave reserva ${kIdx + 2}/${keyPool.length}...`);
+                            await new Promise(r => setTimeout(r, 300));
                             continue; // Tenta a próxima chave cadastrada do usuário no mesmo modelo
                         } else {
                             // Todas as chaves do pool atingiram a cota neste modelo:
                             if (mIdx < modelsToTry.length - 1) {
-                                console.log(`[Assessor Judicial - TRANSIÇÃO DA ESTEIRA] Todas as ${keyPool.length} chaves cadastradas atingiram a cota no modelo ${modelName}. Pausa de recomposição (3.5s) e transicionando para o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
-                                await new Promise(r => setTimeout(r, 3500));
+                                console.log(`[Assessor Judicial - TRANSIÇÃO DA ESTEIRA] Todas as ${keyPool.length} chaves cadastradas atingiram a cota no modelo ${modelName}. Transicionando para o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
+                                await new Promise(r => setTimeout(r, 500));
                                 break; // Avança ao próximo modelo da esteira
                             } else {
                                 // Último modelo de todas as chaves: pausa preventiva para recomposição
@@ -2325,13 +2389,17 @@ async function generateWithFallbackAndRetry(options) {
                         if (activeConfig && activeConfig.responseSchema) {
                             delete activeConfig.responseSchema;
                         }
-                        if (kIdx < keyPool.length - 1) {
-                            console.log(`[Assessor Judicial - 503/Fila Failover] Oscilação na chave ${kIdx + 1}/${keyPool.length}. Tentando chave reserva ${kIdx + 2}/${keyPool.length}...`);
-                            await new Promise(r => setTimeout(r, 1000));
+                        falhasDemanda++;
+                        const maxTentativas = Math.min(2, keyPool.length);      // 503 é do modelo: no máximo 2 chaves por modelo
+                        if (falhasDemanda < maxTentativas && kIdx < keyPool.length - 1) {
+                            console.log(`[Assessor Judicial - 503/Fila Failover] Tentando mais uma chave (${kIdx + 2}/${keyPool.length}) no mesmo modelo...`);
+                            await new Promise(r => setTimeout(r, 500));
                             continue;
-                        } else if (mIdx < modelsToTry.length - 1) {
-                            console.log(`[Assessor Judicial - Pausa Inteligente & Transição de Modelo] ${statusReason} em ${modelName}. Executando pausa preventiva (1.2s) e acionando o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
-                            await new Promise(r => setTimeout(r, 1200));
+                        }
+                        modeloAte.set(modelName, Date.now() + (isTimeout ? 60000 : 45000));      // resfria o modelo para as próximas chamadas
+                        if (mIdx < modelsToTry.length - 1) {
+                            console.log(`[Assessor Judicial - Transição de Modelo] ${statusReason} em ${modelName}. Acionando o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
+                            await new Promise(r => setTimeout(r, 300));
                             break;
                         }
                     }
@@ -3831,6 +3899,19 @@ DIRETRIZ MANDATÓRIA E SOBERANA DE APLICAÇÃO DE TODAS AS TESES NORMATIVAS NA E
 }
 
 // ETAPA 2 - System Instruction do Juiz Revisor (Teses, Precedentes Vinculantes, Paradigma & Auditoria Forense):
+// Minuta Paradigma, taxonomia e Base de Conhecimento entram na ETAPA 1 (a minuta já nasce com o estilo e as teses do gabinete)
+if (hasActiveParadigm) {
+    stage1SystemInstruction += `\n\n[ESTRUTURA DE CASO IDÊNTICO E MINUTA PARADIGMA DE REFERÊNCIA - CLONAGEM ESTRUTURAL E DE ESTILO OBRIGATÓRIA]:\nO magistrado titular e o assessor vincularam a seguinte MINUTA PARADIGMA ${paradigmModelTitle ? `("${paradigmModelTitle}")` : ""} como padrão oficial e imutável de entendimento, estilo, formatação, redação, tópicos, fundamentação integral e dispositivo para este tipo de demanda idêntica:\n"""\n${paradigmModelText}\n"""\n\nREGRAS MANDATÓRIAS DE ESPELHAMENTO DE FORMATAÇÃO, ESTILO E ENTENDIMENTO (COM ISOLAMENTO FÁTICO):\n1. REPRODUÇÃO DA TESE JURÍDICA E JURISPRUDÊNCIA DO JUIZ (PROIBIDO RESUMIR A TESE): Espelhe e copie fielmente toda a TESE JURÍDICA, legislação, precedentes, acórdãos citados, súmulas e doutrina do modelo paradigma.\n2. PROIBIÇÃO ABSOLUTA DE ALUCINAÇÃO FÁTICA E ISOLAMENTO DO MODELO (REGRA DE OURO): Descarte os fatos antigos do paradigma e utilize ESTRITAMENTE os fatos e provas reais do processo em exame narrados na Minuta Preliminar Factual da Etapa 1.\n3. ESPELHAMENTO ESTRUTURAL: Mantenha rigorosamente a divisão de tópicos e subtópicos (I - RELATÓRIO, II - FUNDAMENTAÇÃO, 1. PRELIMINAR, 2. MÉRITO, etc.) e formatação Markdown.\n4. ADOÇÃO INTEGRAL DA LINHA DECISÓRIA E DISPOSITIVO: Aplique a mesma ratio decidendi e preserve a estrutura de comandos do dispositivo.\n`;
+}
+
+if (taxonomySummary) {
+    stage1SystemInstruction += `\n\n[MAPEAMENTO TAXONÔMICO NORMATIVO & MICROSSISTEMAS]:\n${taxonomySummary}\n`;
+}
+
+if (knowledgeBaseText) {
+    stage1SystemInstruction += `\n\n[BASE DE CONHECIMENTO DO GABINETE]:\n${knowledgeBaseText}\n`;
+}
+
 let stage2SystemInstruction = SYSTEM_INSTRUCTION_FABRICIO + `
 
 DIRETRIZ DA ETAPA 2 (JUIZ REVISOR ESPECIALISTA & AUDITOR FORENSE):
@@ -3838,8 +3919,8 @@ Você é o Juiz de Direito Titular e Juiz Revisor do Gabinete.
 Você recebeu a Minuta Preliminar Factual gerada na Etapa 1 pelo Assessor Forense.
 Sua missão é:
 1. LER a Minuta Preliminar Factual com atenção máxima aos eventos probatórios da Etapa 1;
-2. CONFRONTÁ-LA com o CADERNO DE TESES DO GABINETE, as SÚMULAS VINCULANTES (STF, STJ, TNU e TJGO) e a MINUTA PARADIGMA (se ativada);
-3. REESCREVER e ADENSAR magistralmente a fundamentação ('fundamentacao') e o dispositivo ('dispositivo') aplicando as teses consolidadas do magistrado, o estilo da Minuta Paradigma e a jurisprudência vinculante, sem perder a riqueza fática da Etapa 1;
+2. CONFRONTÁ-LA com os AUTOS, a AUDITORIA FORENSE, as SÚMULAS VINCULANTES (STF, STJ, TNU e TJGO) e a COERÊNCIA COM A CADEIA DECISÓRIA DO PROCESSO. O Caderno de Teses, a Base de Conhecimento e a Minuta Paradigma já foram aplicados pela Etapa 1: PRESERVE-OS integralmente (estilo, estrutura, teses e comandos do dispositivo) e NÃO os descarte nem os substitua. O TIPO DE ATO é o definido pela Etapa 1 (campo 'actType' da minuta preliminar): mantenha-o; não converta o ato em outro tipo (ex.: embargos, despacho) por conta própria;
+3. REVISAR e ADENSAR a fundamentação ('fundamentacao') e o dispositivo ('dispositivo') corrigindo omissões, contradições e erros de fato, harmonizando com a jurisprudência vinculante, sem perder a riqueza fática nem o estilo e as teses aplicados na Etapa 1;
 4. ESTRUTURAÇÃO SUBSTANTIVA DA FUNDAMENTAÇÃO CONFORME O ATO (ART. 489 DO CPC):
    - É expressamente PROIBIDO sintetizar a fundamentação em parágrafos genéricos ou superficiais.
    - Mesmo operando sob modelos ágeis de contingência (Flash-Lite) ou chaves gratuitas, você DEVE preservar a divisão em subtópicos Markdown ('### 1. ...', '### 2. ...'), com formatação rica (negrito, itálico, citações em bloco '>' e indicação de Mov., Arq., Pág.).
@@ -3880,9 +3961,6 @@ Sua missão é:
      * Transcrever com fidelidade cirúrgica exclusivamente os telefones e DDDs informados nos autos, sem criar terceiros números ou alterar prefixos.
      * Em petições intercorrentes de localização/intimação, deliberar estritamente sobre os meios requeridos, sem repetir indevidamente ordens preclusas de pagamento sob pena de multa do art. 523 do CPC.`;
 
-if (activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0) {
-    stage2SystemInstruction += `\n\n[CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (PRIORIDADE MÁXIMA & CUMPRIMENTO OBRIGATÓRIO)]:\n${activeTeses.trim()}\n\nDIRETRIZ MANDATÓRIA SOBRE AS TESES DO GABINETE:\n- Confronte a minuta preliminar com as teses acima. Se o caso se enquadrar em qualquer tese ou enunciado do Gabinete (ex.: suspeição por foro íntimo em razão de atuação de advogada(o) ou parte específica como Tuanny Alves Carneiro - OAB/GO nº 34.196; extinção pelo pagamento do art. 924, II do CPC; alvará para levantamento sem aguardar trânsito em julgado; condenação em custas processuais e honorários advocatícios sucumbenciais de 10% pelo art. 85, § 2º; intimação em 15 dias; penhora online de custas em 20 dias pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), AS TESES DO MAGISTRADO SÃO SOBERANAS E PREVALECEM OBRIGATORIAMENTE sobre entendimentos doutrinários genéricos e sobre o tipo de ato sugerido. Em caso de suspeição por foro íntimo, NUNCA gere sentença de mérito, mantendo a DECISÃO DE SUSPEIÇÃO POR FORO ÍNTIMO (art. 145, § 1º, do CPC) com remessa ao substituto legal. REESCREVA a fundamentação e o dispositivo aplicando com fidelidade estrita os comandos do magistrado adaptados aos dados dos autos.\n`;
-}
 
 if (matchedPrecedents.length > 0) {
     stage2SystemInstruction += `\n\n[ALIMENTAÇÃO AUTOMÁTICA DE SÚMULAS, TESES VINCULANTES E INFORMATIVOS (STF • STJ • TNU • TJGO)]:\n` +
@@ -3894,21 +3972,9 @@ if (liveGroundingPrecedents) {
     stage2SystemInstruction += `\n\n[PESQUISA OFICIAL AO VIVO VIA GROUNDING (TJGO • STJ • STF)]:\n${liveGroundingPrecedents}\n\nDIRETRIZ DE INCORPORAÇÃO DO GROUNDING: Incorpore os precedentes oficiais e teses atualizadas obtidos na pesquisa ao vivo acima diretamente na fundamentação jurídica.\n`;
 }
 
-if (hasActiveParadigm) {
-    stage2SystemInstruction += `\n\n[ESTRUTURA DE CASO IDÊNTICO E MINUTA PARADIGMA DE REFERÊNCIA - CLONAGEM ESTRUTURAL E DE ESTILO OBRIGATÓRIA]:\nO magistrado titular e o assessor vincularam a seguinte MINUTA PARADIGMA ${paradigmModelTitle ? `("${paradigmModelTitle}")` : ""} como padrão oficial e imutável de entendimento, estilo, formatação, redação, tópicos, fundamentação integral e dispositivo para este tipo de demanda idêntica:\n"""\n${paradigmModelText}\n"""\n\nREGRAS MANDATÓRIAS DE ESPELHAMENTO DE FORMATAÇÃO, ESTILO E ENTENDIMENTO (COM ISOLAMENTO FÁTICO):\n1. REPRODUÇÃO DA TESE JURÍDICA E JURISPRUDÊNCIA DO JUIZ (PROIBIDO RESUMIR A TESE): Espelhe e copie fielmente toda a TESE JURÍDICA, legislação, precedentes, acórdãos citados, súmulas e doutrina do modelo paradigma.\n2. PROIBIÇÃO ABSOLUTA DE ALUCINAÇÃO FÁTICA E ISOLAMENTO DO MODELO (REGRA DE OURO): Descarte os fatos antigos do paradigma e utilize ESTRITAMENTE os fatos e provas reais do processo em exame narrados na Minuta Preliminar Factual da Etapa 1.\n3. ESPELHAMENTO ESTRUTURAL: Mantenha rigorosamente a divisão de tópicos e subtópicos (I - RELATÓRIO, II - FUNDAMENTAÇÃO, 1. PRELIMINAR, 2. MÉRITO, etc.) e formatação Markdown.\n4. ADOÇÃO INTEGRAL DA LINHA DECISÓRIA E DISPOSITIVO: Aplique a mesma ratio decidendi e preserve a estrutura de comandos do dispositivo.\n`;
-}
 
-if (taxonomySummary) {
-    stage2SystemInstruction += `\n\n[MAPEAMENTO TAXONÔMICO NORMATIVO & MICROSSISTEMAS]:\n${taxonomySummary}\n`;
-}
 
-if (knowledgeBaseText) {
-    stage2SystemInstruction += `\n\n[BASE DE CONHECIMENTO DO GABINETE]:\n${knowledgeBaseText}\n`;
-}
 
-if (customPromptText && typeof customPromptText === "string" && customPromptText.trim().length > 0) {
-    stage2SystemInstruction += `\n\n[DIRETRIZES E PROMPT ATUAL SELECIONADO PELO ASSESSOR]:\n${customPromptText}\n`;
-}
 
 if (processActsSummary && typeof processActsSummary === "string" && processActsSummary.trim().length > 0) {
     stage2SystemInstruction += `\n\n[MEMÓRIA PROCESSUAL DO GABINETE • EVOLUÇÃO DOS ATOS PRÉVIOS DESTE MESMO PROCESSO]:\n${processActsSummary.trim()}\n`;
@@ -4472,6 +4538,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
     const stage1StartTimer = Date.now();
+    const TIMEOUT_ETAPA = Math.min(300000, 60000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 1000);      // maior para autos grandes
     stage1Response = await generateWithFallbackAndRetry({
         apiKey: userApiKey,
         keyPool: extractApiKeyPool(req),
@@ -4479,8 +4546,9 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
         res,
         primaryModel: "gemini-3.8-flash",
         fallbackModel: "gemini-3.7-flash",
-        customModelQueue: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
-        timeoutMs: 90000,
+        customModelQueue: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],      // somente Flash; profundidade primeiro, reservas mais rápidas depois
+        timeoutMs: TIMEOUT_ETAPA,
+        maxCycles: 2,
         contents: [{ role: "user", parts: stage1ContentsParts }],
         config: {
             systemInstruction: stage1SystemInstruction,
@@ -4600,6 +4668,22 @@ if (isSuspeicaoTeseMatched || isStage1DispositivoSuspeicao) {
     actTypeGuidance = buildActTypeGuidance(resolvedActType, isSaneamentoDecision);
 }
 
+// O TIPO DE ATO DA ETAPA 2 É O QUE A ETAPA 1 ENTREGOU (campo actType): a Etapa 2 não decide, por conta própria, que é embargos/despacho.
+if (!(isSuspeicaoTeseMatched || isStage1DispositivoSuspeicao || isStage1DispositivoSentenca)) {
+    const s1Tipo = String(stage1Json.actType || "").toLowerCase();
+    let tipoEtapa1 = "";
+    if (s1Tipo.includes("embargo")) tipoEtapa1 = "embargos";
+    else if (s1Tipo.includes("saneam")) { tipoEtapa1 = "decisao"; isSaneamentoDecision = true; }
+    else if (s1Tipo.includes("decis")) { tipoEtapa1 = "decisao"; isSaneamentoDecision = false; }
+    else if (s1Tipo.includes("despach")) tipoEtapa1 = "despacho";
+    else if (s1Tipo.includes("senten")) tipoEtapa1 = "sentenca";
+    if (tipoEtapa1 && tipoEtapa1 !== resolvedActType) {
+        console.log(`[Assessor Judicial] Etapa 2 segue o tipo de ato entregue pela Etapa 1: ${tipoEtapa1.toUpperCase()} (antes: ${resolvedActType.toUpperCase()}).`);
+        resolvedActType = tipoEtapa1;
+        actTypeGuidance = buildActTypeGuidance(resolvedActType, isSaneamentoDecision);
+    }
+}
+
 // Reconciliação fidedigna imediata dos metadados (CNJ do arquivo/capa e partes do Projudi) antes da Etapa 2:
 const earlyRawCaseText = [accumulatedPdfText, safeProcessText].filter(Boolean).join("\n");
 const earlyReconciled = extractProcessMetadata(stage1Json, processInfo, earlyRawCaseText, earlyRawCaseText, targetPdfFiles);
@@ -4647,7 +4731,7 @@ if (executionStage === 1) {
         relatorio: stage1Json.relatorio || "Relatório fático em processamento nos autos.",
         fundamentacao: stage1Json.fundamentacao || "Análise fático-probatória inicial consolidada pelo Assessor Fático (Etapa 1).",
         dispositivo: stage1Json.dispositivo || "Dispositivo preliminar: aguardando confirmação da 2ª Etapa para fundamentação jurídica magistral e julgamento definitivo.",
-        closing: "Mineiros - GO, data da assinatura digital.\n\nAssessor(a) / Gabinete Judicante",
+        closing: `${(processInfo?.comarca || "Montes Claros de Goiás").replace(/^Comarca de\s+/i, "").replace(/\s*-\s*TJGO$/i, "")} - GO, data da assinatura digital.\n\nAssessor(a) / Gabinete Judicante`,
         pendingMatter: stage1Json.pendingMatter || "Análise inicial dos autos",
         proceduralPhase: proceduralPhase || "conhecimento"
     };
@@ -4734,7 +4818,7 @@ if (executionStage === 1) {
             alertasProcessuais: ["1ª Etapa concluída. Clique no botão de avanço para executar a 2ª Etapa (Fundamentação Jurídica & Dispositivo Final)."]
         },
         usage: stage1Usage,
-        modelUsed: "Gemini 3.8 Flash (1ª Etapa: Assessor Fático & Provas)",
+        modelUsed: `${(stage1Response as any)?.usedModel || "Gemini"} (1ª Etapa: Assessor Fático & Provas)`,
         indicacaoTpuCnj: sovereignTpuStage1,
         holisticSynopsis: generatedHolisticSynopsis || undefined,
         deduplicationStats: {
@@ -4768,7 +4852,7 @@ if (executionStage === 1) {
         };
         let history = readJsonFile("history.json", []);
         history.unshift(serverAnalysisItem);
-        if (history.length > 1e3) { history = history.slice(0, 1e3); }
+        if (history.length > 300) { history = history.slice(0, 300); }
         writeJsonFile("history.json", history);
         console.log(`[Storage] Análise 1ª Etapa ${generatedId} (${procNum}) gravada no histórico compartilhado.`);
         parsedStage1.analysisId = generatedId;
@@ -4783,7 +4867,7 @@ if (executionStage === 1) {
             candidateTokens: stage1Tokens.candidatesTokenCount || 0,
             charsAnalyzed: (safeProcessText.length || 0) + (accumulatedPdfText.length || 0),
             pdfCount: targetPdfFiles.length,
-            model: "gemini-3.8-flash"
+            model: (stage1Response as any)?.usedModel || "n/d"
         };
         writeJsonFile("latest_run_telemetry.json", telemetry1);
         console.log(`[TELEMETRIA AO VIVO] Etapa 1 finalizada em ${telemetry1.totalDurationSec}s (IA levou ${telemetry1.aiDurationSec}s para ${telemetry1.promptTokens} tokens de entrada e ${telemetry1.candidateTokens} tokens gerados).`);
@@ -4806,7 +4890,7 @@ if (executionStage === 1) {
 }
 
 console.log("[Assessor Judicial] Etapa 1 (Assessor Fático) concluída com êxito. Intervalo preventivo de resfriamento de cota (2.5s)...");
-await new Promise(resolve => setTimeout(resolve, 2500));
+if (executionStage !== 2) await new Promise(resolve => setTimeout(resolve, 500));      // o controle de consumo por chave já distribui a carga
 console.log("[Assessor Judicial] Disparando ETAPA 2: Juiz Revisor (Teses, Precedentes & Matriz Forense)...");
 
 const stage2Prompt = `
@@ -4819,8 +4903,6 @@ DADOS DO PROCESSO:
 - Tipo de Ato Requerido: ${resolvedActType === "embargos" ? "JULGAMENTO DE EMBARGOS DE DECLARAÇÃO" : resolvedActType.toUpperCase()}
 - Subtipo / Enquadramento: ${actSubtype || "Análise integral de pedidos"}
 - Diretrizes Adicionais: ${specificInstructions || "Confronto probatório e regras do TJGO."}
-${customPromptText && typeof customPromptText === "string" && customPromptText.trim().length > 0 ? `- DIRETRIZES DO PROMPT TEMÁTICO SELECIONADO: """\n${customPromptText.trim()}\n"""` : ""}
-${activeTeses && typeof activeTeses === "string" && activeTeses.trim().length > 0 ? `- CADERNO DE TESES E DIRETRIZES VINCULANTES DO GABINETE (APLICAÇÃO OBRIGATÓRIA E SOBERANA): """\n${activeTeses.trim()}\n"""` : ""}
 
 ${actTypeGuidance}
 
@@ -4844,19 +4926,20 @@ ${stage1Json.dispositivo || "(Não informado)"}
 
 ACERVO PROBATÓRIO E DOCUMENTOS RELEVANTES DOS AUTOS (CONFRONTO DIRETO COM O PDF):
 ======================================================
-${(accumulatedPdfText || safeProcessText || "").substring(0, 10000)}
+${(() => { const t = (accumulatedPdfText || safeProcessText || ""); return t.length > 14000 ? t.substring(0, 6000) + "\n\n[... trecho intermediário omitido (já analisado na Etapa 1) ...]\n\n" + t.slice(-8000) : t; })()}
 ======================================================
 
 COMANDOS PARA O JUIZ REVISOR (ETAPA 2):
-1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL (COM MINUTA PARADIGMA & SÚMULAS VINCULANTES):
+1. REVISÃO, HARMONIZAÇÃO E ADENSAMENTO MAGISTRAL (SÚMULAS VINCULANTES, AUDITORIA E COERÊNCIA DECISÓRIA):
    - Leia atentamente o Relatório e a Fundamentação Preliminar gerados na Etapa 1;
-   - Confronte com o Caderno de Teses do Gabinete, as Súmulas Vinculantes (STF, STJ, TNU e TJGO) e a Minuta Paradigma (se ativada);
-   - CLONAGEM DA MINUTA PARADIGMA: Se a Minuta Paradigma estiver ativada, espelhe rigorosamente a estrutura de tópicos, o estilo da redação, as teses e a fundamentação do modelo paradigma do juiz, aplicando estritamente as provas e fatos reais do processo da Etapa 1;
-   - SOBERANIA DAS TESES DO GABINETE NO DISPOSITIVO: Havendo no Caderno de Teses diretriz ou enunciado aplicável (como extinção pelo Art. 924, II pelo pagamento, alvará para levantamento sem aguardar trânsito em julgado, condenação em custas e honorários sucumbenciais de 10% pelo art. 85, § 2º, intimação em 15 dias, penhora online de custas pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), essa diretriz prevalece obrigatoriamente sobre praxes genéricas e DEVE constar com máxima fidelidade do Dispositivo e da Fundamentação;
+   - Confronte com os autos, as Súmulas Vinculantes (STF, STJ, TNU e TJGO) e a cadeia das decisões anteriores;
+   - O Caderno de Teses, a Base de Conhecimento e a Minuta Paradigma já foram aplicados na Etapa 1: MANTENHA a estrutura, o estilo, as teses e os comandos do dispositivo da minuta preliminar, corrigindo apenas o que a auditoria apontar;
+   - TIPO DE ATO: o definido pela Etapa 1; não o altere;
+   - PRESERVAÇÃO DAS TESES NO DISPOSITIVO: Se a minuta da Etapa 1 aplicou diretriz do gabinete (como extinção pelo Art. 924, II pelo pagamento, alvará para levantamento sem aguardar trânsito em julgado, condenação em custas e honorários sucumbenciais de 10% pelo art. 85, § 2º, intimação em 15 dias, penhora online de custas pelo Provimento 58/21 da Corregedoria e protesto extrajudicial), essa diretriz prevalece obrigatoriamente sobre praxes genéricas e DEVE constar com máxima fidelidade do Dispositivo e da Fundamentação;
    - COERÊNCIA COM A MARCHA PROCESSUAL: A decisão deve ser estritamente coerente com o andamento do processo (dar continuidade às últimas decisões, resolver incidentes pendentes ou sentenciar o mérito se maduro, sem nunca regredir a liminares do início da lide);
    - Adense, expanda e formate com riqueza:
      * 'relatorio': Mínimo de 4 a 6 parágrafos substanciais e encadeados narrando toda a marcha com tríplice citação (Mov. X, Arq. Y, Pág. Z), com aspas literais nos trechos centrais;
-     * 'fundamentacao': ${resolvedActType === "decisao" ? "Mínimo de 8 a 14 parágrafos judiciais densos e analíticos estruturados em subtópicos Markdown ('### 1. ...', '### 2. ...'), enfrentando circunstanciadamente 100% dos pedidos preliminares ou urgentes pendentes de apreciação formulados pelas partes (gratuidade da justiça, fumus boni iuris, periculum in mora, e análise probatória pormenorizada de cada medida postulada com fixação de valores, percentuais, contas, obrigações de fazer/não fazer, prazos cominatórios e astreintes, além de teses vinculantes e precedentes), com transcrição literal entre aspas e tríplice localização processual (Mov. X, Arq. Y, Pág. Z);" : resolvedActType === "embargos" ? "Mínimo de 6 a 10 parágrafos judiciais densos estruturados nos subtópicos do art. 1.022 do CPC (admissibilidade/tempestividade de 5 dias úteis, exame analítico de cada vício ou omissão alegada em confronto com a decisão embargada, e precedentes dos tribunais superiores);" : resolvedActType === "despacho" ? "Fundamentação pontual e precisa indicando os motivos fáticos e legais da determinação judicial ou da emenda ordenada (art. 321 CPC);" : "Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);"}
+     * 'fundamentacao': ${resolvedActType === "decisao" ? "Mínimo de 8 a 14 parágrafos judiciais densos e analíticos estruturados em subtópicos Markdown ('### 1. ...', '### 2. ...'), enfrentando circunstanciadamente 100% dos pedidos preliminares ou urgentes pendentes de apreciação formulados pelas partes (gratuidade da justiça, fumus boni iuris, periculum in mora, e análise probatória pormenorizada de cada medida postulada com fixação de valores, percentuais, contas, obrigações de fazer/não fazer, prazos cominatórios e astreintes, além de teses vinculantes e precedentes), com transcrição literal entre aspas e tríplice localização processual (Mov. X, Arq. Y, Pág. Z);" : resolvedActType === "embargos" ? "Mínimo de 6 a 10 parágrafos judiciais densos estruturados nos subtópicos do art. 1.022 do CPC (admissibilidade/tempestividade de 5 dias úteis, exame analítico de cada vício ou omissão alegada em confronto com a decisão embargada, e precedentes dos tribunais superiores);" : resolvedActType === "despacho" ? "Mínimo de 4 a 8 parágrafos motivados, estruturados em subtópicos Markdown, indicando os motivos fáticos e legais de cada determinação (sem síntese telegráfica), com tríplice localização processual (Mov. X, Arq. Y, Pág. Z);" : "Mínimo de 14 a 20+ parágrafos judiciais profundos distribuídos nos 7 blocos obrigatórios em subtópicos (### 1. a ### 7.), com transcrição literal entre aspas de trechos da exordial, contestação, laudos e parecer ministerial, além de artigos de lei e súmulas em bloco destacado (>);"}
      * 'dispositivo': Comandos operacionais claros, discriminados pedido por pedido, com deliberação de eventuais requerimentos intercorrentes e fixação dos consectários legais da Lei 14.905/2024;
    - Preencha o cabeçalho, comarca/vara e fecho judicante oficial;
 
@@ -5024,9 +5107,10 @@ const stage2ResponseSchema = {
 // PAUSA PREVENTIVA INTELIGENTE (Anti-Rate Limit & Recomposição de Tokens):
 // Dá um intervalo técnico de resfriamento para recomposição do bucket de tokens por minuto (TPM/RPM) no cluster do Google após o término da Etapa 1
 const isNativeActiveForCooldown = isRequestNativeAllowed(req);
-const cooldownMs = isNativeActiveForCooldown ? 2500 : 5000;
+const rawStage2KeyPoolSize = extractApiKeyPool(req).length;
+const cooldownMs = (executionStage === 2 || rawStage2KeyPoolSize > 1) ? 0 : (isNativeActiveForCooldown ? 2500 : 5000);      // com várias chaves, a etapa 2 já usa outra chave com folga
 console.log(`[Assessor Judicial] Etapa 1 concluída com sucesso. Pausa preventiva inteligente (${cooldownMs / 1000}s) para recomposição de tokens por minuto antes da Etapa 2...`);
-await new Promise(r => setTimeout(r, cooldownMs));
+if (cooldownMs > 0) await new Promise(r => setTimeout(r, cooldownMs));
 
 // ROTAÇÃO INTELIGENTE DE CHAVES ENTRE ETAPA 1 E ETAPA 2 (PREVENÇÃO DE ESTOURO DE TPM EM CHAVES GRATUITAS):
 const rawStage2KeyPool = extractApiKeyPool(req);
@@ -5046,6 +5130,7 @@ let stage2ErrorMsg = "";
 
 try {
     const stage2StartTimer = Date.now();
+    const TIMEOUT_ETAPA = Math.min(300000, 60000 + Math.ceil(estimarTokens(stage2Prompt, stage2SystemInstruction) / 10000) * 1000);
     response = await generateWithFallbackAndRetry({
         apiKey: stage2KeyPool[0] || userApiKey,
         keyPool: stage2KeyPool,
@@ -5053,8 +5138,9 @@ try {
         res,
         primaryModel: "gemini-3.8-flash",
         fallbackModel: "gemini-3.7-flash",
-        customModelQueue: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
-        timeoutMs: 90000,
+        customModelQueue: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],      // somente Flash; profundidade primeiro, reservas mais rápidas depois
+        timeoutMs: TIMEOUT_ETAPA,
+        maxCycles: 2,
         contents: [{ role: "user", parts: [{ text: stage2Prompt }] }],
         config: {
             systemInstruction: stage2SystemInstruction,
@@ -5381,7 +5467,7 @@ const usage = (totalTotalTokens > 0 || totalPromptTokens > 0) ? {
     cachedContentTokenCount: totalCachedTokens
 } : void 0;
 parsed.usage = usage;
-parsed.modelUsed = "Gemini 3.8 Flash (Two-Stage Pipeline: Assessor Fático -> Juiz Revisor & Matriz Forense)";
+parsed.modelUsed = `${(response as any)?.usedModel || "Gemini"} (2 etapas: Assessor Fático → Juiz Revisor)`;
 parsed.currentStage = 2;
 parsed.canProceedToStage2 = false;
 parsed.holisticSynopsis = generatedHolisticSynopsis || undefined;
@@ -5453,7 +5539,7 @@ if (wasRotated && rotatedKey) {
         };
         let history=readJsonFile("history.json",[]);
         history.unshift(serverAnalysisItem);
-        if(history.length>1e3){history=history.slice(0,1e3)}
+        if(history.length>300){history=history.slice(0,300)}
         writeJsonFile("history.json",history);
         console.log(`[Storage] Análise 2 etapas ${generatedId} (${processNum}) gravada para ${reqUserEmail || 'anônimo'} no histórico compartilhado. Total: ${history.length}`);
         parsed.analysisId = generatedId;
@@ -5514,7 +5600,7 @@ if (wasRotated && rotatedKey) {
             candidateTokens: totalCandidatesTokens || 0,
             charsAnalyzed: (safeProcessText.length || 0) + (accumulatedPdfText.length || 0),
             pdfCount: targetPdfFiles.length,
-            model: "gemini-3.8-flash"
+            model: `${(stage1Response as any)?.usedModel || "n/d"} -> ${(response as any)?.usedModel || "n/d"}`
         };
         writeJsonFile("latest_run_telemetry.json", telemetry2);
         console.log(`[TELEMETRIA AO VIVO] Execução concluída em ${telemetry2.totalDurationSec}s (Etapa 2 levou ${telemetry2.stage2DurationSec}s para ${telemetry2.candidateTokens} tokens gerados).`);

@@ -1833,6 +1833,14 @@ export const saveAuditToDb = async (auditRecord: AuditedProcessRecord): Promise<
     updatedAt: Date.now(),
   });
 
+  // Limite do Firestore: 1 MiB por documento. Autos muito grandes são cortados na cópia da nuvem
+  // (a cópia completa continua no navegador), para o salvamento não ser rejeitado.
+  const MAX_TXT = 200000;
+  for (const campo of ['processText', 'assessorDraft', 'previousDraft']) {
+    if (typeof dataToSave[campo] === 'string' && dataToSave[campo].length > MAX_TXT) {
+      dataToSave[campo] = dataToSave[campo].slice(0, MAX_TXT) + '\n[... texto cortado na nuvem por tamanho ...]';
+    }
+  }
   await setDoc(doc(db, getTenantPath('audits'), auditRecord.id), dataToSave);
 };
 
@@ -4200,8 +4208,7 @@ export const getAllCabinetMonthlyUsage = async (monthKey?: string): Promise<Cabi
           candidatesTokens: uData.candidatesTokens || 0,
           requestCount: uData.requestCount || 0,
           lastUsedAt: uData.lastUsedAt || 0,
-          users: uData.users || {},
-          modules: uData.modules || {}
+          users: uData.users || {}
         });
       } else {
         // Gabinete sem consumo registrado no mês
@@ -4215,8 +4222,7 @@ export const getAllCabinetMonthlyUsage = async (monthKey?: string): Promise<Cabi
           candidatesTokens: 0,
           requestCount: 0,
           lastUsedAt: 0,
-          users: {},
-          modules: {}
+          users: {}
         });
       }
     }
@@ -5038,6 +5044,3 @@ export const importPastTokenUsageHistory = async (): Promise<RetroactiveImportRe
     monthsAffected: Array.from(affectedMonthsSet).sort()
   };
 };
-
-
-

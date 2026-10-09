@@ -130,11 +130,44 @@ const getLocalHistory = (): SavedAnalysis[] => {
   }
 };
 
+// Cache local ENXUTO: o Firestore é a fonte da verdade; o localStorage (limite ~5 MB para o site todo) guarda só o essencial.
+// Antes, 50 análises completas (com auditoria, sinopse e textos dos autos) estouravam a cota e a gravação falhava a cada 10 s.
+let _ultimaGravacao = "";        // evita regravar o mesmo conteúdo
+let _bloqueadoAte = 0;           // depois de estourar a cota, só tenta de novo após 5 minutos
+
+const enxugarItem = (item: SavedAnalysis): SavedAnalysis => {
+  const r: any = item.result ? { ...(item.result as any) } : item.result;
+  if (r) {
+    delete r.auditAnalysis; delete r.holisticSynopsis; delete r.stage1Snapshot;
+    delete r.cadernoTesesApplied; delete r.paradigmUsed; delete r.groundingSources;
+  }
+  const o: any = { ...item, result: r };
+  delete o.holisticSynopsis; delete o.processTextContext;
+  return o;
+};
+
 const saveLocalHistory = (list: SavedAnalysis[]) => {
   try {
+    if (Date.now() < _bloqueadoAte) return;
     const tombstones = getTombstones();
-    const cleaned = list.filter((item) => item && item.id && !tombstones.has(item.id) && !isCorruptedHistoryItem(item));
-    safeSetItem(getLocalStorageKey(), JSON.stringify(cleaned.slice(0, 50)));
+    let cleaned = list
+      .filter((item) => item && item.id && !tombstones.has(item.id) && !isCorruptedHistoryItem(item))
+      .slice(0, 20)
+      .map(enxugarItem);
+    let json = JSON.stringify(cleaned);
+    const LIMITE = 900_000;       // ~0,9 MB por unidade
+    while (json.length > LIMITE && cleaned.length > 3) {
+      cleaned = cleaned.slice(0, Math.ceil(cleaned.length / 2));
+      json = JSON.stringify(cleaned);
+    }
+    const chave = getLocalStorageKey();
+    if (_ultimaGravacao === chave + json) return;      // nada mudou
+    if (safeSetItem(chave, json)) {
+      _ultimaGravacao = chave + json;
+    } else {
+      _bloqueadoAte = Date.now() + 5 * 60_000;
+      safeRemoveItem(chave);                           // libera espaço; o Firestore continua com tudo
+    }
   } catch (e) {
     console.warn("Could not write local history cache:", e);
   }
@@ -174,8 +207,7 @@ export const getHistory = async (): Promise<SavedAnalysis[]> => {
       const dbList = await getHistoryFromDb();
       // Filter out tombstones and corrupted entries immediately
       const cleanList = filterAndPrune(dbList);
-      // Update local cache to match Firestore exactly, removing any ghosts deleted on another device
-      saveLocalHistory(cleanList);
+      // Logado: o Firestore (com cache em IndexedDB) é a fonte única; NÃO grava no localStorage (limite ~5 MB).
       return cleanList;
     } catch (err) {
       console.warn("Could not fetch history from DB, falling back to local cache:", err);
@@ -201,7 +233,8 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<void> => {
     console.warn("Could not save history to Firestore DB:", err);
   }
 
-  // 2. Persist to LocalStorage cache
+  // 2. Persist to LocalStorage cache — só sem login (logado, o Firestore + cache IndexedDB já guardam tudo)
+  if (auth.currentUser) return;
   const localList = getLocalHistory();
   const existingIdx = localList.findIndex((item) => item.id === analysis.id);
   let updatedList: SavedAnalysis[];

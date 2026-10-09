@@ -10,6 +10,7 @@ const DISPENSABLE_KEY_PREFIXES = [
   'agaia_cabinet_latest_backup_',
   'assessor_fabricio_prompts_backup_',
   'assessor_audits_db',
+  'assessor_fabricio_history_cache_',      // cache do histórico (reconstruído do Firestore)
   'assessor_api_usage_logs',
 ];
 
@@ -49,6 +50,9 @@ export function pruneDispensableStorage(): number {
  * Safely writes a key-value pair to localStorage with automatic quota recovery.
  * Returns true if stored successfully, false otherwise.
  */
+const _avisos: Record<string, number> = {};
+const avisarUmaVez = (chave: string, ...args: any[]) => { const t = Date.now(); if (!_avisos[chave] || t - _avisos[chave] > 60000) { _avisos[chave] = t; console.warn(...args); } };
+
 export function safeSetItem(key: string, value: string): boolean {
   if (typeof window === 'undefined' || !window.localStorage) return false;
   try {
@@ -63,14 +67,14 @@ export function safeSetItem(key: string, value: string): boolean {
       (typeof err?.message === 'string' && err.message.toLowerCase().includes('quota'));
 
     if (isQuotaError) {
-      console.warn(`[safeStorage] Storage quota reached while setting "${key}". Pruning non-essential caches...`);
+      avisarUmaVez("q1" + key, `[safeStorage] Storage quota reached while setting "${key}". Pruning non-essential caches...`);
       pruneDispensableStorage();
 
       try {
         localStorage.setItem(key, value);
         return true;
       } catch (retryErr) {
-        console.warn(`[safeStorage] Unable to save "${key}" to localStorage even after pruning. Firestore remains source of truth.`, retryErr);
+        avisarUmaVez("q2" + key, `[safeStorage] Unable to save "${key}" to localStorage even after pruning. Firestore remains source of truth.`, retryErr);
         return false;
       }
     }

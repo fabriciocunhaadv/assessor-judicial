@@ -39,13 +39,15 @@ export const saveLocalAudits = (audits: AuditedProcessRecord[]) => {
 
 export const subscribeToAudits = (callback: (audits: AuditedProcessRecord[]) => void): (() => void) => {
   return subscribeToAuditsDb((remoteAudits) => {
-    if (remoteAudits && remoteAudits.length > 0) {
-      saveLocalAudits(remoteAudits);
-      callback(remoteAudits);
-    } else {
-      const local = getLocalAudits();
-      callback(local);
-    }
+    // Junta nuvem + navegador por id (antes a lista da nuvem substituía tudo e apagava
+    // registros que ainda não tinham sido gravados/aceitos na nuvem).
+    const local = getLocalAudits();
+    const map = new Map<string, AuditedProcessRecord>();
+    for (const item of local) map.set(item.id, item);
+    for (const item of remoteAudits || []) map.set(item.id, item);
+    const merged = Array.from(map.values()).sort((a, b) => (b.date || 0) - (a.date || 0));
+    if (merged.length > 0) saveLocalAudits(merged);
+    callback(merged);
   });
 };
 

@@ -378,7 +378,7 @@ export default function App() {
       getHistory().then(setHistoryList).catch(() => {});
     };
     fetchHistory();
-    const timer = setInterval(fetchHistory, 10000);
+    const timer = setInterval(fetchHistory, 60000);
     return () => clearInterval(timer);
   }, [generationResult, isHistoryModalOpen, activeUnit?.id]);
 
