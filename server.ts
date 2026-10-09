@@ -310,7 +310,7 @@ app.get("/api/custom-precedents", (_req, res) => {
 app.post("/api/parse-precedents-pdf", async (req, res) => {
     try {
         const userApiKey = extractApiKey(req);
-        const isNativeAllowed = req.headers['x-use-native-key'] === 'true' || req.headers['x-use-native-key'] === '1' || !userApiKey;
+        const isNativeAllowed = req.headers['x-use-native-key'] === 'true' || req.headers['x-use-native-key'] === '1';
         const apiKey = (isNativeAllowed && process.env.GEMINI_API_KEY) ? process.env.GEMINI_API_KEY.trim() : (userApiKey || "");
         if (!apiKey) {
             return res.status(401).json({ error: "Chave da API Gemini ausente. Configure uma chave nas preferências ou verifique as credenciais do sistema." });
@@ -4853,6 +4853,7 @@ if (executionStage === 1) {
             userName: reqUserName,
             tenantId: reqTenantId,
             wasRotated: Boolean((stage1Response as any)?.wasRotated),
+            usedNative: Boolean(process.env.GEMINI_API_KEY && (stage1Response as any)?.usedKey === process.env.GEMINI_API_KEY.trim()),
             rotatedKeySnippet: (stage1Response as any)?.usedKey ? `...${(stage1Response as any).usedKey.slice(-4)}` : undefined,
             result: parsedStage1,
             holisticSynopsis: generatedHolisticSynopsis || undefined,
@@ -5540,6 +5541,7 @@ if (wasRotated && rotatedKey) {
             userName: reqUserName,
             tenantId: reqTenantId,
             wasRotated: Boolean(parsed.wasRotated),
+            usedNative: Boolean(process.env.GEMINI_API_KEY && [(response as any)?.usedKey, (stage1Response as any)?.usedKey].includes(process.env.GEMINI_API_KEY.trim())),
             rotatedKeySnippet: parsed.rotatedKey ? `...${parsed.rotatedKey.slice(-4)}` : undefined,
             result:parsed,
             holisticSynopsis: generatedHolisticSynopsis || undefined,
@@ -5678,6 +5680,7 @@ app.get("/api/telemetry/server-history", (req, res) => {
             tenantId: h.tenantId,
             processNumber: h.processNumber,
             wasRotated: Boolean(h.wasRotated),
+            usedNative: h.usedNative === undefined ? undefined : Boolean(h.usedNative),
             rotatedKeySnippet: h.rotatedKeySnippet || '',
             totalTokenCount: h.result?.usage?.totalTokenCount || h.usage?.totalTokenCount || 0,
             promptTokenCount: h.result?.usage?.promptTokenCount || h.usage?.promptTokenCount || 0,

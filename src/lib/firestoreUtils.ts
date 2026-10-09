@@ -997,8 +997,8 @@ export const getAllTenantsUsageLogs = async (limitCount = 100): Promise<LoggedEx
               userName: item.userName || 'Assessor',
               userEmail: item.userEmail || '',
               module: item.type === 'hearing' ? 'audiencia' : 'minuta',
-              keyType: item.wasRotated ? 'byok' : 'native',
-              keyLabel: item.wasRotated ? 'Pool BYOK (Rotacionada)' : 'Chave Nativa Corporativa',
+              keyType: item.usedNative === true ? 'native' : 'byok',
+              keyLabel: item.usedNative === true ? 'Chave Nativa Corporativa' : (item.wasRotated ? 'Pool BYOK (Rotacionada)' : (item.usedNative === false ? 'Chave pessoal (BYOK)' : 'Não identificada (registro antigo)')),
               tenantId: item.tenantId || 'gabinete_default'
             });
           }
