@@ -2249,7 +2249,7 @@ async function generateWithFallbackAndRetry(options) {
                 const ai = new GoogleGenAI({
                     apiKey: currentKey,
                     httpOptions: {
-                        timeout: modelTimeoutMs,
+                        timeout: modelTimeoutMs + 10000,      // nosso temporizador dispara antes e registra o erro corretamente
                         headers: {
                             'User-Agent': 'aistudio-build'
                         }
@@ -2317,7 +2317,9 @@ async function generateWithFallbackAndRetry(options) {
                                       errMsg.includes("timeout") || 
                                       errMsg.includes("ETIMEDOUT") || 
                                       errMsg.includes("ESOCKETTIMEDOUT") ||
-                                      errMsg.includes("UND_ERR_CONNECT_TIMEOUT");
+                                      errMsg.includes("UND_ERR_CONNECT_TIMEOUT") ||
+                                      e?.name === "AbortError" ||
+                                      /aborted|fetch failed|terminated|socket hang up|ECONNRESET/i.test(errMsg);
 
                     const isModelUnavailable = errMsg.includes("não está disponível") || 
                                                errMsg.includes("no longer available") || 
@@ -4548,7 +4550,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
     const stage1StartTimer = Date.now();
-    const TIMEOUT_ETAPA = Math.min(300000, 60000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 1000);      // maior para autos grandes
+    const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 3000);      // maior para autos grandes
     stage1Response = await generateWithFallbackAndRetry({
         apiKey: userApiKey,
         keyPool: extractApiKeyPool(req),
@@ -5140,7 +5142,7 @@ let stage2ErrorMsg = "";
 
 try {
     const stage2StartTimer = Date.now();
-    const TIMEOUT_ETAPA = Math.min(300000, 60000 + Math.ceil(estimarTokens(stage2Prompt, stage2SystemInstruction) / 10000) * 1000);
+    const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage2Prompt, stage2SystemInstruction) / 10000) * 3000);
     response = await generateWithFallbackAndRetry({
         apiKey: stage2KeyPool[0] || userApiKey,
         keyPool: stage2KeyPool,
