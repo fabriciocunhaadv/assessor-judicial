@@ -274,6 +274,9 @@ export const deletePromptFromDb = async (id: string): Promise<void> => {
   }
 };
 
+// Lê só as análises mais recentes (antes lia a coleção inteira a cada consulta). Docs sem o campo 'date' ficam de fora.
+const HISTORICO_LIMITE = 200;
+
 export const getHistoryFromDb = async (): Promise<SavedAnalysis[]> => {
   if (!auth.currentUser) return [];
   try {
@@ -293,7 +296,7 @@ export const getHistoryFromDb = async (): Promise<SavedAnalysis[]> => {
 
     // 1. Fetch from current tenant path: gabinetes/{globalTenantId}/history
     try {
-      const snapshot = await getDocs(collection(db, getTenantPath('history')));
+      const snapshot = await getDocs(query(collection(db, getTenantPath('history')), orderBy('date', 'desc'), limit(HISTORICO_LIMITE)));
       addDocs(snapshot.docs);
     } catch (e) {
       console.warn("Could not fetch tenant history:", e);
@@ -303,18 +306,18 @@ export const getHistoryFromDb = async (): Promise<SavedAnalysis[]> => {
     if (isPrimaryCabinet(globalTenantId)) {
       if (globalTenantId !== 'gabinete_default') {
         try {
-          const defSnap = await getDocs(collection(db, 'gabinetes/gabinete_default/history'));
+          const defSnap = await getDocs(query(collection(db, 'gabinetes/gabinete_default/history'), orderBy('date', 'desc'), limit(HISTORICO_LIMITE)));
           addDocs(defSnap.docs);
         } catch {}
       }
       if (globalTenantId !== 'gab_rafael_machado') {
         try {
-          const rafSnap = await getDocs(collection(db, 'gabinetes/gab_rafael_machado/history'));
+          const rafSnap = await getDocs(query(collection(db, 'gabinetes/gab_rafael_machado/history'), orderBy('date', 'desc'), limit(HISTORICO_LIMITE)));
           addDocs(rafSnap.docs);
         } catch {}
       }
       try {
-        const rootSnap = await getDocs(collection(db, 'history'));
+        const rootSnap = await getDocs(query(collection(db, 'history'), orderBy('date', 'desc'), limit(HISTORICO_LIMITE)));
         addDocs(rootSnap.docs);
       } catch (e) {
         console.warn("Could not fetch root legacy history:", e);
@@ -5044,3 +5047,6 @@ export const importPastTokenUsageHistory = async (): Promise<RetroactiveImportRe
     monthsAffected: Array.from(affectedMonthsSet).sort()
   };
 };
+
+
+
