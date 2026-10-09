@@ -1,4 +1,5 @@
 import { SessionDraft } from "../types";
+import { safeSetItem } from "./safeStorage";
 
 const SESSION_DRAFT_KEY = "assessor_judicial_active_draft_v1";
 
@@ -12,7 +13,10 @@ export const saveSessionDraft = (draft: SessionDraft): void => {
     if (json.length > 400_000) {      // rascunho gigante (autos inteiros/resultado completo): guarda só o essencial
       json = JSON.stringify({ ...(draft as any), processText: String((draft as any).processText || "").slice(0, 20000), generationResult: null });
     }
-    localStorage.setItem(SESSION_DRAFT_KEY, json);
+    if (safeSetItem(SESSION_DRAFT_KEY, json)) return;      // limpa caches dispensáveis e tenta de novo
+    // Armazenamento cheio: guarda só o essencial (o resultado completo já fica no histórico/Firestore)
+    const minimo = JSON.stringify({ ...(draft as any), processText: "", generationResult: null });
+    if (!safeSetItem(SESSION_DRAFT_KEY, minimo)) { try { localStorage.removeItem(SESSION_DRAFT_KEY); } catch {} }
   } catch (err) {
     try { localStorage.removeItem(SESSION_DRAFT_KEY); } catch {}      // libera o espaço do rascunho antigo
     const t = Date.now(); if (!(globalThis as any).__draftAviso || t - (globalThis as any).__draftAviso > 60000) { (globalThis as any).__draftAviso = t; console.warn("Could not save session draft to localStorage:", err); }

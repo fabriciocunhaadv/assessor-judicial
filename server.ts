@@ -2108,6 +2108,13 @@ const tpmDe = (m: string) => Math.floor((TPM_POR_MODELO[m] || TPM_PADRAO) * 0.85
 const usoJanela: Map<string, { t: number; n: number }[]> = ((globalThis as any).__usoTokens ||= new Map());
 const cotaAte: Map<string, number> = ((globalThis as any).__cotaAte ||= new Map());
 const modeloAte: Map<string, number> = ((globalThis as any).__modeloAte ||= new Map());      // modelo sobrecarregado (503/timeout): vale para todas as chaves
+const falhasModelo: Map<string, number> = ((globalThis as any).__falhasModelo ||= new Map());      // falhas seguidas por modelo (zera no sucesso)
+const resfriarModelo = (m: string, baseMs: number) => {
+    const n = (falhasModelo.get(m) || 0) + 1; falhasModelo.set(m, n);
+    const ms = Math.min(10 * 60000, baseMs * Math.pow(2, Math.min(n - 1, 4)));      // 45s, 90s, 3min, 6min, 10min (máx.)
+    modeloAte.set(m, Date.now() + ms);
+    return ms;
+};
 const modeloBloqueado = (m: string, pool: string[]) =>
     (modeloAte.get(m) || 0) > Date.now() || (pool.length > 0 && pool.every(k => (cotaAte.get(k + "|" + m) || 0) > Date.now()));
 const usadoNoMinuto = (k: string, m: string) => {
@@ -2285,6 +2292,7 @@ async function generateWithFallbackAndRetry(options) {
                     (response as any).usedKey = currentKey;
                     (response as any).usedModel = modelName;
                     registrarUso(currentKey, modelName, (response as any)?.usageMetadata?.totalTokenCount || estTokensChamada);
+                    falhasModelo.set(modelName, 0); modeloAte.delete(modelName);
                     (response as any).usedKeyIndex = kIdx;
                     (response as any).wasRotated = kIdx > 0;
 
@@ -2372,6 +2380,7 @@ async function generateWithFallbackAndRetry(options) {
                             continue; // Tenta a próxima chave cadastrada do usuário no mesmo modelo
                         } else {
                             // Todas as chaves do pool atingiram a cota neste modelo:
+                            { const msResf = resfriarModelo(modelName, 60000); console.log(`[Assessor Judicial - Saúde dos Modelos] ${modelName} sem cota em todas as chaves; resfriamento de ${Math.round(msResf / 1000)}s.`); }
                             if (mIdx < modelsToTry.length - 1) {
                                 console.log(`[Assessor Judicial - TRANSIÇÃO DA ESTEIRA] Todas as ${keyPool.length} chaves cadastradas atingiram a cota no modelo ${modelName}. Transicionando para o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
                                 await new Promise(r => setTimeout(r, 500));
@@ -2396,7 +2405,8 @@ async function generateWithFallbackAndRetry(options) {
                             await new Promise(r => setTimeout(r, 500));
                             continue;
                         }
-                        modeloAte.set(modelName, Date.now() + (isTimeout ? 60000 : 45000));      // resfria o modelo para as próximas chamadas
+                        const msResf = resfriarModelo(modelName, isTimeout ? 60000 : 45000);      // resfria o modelo (cresce se continuar falhando)
+                        console.log(`[Assessor Judicial - Saúde dos Modelos] ${modelName} em resfriamento por ${Math.round(msResf / 1000)}s.`);
                         if (mIdx < modelsToTry.length - 1) {
                             console.log(`[Assessor Judicial - Transição de Modelo] ${statusReason} em ${modelName}. Acionando o próximo modelo: ${modelsToTry[mIdx + 1]}...`);
                             await new Promise(r => setTimeout(r, 300));
@@ -4546,7 +4556,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
         res,
         primaryModel: "gemini-3.8-flash",
         fallbackModel: "gemini-3.7-flash",
-        customModelQueue: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],      // somente Flash; profundidade primeiro, reservas mais rápidas depois
+        customModelQueue: ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],      // somente Flash; 3.5 primeiro (estável nas chaves); 3.8/3.7/3.6 de reserva
         timeoutMs: TIMEOUT_ETAPA,
         maxCycles: 2,
         contents: [{ role: "user", parts: stage1ContentsParts }],
@@ -4638,7 +4648,7 @@ if (isSuspeicaoTeseMatched || isStage1DispositivoSuspeicao) {
       s1Act.includes("liminar") || s1Act.includes("tutela") ||
       ((rawCaseTextSample.includes("alimentos provisórios") || rawCaseTextSample.includes("alimentos provisorios") || rawCaseTextSample.includes("guarda provisória") || rawCaseTextSample.includes("guarda provisoria") || rawCaseTextSample.includes("tutela de urgência") || rawCaseTextSample.includes("tutela de urgencia") || rawCaseTextSample.includes("medida liminar") || rawCaseTextSample.includes("pedido liminar")) && !rawCaseTextSample.includes("cumprimento de sentença") && !rawCaseTextSample.includes("execução de título"));
     
-    if (s1Act.includes("senten") || s1Pending.includes("senten") || s1Pending.includes("mérito") || s1Pending.includes("merito") || s1Pending.includes("julgar a ação") || s1Pending.includes("resolução da lide")) {
+    if (s1Act.includes("senten") || /(?<!cumprimento de )(?<!cumprimento da )senten/.test(s1Pending) || s1Pending.includes("mérito") || s1Pending.includes("merito") || s1Pending.includes("julgar a ação") || s1Pending.includes("resolução da lide")) {
         resolvedActType = "sentenca";
         isSaneamentoDecision = false;
         console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): Processo maduro para SENTENÇA (${stage1Json.pendingMatter})`);
@@ -5138,7 +5148,7 @@ try {
         res,
         primaryModel: "gemini-3.8-flash",
         fallbackModel: "gemini-3.7-flash",
-        customModelQueue: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],      // somente Flash; profundidade primeiro, reservas mais rápidas depois
+        customModelQueue: ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],      // somente Flash; 3.5 primeiro (estável nas chaves); 3.8/3.7/3.6 de reserva
         timeoutMs: TIMEOUT_ETAPA,
         maxCycles: 2,
         contents: [{ role: "user", parts: [{ text: stage2Prompt }] }],
