@@ -162,11 +162,7 @@ app.use(express.urlencoded({ limit: "200mb", extended: true }));
 
 app.use("/api/advogado-peticao", petitionRouter);
 
-app.get("/api/native-key-info", (req, res) => {
-    const hasKey = !!process.env.GEMINI_API_KEY;
-    const masked = process.env.GEMINI_API_KEY ? `••••••••••••${process.env.GEMINI_API_KEY.slice(-4)}` : '';
-    res.json({ hasNativeKey: hasKey, configured: hasKey, maskedKey: masked });
-});
+app.get("/api/native-key-info", (req, res) => res.json({ hasNativeKey: !!process.env.GEMINI_API_KEY }));
 app.post("/api/test-api-key", async (req, res) => {
     try {
         const key = extractApiKey(req);
@@ -1969,7 +1965,7 @@ function extractApiKey(req) {
     if (queryKey && typeof queryKey === 'string' && queryKey.trim().length > 10) {
         return queryKey.trim();
     }
-    if (isNativeAllowed || (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 10)) {
+    if (isNativeAllowed) {
         return (process.env.GEMINI_API_KEY || "").trim();
     }
     return "";
