@@ -162,7 +162,11 @@ app.use(express.urlencoded({ limit: "200mb", extended: true }));
 
 app.use("/api/advogado-peticao", petitionRouter);
 
-app.get("/api/native-key-info", (req, res) => res.json({ hasNativeKey: !!process.env.GEMINI_API_KEY }));
+app.get("/api/native-key-info", (req, res) => {
+    const hasKey = !!process.env.GEMINI_API_KEY;
+    const masked = process.env.GEMINI_API_KEY ? `••••••••••••${process.env.GEMINI_API_KEY.slice(-4)}` : '';
+    res.json({ hasNativeKey: hasKey, configured: hasKey, maskedKey: masked });
+});
 app.post("/api/test-api-key", async (req, res) => {
     try {
         const key = extractApiKey(req);
@@ -1877,7 +1881,7 @@ A Ata deve conter:
     }
 });
 
-app.post("/api/mutirao-video", uploadMedia.single('video'), async (req, res) => {
+app.post("/api/mutirao-video", (uploadMedia.single('video') as any), async (req, res) => {
     try {
         const apiKey = extractApiKey(req) || req.body.customApiKey;
         if (!apiKey) return res.status(401).json({ error: "Chave da API Gemini ausente." });
@@ -1965,7 +1969,7 @@ function extractApiKey(req) {
     if (queryKey && typeof queryKey === 'string' && queryKey.trim().length > 10) {
         return queryKey.trim();
     }
-    if (isNativeAllowed) {
+    if (isNativeAllowed || (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 10)) {
         return (process.env.GEMINI_API_KEY || "").trim();
     }
     return "";

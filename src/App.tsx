@@ -1382,6 +1382,24 @@ export default function App() {
                   <button onClick={clearAuthError} className="text-red-400 hover:text-red-200 text-xs cursor-pointer">✕</button>
                 </div>
                 <p className="text-[11px] text-red-300 leading-snug">{authError}</p>
+                {authError.includes("unauthorized-domain") && (
+                  <div className="mt-2 pt-2 border-t border-red-500/30 text-[11px] text-slate-300 space-y-1.5">
+                    <p className="font-semibold text-amber-300">Domínio para autorizar no Firebase Console:</p>
+                    <div className="flex items-center gap-2 bg-slate-900/90 px-2.5 py-1.5 rounded-lg border border-slate-700 font-mono text-[10px] text-amber-200 break-all select-all">
+                      <span className="truncate">{window.location.hostname}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(window.location.hostname);
+                          toast.success("Domínio copiado para a área de transferência!");
+                        }}
+                        className="ml-auto px-2 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[10px] font-sans font-medium cursor-pointer shrink-0"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
