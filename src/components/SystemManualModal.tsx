@@ -1588,6 +1588,28 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Otimização de Layout para Notebooks e Telas Menores */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-500 text-slate-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Sparkles className="w-5 h-5 text-slate-950" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-emerald-400 dark:border-emerald-600 bg-emerald-500/10 dark:bg-emerald-950/40 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Otimização Responsiva para Notebooks e Telas Menores</span>
+                          <span className="bg-emerald-500 text-slate-950 text-[10px] px-1.5 py-0.5 rounded font-mono font-black">INTERFACE</span>
+                        </h3>
+                        <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                        • <strong>Recolhimento Automático Inteligente da Barra Lateral:</strong> Em monitores e notebooks com largura inferior a 1440px, a barra lateral passa a iniciar recolhida em modo ícones (64px), liberando espaço horizontal crucial para o trabalho.<br />
+                        • <strong>Seletor Rápido de Visualização (Autos vs Minuta Tela Cheia):</strong> Inserido no topo do ambiente um seletor ágil para alternar entre a exibição conjunta dos autos e o modo Minuta em Tela Cheia.<br />
+                        • <strong>Barra de Ações Compacta na Minuta:</strong> Rótulos dos botões otimizados e botão de expandir/dividir funcional tanto no estado vazio quanto com minuta carregada.<br />
+                        • <strong>Ajuste Vertical dos Modais:</strong> Fixação de cabeçalho e rodapé no modal de Histórico & Dossiês com contenção rígida de rolagem interna (min-h-0), garantindo visibilidade contínua de paginação e botões de retorno mesmo em telas de 768px de altura.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Item: Caderno de Teses Soberano na 1ª Etapa & Suspeição por Foro Íntimo */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-amber-500 text-slate-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">

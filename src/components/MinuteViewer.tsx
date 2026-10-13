@@ -521,25 +521,27 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
   if (!result || !result.minute || !minute) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col h-full min-h-[600px]">
-        {/* Header matching screenshot */}
-        <div className="p-3.5 bg-white border-b border-slate-200 flex items-center justify-between">
+        {/* Header matching screenshot with responsive controls */}
+        <div className="p-3 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-emerald-600" />
             <h3 className="font-bold text-sm text-slate-800">Resultado & Análise</h3>
           </div>
-          <div className="flex items-center gap-1.5 opacity-50 pointer-events-none text-xs">
-            <button className="px-2.5 py-1 border border-emerald-200 rounded text-slate-600">
-              Recolher formulário
-            </button>
-            <button className="px-2.5 py-1 border border-emerald-200 rounded text-slate-600">
-              Editar
-            </button>
-            <button className="px-2.5 py-1 border border-emerald-200 rounded text-slate-600">
-              Copiar
-            </button>
-            <button className="px-2.5 py-1 border border-emerald-200 rounded text-slate-600">
-              Gerar PDF
-            </button>
+          <div className="flex items-center flex-wrap gap-1.5 text-xs">
+            {onToggleCollapseForm && (
+              <button
+                type="button"
+                onClick={onToggleCollapseForm}
+                className="px-2.5 py-1 border border-slate-200 hover:border-slate-300 rounded text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer transition font-medium"
+                title={isFormCollapsed ? "Mostrar formulário e dividir tela" : "Expandir minuta e recolher formulário"}
+              >
+                {isFormCollapsed ? <Minimize2 className="w-3.5 h-3.5 text-slate-600" /> : <Maximize2 className="w-3.5 h-3.5 text-slate-600" />}
+                <span>{isFormCollapsed ? "Dividir Tela" : "Expandir"}</span>
+              </button>
+            )}
+            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-400 font-medium text-[11px]">
+              Aguardando execução
+            </span>
           </div>
         </div>
 
@@ -1190,7 +1192,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
               title="Verificar Parâmetros da Análise (Raio-X)"
             >
               <BrainCircuit className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Raio-X da Minuta</span>
+              <span>Raio-X</span>
             </button>
           )}
 
@@ -1201,7 +1203,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
               title="Voltar para a Página Inicial do Assessor Fabrício"
             >
               <Home className="w-3 h-3 text-emerald-600" />
-              <span>Página Inicial</span>
+              <span className="hidden sm:inline">Início</span>
             </button>
           )}
 
@@ -1209,20 +1211,20 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
             onClick={onToggleCollapseForm}
             className={`px-2.5 py-1 border rounded font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs ${
               isFormCollapsed
-                ? "bg-emerald-50 border-emerald-200 text-slate-800 hover:bg-emerald-50"
+                ? "bg-emerald-50 border-emerald-200 text-slate-800 hover:bg-emerald-100"
                 : "bg-emerald-50 border-emerald-200 text-slate-700 hover:bg-slate-200"
             }`}
-            title={isFormCollapsed ? "Mostrar visualização compartilhada com a execução de prompts" : "Expandir minuta e ocultar formulário de prompts"}
+            title={isFormCollapsed ? "Mostrar formulário e dividir tela" : "Expandir minuta em tela cheia (ocultar formulário)"}
           >
             {isFormCollapsed ? (
               <>
                 <Minimize2 className="w-3.5 h-3.5 text-slate-900 shrink-0" />
-                <span className="text-xs">Mostrar visualização compartilhada com a execução de prompts</span>
+                <span className="text-xs font-bold">Dividir Tela</span>
               </>
             ) : (
               <>
                 <Maximize2 className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                <span className="text-xs">Expandir minuta (ocultar prompts)</span>
+                <span className="text-xs font-bold">Expandir Minuta</span>
               </>
             )}
           </button>

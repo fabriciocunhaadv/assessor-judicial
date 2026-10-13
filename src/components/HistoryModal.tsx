@@ -338,8 +338,8 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full max-w-4xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border-0 sm:border border-slate-200 relative">
+    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-3 md:p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full max-w-4xl h-[100dvh] sm:h-[90vh] max-h-[100dvh] sm:max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border-0 sm:border border-slate-200 relative">
         
         {/* Header */}
         <div className="px-3.5 py-3 sm:px-5 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
@@ -561,7 +561,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
         </div>
 
         {/* List Content */}
-        <div className="flex-1 overflow-y-auto p-2 sm:p-4 bg-slate-50/70">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-4 bg-slate-50/70">
           
           {/* Empty State */}
           {filteredHistory.length === 0 ? (

@@ -1861,8 +1861,39 @@ export default function App() {
         }
       />
 
-      {/* Mode Toggle Banner */}
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-5 mt-3 sm:mt-4 mb-2 flex justify-center sm:justify-end">
+      {/* Mode & View Layout Toggle Banner */}
+      <div className="max-w-[1600px] mx-auto w-full px-3 sm:px-4 md:px-5 mt-2 sm:mt-3 mb-2 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        {/* Notebook / View Layout Toggle */}
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-full p-1 shadow-xs text-xs font-bold text-slate-600">
+          <button
+            type="button"
+            onClick={() => setIsFormCollapsed(false)}
+            className={`px-3 py-1.5 rounded-full transition flex items-center gap-1.5 cursor-pointer ${
+              !isFormCollapsed
+                ? "bg-emerald-600 text-white shadow-2xs"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            }`}
+            title="Exibir painel de entrada de autos e prompts"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Autos & Prompts</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsFormCollapsed(true)}
+            className={`px-3 py-1.5 rounded-full transition flex items-center gap-1.5 cursor-pointer ${
+              isFormCollapsed
+                ? "bg-indigo-600 text-white shadow-2xs"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            }`}
+            title="Expandir visualização da Minuta Judicial em tela cheia"
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>Minuta (Tela Cheia)</span>
+          </button>
+        </div>
+
+        {/* Mode Toggle Banner */}
         <div className="bg-white border border-slate-200 rounded-full p-1 flex items-center shadow-xs relative overflow-hidden w-full max-w-[320px] sm:w-auto" title="Alterne entre o Modo Simplificado e o Modo Avançado">
           <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-300 ease-in-out" style={{ width: '50%', transform: isAdvancedMode ? 'translateX(100%)' : 'translateX(0)', backgroundColor: isAdvancedMode ? '#1e293b' : '#4f46e5' }}></div>
           <button
@@ -1881,7 +1912,7 @@ export default function App() {
       </div>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-5 space-y-4">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 md:p-5 space-y-4">
         {/* Noble Magistrado Premium Welcome & Actions Banner */}
         {isJudge && (
           <div className="p-3.5 bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/80 border-2 border-amber-400/80 rounded-2xl shadow-md text-white flex flex-col md:flex-row md:items-center justify-between gap-3 animate-in fade-in">
@@ -1989,10 +2020,10 @@ export default function App() {
         )}
 
         {/* Main Grid: Left Panel (Inputs & Prompts) vs Right Panel (Resultado & Análise) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-5 items-start">
           {/* LEFT COLUMN: Instructions, Area, Prompts & PDF */}
           {!isFormCollapsed && (
-            <div className="lg:col-span-6 space-y-4">
+            <div className="xl:col-span-6 space-y-4">
               {/* Prompts Management & Selection */}
               <div id="tour-prompt-selector"><PromptSelectorAndEditor
                 prompts={prompts}
@@ -2367,7 +2398,7 @@ export default function App() {
           )}
 
           {/* RIGHT COLUMN: Resultado & Análise + Assessor Judicial */}
-          <div className={`${isFormCollapsed ? "lg:col-span-12" : "lg:col-span-6"} space-y-4`}>
+          <div className={`${isFormCollapsed ? "xl:col-span-12" : "xl:col-span-6"} space-y-4`}>
             <MinuteViewer
               result={generationResult}
               onUpdateMinute={handleUpdateMinute}

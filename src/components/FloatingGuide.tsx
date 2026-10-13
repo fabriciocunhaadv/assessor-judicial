@@ -251,7 +251,7 @@ export const FloatingGuide: React.FC<FloatingGuideProps> = ({
   return (
     <aside 
       aria-label="Tutor e Guia Lateral"
-      className="hidden md:flex flex-row-reverse fixed right-0 top-1/2 -translate-y-1/2 z-30 items-center select-none gap-2 pr-0.5 sm:pr-1"
+      className="hidden xl:flex flex-row-reverse fixed right-0 top-1/2 -translate-y-1/2 z-30 items-center select-none gap-2 pr-0.5 sm:pr-1"
     >
       {/* Botões das Abas Laterais (Na Borda Direita) */}
       <div className="flex flex-col gap-1.5 shrink-0 z-10">

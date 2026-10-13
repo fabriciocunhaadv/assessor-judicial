@@ -34,18 +34,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { isJudge: authIsJudge, isSuperAdmin: authIsSuperAdmin } = useAuth();
   const effectiveIsSuperAdmin = isSuperAdmin ?? authIsSuperAdmin;
   const effectiveIsJudge = isJudge ?? authIsJudge;
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sidebar_collapsed");
+      if (saved !== null) return saved === "true";
+      return window.innerWidth < 1440;
+    }
+    return false;
+  });
 
-  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+  const toggleSidebar = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem("sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   return (
     <div className={`transition-all duration-300 ease-in-out border-r border-slate-300/30 dark:border-slate-800 bg-white dark:bg-[#0b111a] flex flex-col h-screen ${isCollapsed ? 'w-16' : 'w-64'} shrink-0 z-40 hidden md:flex relative`}>
       {/* Collapse Toggle */}
       <button 
         onClick={toggleSidebar}
-        className="absolute -right-3 top-6 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-full p-1 shadow-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors z-50"
+        title={isCollapsed ? "Expandir barra lateral" : "Recolher barra lateral"}
+        className="absolute -right-3 top-6 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-full w-6 h-6 flex items-center justify-center shadow-md hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors z-50 cursor-pointer"
       >
-        {isCollapsed ? <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" /> : <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />}
+        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" /> : <ChevronLeft className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />}
       </button>
 
       <div className="p-4 flex flex-col gap-6 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pt-6">
