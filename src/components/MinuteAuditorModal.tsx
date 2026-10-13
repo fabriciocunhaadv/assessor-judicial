@@ -4022,7 +4022,7 @@ ${reAuditNotes}`
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Modelo Cognitivo:</span>
-                  <span className="font-bold text-indigo-300">{auditResult?.modelUsed || "Gemini 3.7 Flash"}</span>
+                  <span className="font-bold text-indigo-300">{auditResult?.modelUsed || "Gemini 3.8 Flash"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Tokens de Entrada (Prompt/PDFs):</span>

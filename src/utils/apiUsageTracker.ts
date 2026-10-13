@@ -75,7 +75,7 @@ export const recordApiExecution = async (params: {
   const promptTokens = params.promptTokens || 0;
   const outputTokens = params.outputTokens || 0;
   const totalTokens = params.totalTokens || (promptTokens + outputTokens);
-  const model = params.model || "Gemini 3.7 Flash";
+  const model = params.model || "Gemini 3.8 Flash";
   const costBrl = calculateCostBrl(promptTokens, outputTokens, model);
 
   // Detecção inteligente do módulo se não informado explicitamente

@@ -1055,7 +1055,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
         recordApiExecution({
           label: "Consulta Chat / Reescrita",
           processNumber: minute?.processNumber || "Processo TJGO",
-          model: data.modelUsed || "Gemini 3.7 Flash",
+          model: data.modelUsed || "Gemini 3.8 Flash",
           promptTokens: data.usage.promptTokenCount,
           outputTokens: data.usage.candidatesTokenCount,
           totalTokens: data.usage.totalTokenCount,

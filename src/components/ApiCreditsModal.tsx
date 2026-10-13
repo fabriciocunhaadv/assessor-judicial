@@ -104,12 +104,12 @@ export const ApiCreditsModal: React.FC<ApiCreditsModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Real costs based on Gemini 3.7 Flash & 2.5 Flash
+  // Real costs based on Gemini 3.8 Flash & 2.5 Flash
   const promptTokens = currentUsage?.promptTokenCount || 0;
   const outputTokens = currentUsage?.candidatesTokenCount || 0;
   const totalTokens = currentUsage?.totalTokenCount || (promptTokens + outputTokens);
 
-  // Gemini 3.7 Flash: Input ~R$ 0.86/1M, Output ~R$ 3.45/1M
+  // Gemini 3.8 Flash: Input ~R$ 0.86/1M, Output ~R$ 3.45/1M
   const costBrlCurrent37 = (promptTokens * 0.00000086) + (outputTokens * 0.00000345);
   // Gemini 3.1 Flash Lite: Input ~R$ 0.43/1M, Output ~R$ 1.72/1M
   const costBrlCurrent31Lite = (promptTokens * 0.00000043) + (outputTokens * 0.00000172);
@@ -404,7 +404,7 @@ export const ApiCreditsModal: React.FC<ApiCreditsModalProps> = ({
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    Gemini 3.7 Flash (Principal)
+                    Gemini 3.8 Flash (Principal)
                   </button>
                   <button
                     onClick={() => setSelectedModelView("gemini-flash-latest")}
@@ -761,7 +761,7 @@ export const ApiCreditsModal: React.FC<ApiCreditsModalProps> = ({
                   </div>
 
                   <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <span className="text-[11px] font-bold text-slate-600 uppercase block">No Nível 1 Pago (Gemini 3.7 Flash)</span>
+                    <span className="text-[11px] font-bold text-slate-600 uppercase block">No Nível 1 Pago (Gemini 3.8 Flash)</span>
                     <div className="text-2xl font-black text-slate-800 mt-1">
                       ~R$ {monthlyCost37Brl.toFixed(2)} / mês
                     </div>
@@ -794,7 +794,7 @@ export const ApiCreditsModal: React.FC<ApiCreditsModalProps> = ({
 
                   <div className="p-3.5 flex items-center justify-between">
                     <div>
-                      <span className="font-bold text-slate-800">Entrada Gemini 3.7 Flash (Leitura dos Autos)</span>
+                      <span className="font-bold text-slate-800">Entrada Gemini 3.8 Flash (Leitura dos Autos)</span>
                       <span className="block text-[11px] text-slate-500">A cada 1.000.000 de tokens enviados</span>
                     </div>
                     <span className="font-mono text-slate-700 font-semibold">
@@ -804,7 +804,7 @@ export const ApiCreditsModal: React.FC<ApiCreditsModalProps> = ({
 
                   <div className="p-3.5 flex items-center justify-between">
                     <div>
-                      <span className="font-bold text-slate-800">Saída Gemini 3.7 Flash (Redação da Sentença)</span>
+                      <span className="font-bold text-slate-800">Saída Gemini 3.8 Flash (Redação da Sentença)</span>
                       <span className="block text-[11px] text-slate-500">A cada 1.000.000 de tokens gerados</span>
                     </div>
                     <span className="font-mono text-slate-700 font-semibold">

@@ -168,7 +168,7 @@ app.post("/api/test-api-key", async (req, res) => {
         const key = extractApiKey(req);
         if (!key) return res.status(400).json({ success: false, error: "Nenhuma chave de API informada." });
         const ai = new GoogleGenAI({ apiKey: key });
-        const testModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+        const testModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest"];
         let lastErr: any;
         for (const m of testModels) {
             try {
@@ -623,7 +623,7 @@ ${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetT
             res,
             primaryModel: "gemini-3.1-flash-lite",
             fallbackModel: "gemini-3.8-flash",
-            customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-latest"],      // 1º 3.1; reservas: 3.8 e 3.7; por último o latest
+            customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest"],      // 1º 3.1; reservas: 3.8 e 3.7; por último o latest
             timeoutMs: 45000,
             maxCycles: 1,
             contents: [
@@ -1441,7 +1441,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             res,
             primaryModel: "gemini-3.1-flash-lite",
             fallbackModel: "gemini-3.8-flash",
-            customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-flash-latest"],      // para priorizar rigor: ponha "gemini-3.8-flash" em 1º
+            customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest"],      // para priorizar rigor: ponha "gemini-3.8-flash" em 1º
             timeoutMs: 120000,
             maxCycles: 2,
             contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }] }],
@@ -2169,15 +2169,13 @@ async function generateWithFallbackAndRetry(options) {
     }
 
     // ESTEIRA DE MÁXIMA PROFUNDIDADE PRIMEIRO:
-    // Todos os modelos de raciocínio profundo primeiro (3.8, 3.7, 3.6, 3.5), acionando ao final os modelos latest e lite
+    // Todos os modelos Flash vigentes (3.8, 3.6), acionando ao final os modelos latest e lite (3.5 e 3.7 foram descontinuados)
     let pModel = options.primaryModel || 'gemini-3.1-flash-lite';
     let fbModel = options.fallbackModel || 'gemini-3.8-flash';
     const defaultFlashQueue = [
         "gemini-3.1-flash-lite",
         "gemini-3.8-flash",
-        "gemini-3.7-flash",
         "gemini-3.6-flash",
-        "gemini-3.5-flash",
         "gemini-flash-latest",
         "gemini-3.5-flash-lite",
         "gemini-flash-lite-latest"
@@ -4557,8 +4555,8 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
         isNativeAllowed: isRequestNativeAllowed(req),
         res,
         primaryModel: "gemini-3.8-flash",
-        fallbackModel: "gemini-3.7-flash",
-        customModelQueue: ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],      // somente Flash; 3.5 primeiro (estável nas chaves); 3.8/3.7/3.6 de reserva
+        fallbackModel: "gemini-3.8-flash",
+        customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
         timeoutMs: TIMEOUT_ETAPA,
         maxCycles: 2,
         contents: [{ role: "user", parts: stage1ContentsParts }],
@@ -5150,8 +5148,8 @@ try {
         isNativeAllowed: isRequestNativeAllowed(req),
         res,
         primaryModel: "gemini-3.8-flash",
-        fallbackModel: "gemini-3.7-flash",
-        customModelQueue: ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],      // somente Flash; 3.5 primeiro (estável nas chaves); 3.8/3.7/3.6 de reserva
+        fallbackModel: "gemini-3.8-flash",
+        customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
         timeoutMs: TIMEOUT_ETAPA,
         maxCycles: 2,
         contents: [{ role: "user", parts: [{ text: stage2Prompt }] }],

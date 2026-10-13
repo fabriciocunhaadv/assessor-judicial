@@ -3444,7 +3444,7 @@ ${cleanText}
                         <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
                         {scanProgress}
                       </span>
-                      <span className="text-[11px] text-indigo-600 font-mono">IA Gemini 3.7 Flash</span>
+                      <span className="text-[11px] text-indigo-600 font-mono">IA Gemini 3.8 Flash</span>
                     </div>
                     <div className="w-full bg-indigo-200/60 rounded-full h-2 overflow-hidden">
                       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full w-full animate-pulse" />
