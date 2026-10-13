@@ -1238,6 +1238,7 @@ app.post("/api/audit-assessor-draft", async (req, res) => {
             pdfFiles,
             specificInstructions,
             customPromptText,
+            cabinetTesesText,
             previousAuditResult,
             previousDraft,
             assessorCorrectionNotes
@@ -1324,8 +1325,26 @@ DIRETRIZES OBRIGATÓRIAS DE AUDITORIA FORENSE (PADRÃO OURO DO MAGISTRADO):
    - PONTO 3: ATOS SUBSEQUENTES: Reação das partes e da serventia após as decisões recentes (cumprimentos voluntários, depósitos, inércias/revelias, certidões de decurso de prazo, intimações pendentes, laudos ou acordos). A minuta não pode ignorar esses atos supervenientes.
    - PONTO 4: ESTADO ATUAL: Verificação categórica se o feito está maduro para sentença (instrução finda, prova desnecessária), saneamento (organização probatória do art. 357 CPC), decisão interlocutória/tutela (tutela provisória pendente pós-emenda ou urgente) ou se ainda está em curso de prazo legal (risco de decisão precipitada!). Se a minuta sugerir sentença em curso de prazo, aponte IMEDIATAMENTE como alerta bloqueante!
 
+CALIBRAGEM DO AUDITOR (VALE PARA QUALQUER PROCESSO E QUALQUER ÁREA):
+0. CRITÉRIO: o PROMPT SELECIONADO pelo gabinete (campo "DIRETRIZ DE TESE / MODELO") e o CADERNO DE TESES, quando existirem, são o critério de mérito da avaliação. Avalie a minuta por essas regras e pelo que os autos mostram. Não importe regras, providências ou checklists de fora deles. Se o prompt e as teses forem silenciosos sobre um ponto, avalie apenas fidelidade aos autos, congruência com os pedidos, coerência com as decisões anteriores e coerência interna da minuta.
+1. MÉTODO: (a) extraia da minuta TODOS os comandos do dispositivo e TODAS as afirmações de fato do relatório e da fundamentação e preencha "confrontoMinutaAutos", item por item, localizando a base de cada um nos autos; (b) só depois formule apontamentos, usando exclusivamente o que esse confronto revelou.
+2. PROVA DO APONTAMENTO: todo alerta bloqueante ou de atenção deve trazer (i) o trecho literal da minuta, (ii) o elemento dos autos que o contradiz ou que a minuta omitiu, com Mov./Arq./Pág. e citação curta, e (iii) por que isso altera o resultado ou cria risco concreto. Se você não conseguir citar o elemento dos autos, NÃO emita o alerta.
+3. SEM PRESUNÇÕES: não presuma problemas pelo tipo de ato nem pelo assunto. Só levante um ponto se os próprios autos o mostrarem, citando onde está.
+4. PRESUNÇÃO DE REGULARIDADE: minuta coerente com os autos (pedidos apreciados, fatos fiéis, decisões anteriores respeitadas) e fundamentada em base jurídica plausível é APROVADA. Escolhas de fundamentação, de solução entre alternativas juridicamente possíveis ou de redação não são erro e não reduzem a nota.
+5. VOCABULÁRIO: só use "sem base legal", "ilegal", "ignorou" ou "contraria" quando puder indicar o dispositivo violado ou a prova dos autos desconsiderada. Caso contrário use "diverge de ..." ou "não localizei nos autos ...".
+6. IDENTIDADE: confira o número do processo e as partes da minuta e dos autos. Se não coincidirem, emita um único alerta bloqueante: "autos não correspondem à minuta".
+7. NOTA: parta de 100 e reduza apenas por erro demonstrado (alerta com prova): forte para bloqueante, leve para atenção. Sem alertas com prova, a nota fica entre 90 e 100 ("Aprovada sem Ressalvas").
+8. TOM: objetivo e construtivo. No campo "summary", a primeira frase é a conclusão (aprovar / aprovar com ajuste / devolver), depois no máximo 3 pontos.
+
 Você deve responder ESTRITAMENTE em formato JSON com o seguinte schema obrigatório:
 {
+  "confrontoMinutaAutos": [
+    {
+      "item": "comando do dispositivo ou afirmação de fato da minuta",
+      "baseNosAutos": "Mov./Arq./Pág. + citação curta que sustenta (ou 'não localizei nos autos')",
+      "resultado": "confirmado" | "sem_lastro" | "contradito" | "omissao_relevante"
+    }
+  ],
   "score": número de 0 a 100 com o score geral da minuta,
   "verdict": "Aprovada sem Ressalvas" | "Aprovada com Ressalvas" | "Requer Correções Obrigatórias" | "Crítica / Risco de Nulidade",
   "verdictColor": "emerald" | "amber" | "rose" | "indigo",
@@ -1426,6 +1445,7 @@ ${draftText}
 ----------------------------------------
 ${specificInstructions ? `DIRETRIZES DO MAGISTRADO / INSTRUÇÕES DO GABINETE:\n${specificInstructions}\n\n` : ''}
 ${customPromptText ? `DIRETRIZ DE TESE / MODELO:\n${customPromptText}\n\n` : ''}
+${cabinetTesesText ? `CADERNO DE TESES E PRÁTICAS DO GABINETE (a minuta deve segui-las; aderir a elas não pode ser penalizado):\n${String(cabinetTesesText).slice(0, 60000)}\n\n` : ''}
 ${isReAudit ? `[DADOS DE COMPARAÇÃO DE REAUDITORIA]:
 Score Anterior: ${previousAuditResult?.score || 'N/A'}
 Alertas Anteriores: ${JSON.stringify(previousAuditResult?.criticalAlerts || [])}
@@ -1439,10 +1459,10 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             keyPool: extractApiKeyPool(req),
             isNativeAllowed: isRequestNativeAllowed(req),
             res,
-            primaryModel: "gemini-3.1-flash-lite",
+            primaryModel: "gemini-3.6-flash",
             fallbackModel: "gemini-3.8-flash",
-            customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest"],      // para priorizar rigor: ponha "gemini-3.8-flash" em 1º
-            timeoutMs: 120000,
+            customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
+            timeoutMs: 150000,
             maxCycles: 2,
             contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }] }],
             config: {
