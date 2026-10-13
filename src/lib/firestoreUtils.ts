@@ -89,8 +89,10 @@ export const subscribeToUnits = (callback: (units: JudicialUnit[]) => void): (()
         } catch {}
       }
 
-      callback([]);
-    }, (err) => { console.warn("Snapshot error in firestoreUtils:", err); });
+    }, (err) => { 
+      console.warn("Snapshot error in firestoreUtils:", err);
+      callback(DEFAULT_UNITS);
+    });
   } catch (err) {
     console.error("Error subscribing to units:", err);
     return () => {};

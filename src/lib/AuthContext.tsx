@@ -84,6 +84,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Safety timeout: garante que a aplicação nunca fique travada na tela de carregamento se o Firebase demorar
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+    }, 4500);
+    return () => clearTimeout(safetyTimer);
+  }, []);
   const [authError, setAuthError] = useState<string | null>(null);
   const [dynamicUnits, setDynamicUnits] = useState<JudicialUnit[]>(DEFAULT_UNITS);
   const [isTenantSuspended, setIsTenantSuspended] = useState(false);
@@ -328,6 +336,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error: any) {
           console.warn("Notice during profile sync:", error);
           setAuthError(error.message || "Erro ao carregar perfil do usuário.");
+        } finally {
+          setLoading(false);
         }
       } else {
         setUserProfile(null);
@@ -336,9 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTenantSuspensionReason(null);
         setLoading(false);
       }
-      if (!u || ((u.email || '').toLowerCase() !== 'fabriciocunha.adv@gmail.com')) {
-        setLoading(false);
-      }
+      setLoading(false);
     });
 
     return () => {
