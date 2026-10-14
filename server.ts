@@ -10,6 +10,7 @@ import { getApplicableTaxonomySummary } from './src/data/legalTaxonomy';
 import { filterInnocuousCertificates, cleanJudicialPdfText } from './src/utils/judicialTextCleaner';
 import { deduplicateJudicialPdfFiles, deduplicateTextBlocks } from './src/utils/documentDeduplicator';
 import { extractFromCoverPage } from './src/utils/judicialMetadataExtractor';
+import { gerarComAutosGrandes } from './src/utils/autosGrandes';
 import fs from 'fs';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
@@ -2416,6 +2417,16 @@ async function generateWithFallbackAndRetry(options) {
                         continue;
                     }
 
+                    // Pedido maior que o limite de ENTRADA da cota gratuita do Google: nenhuma chave nem modelo gratuito aceita; interrompe já (sem rodar o pool inteiro)
+                    // (só quando o próprio pedido passa do limite; se for apenas a janela do minuto cheia, segue o rodízio normal)
+                    const limEntradaGratuita = Number(errMsg.match(/limit:\s*(\d{4,9})/i)?.[1] || 250000);
+                    if (isQuotaError && errMsg.includes("free_tier_input_token_count") && estTokensChamada > limEntradaGratuita * 0.95) {
+                        const erEntrada: any = new Error(`Este pedido tem cerca de ${Math.round(estTokensChamada / 1000)} mil tokens e a cota gratuita do Google aceita no máximo ${Math.round(limEntradaGratuita / 1000)} mil tokens de entrada. Use uma chave com faturamento ativado ou reduza os autos (free_tier_input_token_count).`);
+                        erEntrada.codigo = "ENTRADA_GRANDE_GRATUITA";
+                        erEntrada.detalhe = errMsg.slice(0, 600);
+                        throw erEntrada;
+                    }
+
                     // Se for erro de cota / rate limit (429):
                     if (isQuotaError) {
                         const mr = errMsg.match(/retry in ([\d.]+)s/i) || errMsg.match(/"retryDelay":\s*"(\d+)s"/i);
@@ -4656,7 +4667,8 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
     const stage1StartTimer = Date.now();
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 3000);      // maior para autos grandes
-    stage1Response = await generateWithFallbackAndRetry({
+    stage1Response = await gerarComAutosGrandes(generateWithFallbackAndRetry, {
+        autosGrandes: { userPrompt, textos: [accumulatedPdfText, safeProcessText], partesRef: stage1ContentsParts },
         apiKey: userApiKey,
         keyPool: extractApiKeyPool(req),
         isNativeAllowed: isRequestNativeAllowed(req),
