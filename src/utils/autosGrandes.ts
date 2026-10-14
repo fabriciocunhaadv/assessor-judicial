@@ -119,6 +119,17 @@ export async function gerarComAutosGrandes(gerar: (o: any) => Promise<any>, opts
         if (contents[0]?.parts?.[0]) contents[0].parts[0] = { text: reduzido };
         if (Array.isArray(autosGrandes.partesRef) && autosGrandes.partesRef.length > 0) autosGrandes.partesRef[0] = { text: reduzido };
         const { customModelQueue: _q, maxCycles: _c, ...semFila } = resto;
-        return await chamar(gerar, {}, { ...semFila, contents }, pausa, log, "Etapa 1 sobre os autos reduzidos");
+        const resposta = await chamar(gerar, {}, { ...semFila, contents }, pausa, log, "Etapa 1 sobre os autos reduzidos");
+        // relatório do que foi feito (o servidor devolve ao app, que mostra na tela)
+        const faixas = (pred: (u: any) => boolean) => { const r: { de: number; ate: number; motivo: string }[] = []; for (const u of saida) if (pred(u)) { const l = r[r.length - 1]; if (l && l.ate === u.n - 1 && l.motivo === u.m) l.ate = u.n; else r.push({ de: u.n, ate: u.n, motivo: u.m }); } return r; };
+        const omitidas = faixas(u => u.c === "dispensavel"), faixasAbreviadas = faixas(u => u.c === "relevante" && u.out !== u.t);
+        const txt = (r: { de: number; ate: number; motivo: string }[]) => r.slice(0, 25).map(x => `${x.de === x.ate ? x.de : x.de + "–" + x.ate}${x.motivo ? " (" + x.motivo + ")" : ""}`).join("; ") + (r.length > 25 ? `; … (+${r.length - 25} trechos)` : "");
+        (resposta as any).autosReduzidos = {
+            tokensOriginais: Math.round(principal.length / CPT), paginasTotal: unidades.length, essenciais: nEss, omitidas, abreviadas: faixasAbreviadas,
+            resumo: `Autos grandes (~${Math.round(principal.length / CPT / 1000)} mil tokens, ${unidades.length} páginas): para caber no limite da chave gratuita, a IA classificou as páginas. ${nEss} essenciais foram mantidas integralmente. ` +
+                (removidas ? `Omitidas ${removidas} página(s) sem relevância para a minuta: ${txt(omitidas)}. ` : "Nenhuma página foi omitida. ") +
+                (faixasAbreviadas.length ? `Abreviadas (documentos secundários): ${txt(faixasAbreviadas)}.` : "")
+        };
+        return resposta;
     }
 }

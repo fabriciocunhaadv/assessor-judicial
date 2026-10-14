@@ -1101,6 +1101,12 @@ export default function App() {
       checkResponseForRotatedKey(rawData);
       checkResponseForRotatedKey(response);
 
+      // Autos grandes: mostra o que o sistema omitiu/abreviou para caber no limite da chave gratuita
+      if (rawData?.autosReduzidos?.resumo) {
+        console.log("[Assessor Judicial] Autos grandes reduzidos:", rawData.autosReduzidos);
+        toast(rawData.autosReduzidos.resumo, { duration: 60000, icon: "📄" });
+      }
+
       // Strict validation: if server returned an error payload or flagged error
       if (rawData?.error || rawData?.isError) {
         let cleanMsg = rawData.error;

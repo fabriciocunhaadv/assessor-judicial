@@ -5028,6 +5028,7 @@ if (executionStage === 1) {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
     }
+    if ((stage1Response as any)?.autosReduzidos) parsedStage1.autosReduzidos = (stage1Response as any).autosReduzidos;
     if (!res.headersSent) {
         return res.json(parsedStage1);
     } else {
@@ -5781,6 +5782,7 @@ if (wasRotated && rotatedKey) {
     if ((response as any)?.wasRotated && (response as any)?.usedKey) {
         parsed.rotatedKey = (response as any).usedKey;
     }
+    if ((stage1Response as any)?.autosReduzidos) parsed.autosReduzidos = (stage1Response as any).autosReduzidos;
     if (keepAliveInterval) {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
