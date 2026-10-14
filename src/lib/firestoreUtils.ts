@@ -6,6 +6,7 @@ import { SavedKnowledgeDoc } from '../utils/knowledgeDb';
 import { DEFAULT_CABINET_TESES } from '../data/defaultTeses';
 import { DEFAULT_PROJUDI_GUIDE } from '../data/defaultProjudiGuide';
 import { safeGetItem, safeSetItem, pruneDispensableStorage } from '../utils/safeStorage';
+import { limitarParaNuvem } from '../utils/auditTamanho';
 
 import { JudicialUnit, DEFAULT_UNITS } from '../types';
 
@@ -1838,15 +1839,11 @@ export const saveAuditToDb = async (auditRecord: AuditedProcessRecord): Promise<
     updatedAt: Date.now(),
   });
 
-  // Limite do Firestore: 1 MiB por documento. Autos muito grandes são cortados na cópia da nuvem
-  // (a cópia completa continua no navegador), para o salvamento não ser rejeitado.
-  const MAX_TXT = 200000;
-  for (const campo of ['processText', 'assessorDraft', 'previousDraft']) {
-    if (typeof dataToSave[campo] === 'string' && dataToSave[campo].length > MAX_TXT) {
-      dataToSave[campo] = dataToSave[campo].slice(0, MAX_TXT) + '\n[... texto cortado na nuvem por tamanho ...]';
-    }
-  }
-  await setDoc(doc(db, getTenantPath('audits'), auditRecord.id), dataToSave);
+  // Limite do Firestore: 1 MiB por documento (em bytes: acentos ocupam 2). Os textos longos são encurtados só na cópia da nuvem até caber;
+  // a nota, os apontamentos e a análise nunca são cortados.
+  const limitado = limitarParaNuvem(dataToSave);
+  if (limitado.cortou.length) console.warn('[Auditorias] textos encurtados na nuvem por tamanho:', limitado.cortou.join(', '));
+  await setDoc(doc(db, getTenantPath('audits'), auditRecord.id), limitado.dado);
 };
 
 export const deleteAuditFromDb = async (id: string): Promise<void> => {
