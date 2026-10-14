@@ -39,7 +39,9 @@ async function chamar(gerar: (o: any) => Promise<any>, base: any, extra: any, pa
             return await gerar({ ...base, ...extra,
                 customModelQueue: tent < 4 ? ["gemini-3.6-flash", "gemini-3.8-flash"] : ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"], maxCycles: 1 });
         } catch (e: any) {
-            ultimo = e; if (ehErroEntradaGrande(e)) throw e;
+            ultimo = e;
+            // pedido maior que o limite de uma vez só: não adianta repetir; mas se o pedido em si cabe (a "janela" de 1 minuto do Google está cheia pelas partes anteriores), espera e tenta de novo
+            if (ehErroEntradaGrande(e) && estimar(extra?.contents ?? base?.contents, extra?.config?.systemInstruction ?? base?.config?.systemInstruction) > limiteDoErro(e) * 0.9) throw e;
             log(`[Autos Grandes] ${rotulo}, tentativa ${tent}: ${String(e?.message || e).slice(0, 140)}`);
             if (tent < 4) await dorme(pausaMs);
         }
@@ -57,10 +59,18 @@ export async function gerarComAutosGrandes(gerar: (o: any) => Promise<any>, opts
         const pausa = Number(process.env.AUTOS_GRANDES_PAUSA_MS || 62000);
         const prompt: string = autosGrandes.userPrompt;
         const grandes: string[] = (autosGrandes.textos || []).filter((t: any) => typeof t === "string" && t.length >= MIN_CHARS_AUTOS && prompt.includes(t)).sort((a: string, b: string) => b.length - a.length);
-        if (!grandes.length) throw e;
+        if (!grandes.length) { console.log("[Autos Grandes] Não reduzi: nenhum bloco grande de autos (>=60 mil caracteres) foi encontrado dentro do pedido."); throw e; }
         const principal = grandes[0], extras = grandes.slice(1).filter(t => !principal.includes(t));
-        const unidades = principal.split(/(?=\[Página \d+ de \d+\])/).filter(x => x.length > 0).map((t, i) => ({ n: Number(t.match(/^\[Página (\d+) de/)?.[1] || 0), t }));
-        if (unidades.filter(u => u.n > 0).length < 20) throw e;      // sem marcadores de página não dá para classificar com segurança
+        let unidades = principal.split(/(?=\[Página \d+ de \d+\])/).filter(x => x.length > 0).map((t, i) => ({ n: Number(t.match(/^\[Página (\d+) de/)?.[1] || 0), t }));
+        let sintetico = false;
+        if (unidades.filter(u => u.n > 0).length < 20) {
+            // sem marcadores de página: o texto é dividido em blocos sequenciais (~4 mil caracteres, em quebra de linha) que fazem o papel de "páginas"
+            sintetico = true; unidades = []; let atual = "";
+            for (const par of principal.split(/(?<=\n)/)) { if (atual.length + par.length > 4000 && atual) { unidades.push({ n: unidades.length + 1, t: atual }); atual = ""; } atual += par; }
+            if (atual) unidades.push({ n: unidades.length + 1, t: atual });
+            console.log(`[Autos Grandes] Autos sem marcadores "[Página N de M]": dividi em ${unidades.length} blocos sequenciais para classificar.`);
+            if (unidades.length < 20) throw e;
+        }
 
         const limite = limiteDoErro(e);
         const fixo = estimar(resto.contents, resto.config?.systemInstruction) - (principal.length + extras.reduce((n, x) => n + x.length, 0)) / CPT;
@@ -73,7 +83,7 @@ export async function gerarComAutosGrandes(gerar: (o: any) => Promise<any>, opts
         log(`[Autos Grandes] Pedido recusado pelo limite gratuito (~${Math.round((permitido / CPT + fixo) / 1000)}k→limite ${Math.round(limite / 1000)}k). Classificando ${unidades.length} páginas em ${partes.length} parte(s) por relevância...`);
         const classe = new Map<number, { c: Classe; m: string }>();
         for (let i = 0; i < partes.length; i++) {
-            const texto = partes[i].map(u => u.t).join("");
+            const texto = partes[i].map(u => sintetico ? `[Página ${u.n} de ${unidades.length}]\n${u.t}` : u.t).join("");
             let ok = false;
             for (let tent = 1; tent <= 2 && !ok; tent++) {
                 const resp = await chamar(gerar, base, {

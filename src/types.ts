@@ -201,6 +201,12 @@ export interface GenerationResult {
     thesesSnippet?: string;
     fullText?: string;
   };
+  alertaInjecao?: {
+    total: number;
+    alto: number;
+    medio: number;
+    achados: { nivel: "alto" | "medio"; categoria: string; trecho: string; pagina?: number; posicao: number }[];
+  };
   autosReduzidos?: {
     tokensOriginais: number;
     paginasTotal: number;

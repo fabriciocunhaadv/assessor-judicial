@@ -1771,7 +1771,7 @@ export default function App() {
       }
 
       const completedResult: GenerationResult = await res.json();
-      setGenerationResult((prev) => ({ ...completedResult, autosReduzidos: completedResult.autosReduzidos || prev?.autosReduzidos }));
+      setGenerationResult((prev) => ({ ...completedResult, autosReduzidos: completedResult.autosReduzidos || prev?.autosReduzidos, alertaInjecao: completedResult.alertaInjecao || prev?.alertaInjecao }));
       toast.success("2ª Etapa concluída com sucesso! Minuta definitiva consolidada.", { id: toastId });
     } catch (err: any) {
       console.error("Erro na 2ª etapa:", err);

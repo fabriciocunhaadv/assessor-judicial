@@ -11,6 +11,7 @@ import { filterInnocuousCertificates, cleanJudicialPdfText } from './src/utils/j
 import { deduplicateJudicialPdfFiles, deduplicateTextBlocks } from './src/utils/documentDeduplicator';
 import { extractFromCoverPage } from './src/utils/judicialMetadataExtractor';
 import { gerarComAutosGrandes } from './src/utils/autosGrandes';
+import { detectarInjecao, instrucaoDefesaInjecao } from './src/utils/promptInjection';
 import fs from 'fs';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
@@ -883,6 +884,8 @@ app.post("/api/generate-minute-turbo", async (req, res) => {
         if (accumulatedText.length > 1500000) {
             accumulatedText = accumulatedText.substring(0, 1500000);
         }
+        let alertaInjecaoT: any = null, defesaInjecaoT = "";
+        try { const r = detectarInjecao(accumulatedText); if (r.total > 0) { alertaInjecaoT = r; defesaInjecaoT = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][turbo] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
         // Configuração defensiva de batimento cardíaco (anti-timeout do Cloud Run e mobile)
         if (!res.headersSent) {
@@ -1024,7 +1027,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
                 { role: "user", parts: [{ text: userPrompt }] }
             ],
             config: {
-                systemInstruction: systemPrompt,
+                systemInstruction: systemPrompt + defesaInjecaoT,
                 temperature: 0.1,
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
@@ -1229,6 +1232,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
             }
         };
 
+        if (alertaInjecaoT) (payload as any).alertaInjecao = alertaInjecaoT;
         if (!res.headersSent) {
             res.json(payload);
         } else {
@@ -3811,6 +3815,12 @@ if (accumulatedPdfText.length > 1500000) {
     console.log(`[Assessor Judicial] Processo excepcionalmente grande (${accumulatedPdfText.length} caracteres). Preservando os primeiros 1.500.000 caracteres integrais.`);
     accumulatedPdfText = accumulatedPdfText.substring(0, 1500000);
 }
+// ALERTA DE PROMPT INJECTION: trechos dos autos que tentam dar ordens à IA (regras determinísticas; ver src/utils/promptInjection.ts)
+let alertaInjecao: any = null; let defesaInjecao = "";
+try {
+    const rInj = detectarInjecao(accumulatedPdfText + "\n" + safeProcessText);
+    if (rInj.total > 0) { alertaInjecao = rInj; defesaInjecao = instrucaoDefesaInjecao(rInj); console.log(`[Prompt Injection] ${rInj.total} indício(s) nos autos (${rInj.alto} alto, ${rInj.medio} médio): ${rInj.achados.slice(0, 3).map(x => x.categoria).join(" | ")}`); }
+} catch (eInj) { console.log("[Prompt Injection] falha na verificação (ignorada):", (eInj as any)?.message); }
 const hasPdfs=Boolean(pdfFiles&&Array.isArray(pdfFiles)&&pdfFiles.length>0);const hasPrompt=Boolean(customPromptText&&typeof customPromptText==="string"&&customPromptText.trim().length>0);const hasProcessNumber=Boolean(processInfo?.processNumber&&processInfo.processNumber.trim().length>3&&processInfo.processNumber!=="Extrair automaticamente dos autos");const hasAnyContent=hasText||accumulatedPdfText.length>0||contentsParts.length>0||hasPdfs||hasPrompt||hasProcessNumber;if(!hasAnyContent){return res.status(400).json({error:"É obrigatório fornecer o PDF dos autos, o texto processual ou as diretrizes do prompt."})}
 
 // Safeguard anti-alucinação: se o usuário anexou PDFs, mas nenhum texto foi extraído e não há texto digitado
@@ -4680,7 +4690,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
         maxCycles: 2,
         contents: [{ role: "user", parts: stage1ContentsParts }],
         config: {
-            systemInstruction: stage1SystemInstruction,
+            systemInstruction: stage1SystemInstruction + defesaInjecao,
             temperature: 0.0,
             maxOutputTokens: 16384,
             responseMimeType: "application/json",
@@ -5029,6 +5039,7 @@ if (executionStage === 1) {
         keepAliveInterval = null;
     }
     if ((stage1Response as any)?.autosReduzidos) parsedStage1.autosReduzidos = (stage1Response as any).autosReduzidos;
+    if (alertaInjecao) parsedStage1.alertaInjecao = alertaInjecao;
     if (!res.headersSent) {
         return res.json(parsedStage1);
     } else {
@@ -5293,7 +5304,7 @@ try {
         maxCycles: 2,
         contents: [{ role: "user", parts: [{ text: stage2Prompt }] }],
         config: {
-            systemInstruction: stage2SystemInstruction,
+            systemInstruction: stage2SystemInstruction + defesaInjecao,
             temperature: 0.0,
             maxOutputTokens: 16384,
             responseMimeType: "application/json",
@@ -5783,6 +5794,7 @@ if (wasRotated && rotatedKey) {
         parsed.rotatedKey = (response as any).usedKey;
     }
     if ((stage1Response as any)?.autosReduzidos) parsed.autosReduzidos = (stage1Response as any).autosReduzidos;
+    if (alertaInjecao) parsed.alertaInjecao = alertaInjecao;
     if (keepAliveInterval) {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
