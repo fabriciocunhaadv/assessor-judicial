@@ -2087,6 +2087,7 @@ ${reAuditNotes}`
 
                 <button
                   onClick={handleExecuteAudit}
+                  id="btn-lupa-auditar-minuta"
                   disabled={isAuditing}
                   className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black rounded-xl text-sm transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
