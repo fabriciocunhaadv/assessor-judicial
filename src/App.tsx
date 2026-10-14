@@ -1104,7 +1104,7 @@ export default function App() {
       // Autos grandes: mostra o que o sistema omitiu/abreviou para caber no limite da chave gratuita
       if (rawData?.autosReduzidos?.resumo) {
         console.log("[Assessor Judicial] Autos grandes reduzidos:", rawData.autosReduzidos);
-        toast(rawData.autosReduzidos.resumo, { duration: 60000, icon: "📄" });
+        toast("Autos grandes: parte das páginas foi omitida/abreviada. Veja o aviso fixo no topo da minuta.", { duration: 10000, icon: "📄" });
       }
 
       // Strict validation: if server returned an error payload or flagged error
@@ -1771,7 +1771,7 @@ export default function App() {
       }
 
       const completedResult: GenerationResult = await res.json();
-      setGenerationResult(completedResult);
+      setGenerationResult((prev) => ({ ...completedResult, autosReduzidos: completedResult.autosReduzidos || prev?.autosReduzidos }));
       toast.success("2ª Etapa concluída com sucesso! Minuta definitiva consolidada.", { id: toastId });
     } catch (err: any) {
       console.error("Erro na 2ª etapa:", err);

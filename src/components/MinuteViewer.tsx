@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { AvisoAutosReduzidos } from "./AvisoAutosReduzidos";
 import ReactMarkdown from "react-markdown";
 import {
   Copy,
@@ -1594,6 +1595,8 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
         {/* Tab 1: Formatted Document View */}
         {activeTab === "formatted" && (
           <div className="space-y-4">
+            {result?.autosReduzidos && <AvisoAutosReduzidos info={result.autosReduzidos} />}
+
             {/* Automatic Pre-Audit Security Seal & Certificate */}
             {result?.auditAnalysis && (
               <div className="max-w-4xl mx-auto">

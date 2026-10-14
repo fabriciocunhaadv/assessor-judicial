@@ -201,6 +201,14 @@ export interface GenerationResult {
     thesesSnippet?: string;
     fullText?: string;
   };
+  autosReduzidos?: {
+    tokensOriginais: number;
+    paginasTotal: number;
+    essenciais: number;
+    omitidas: { de: number; ate: number; motivo: string }[];
+    abreviadas: { de: number; ate: number; motivo: string }[];
+    resumo: string;
+  };
   deduplicationStats?: {
     duplicatesFound: number;
     charsSaved: number;
