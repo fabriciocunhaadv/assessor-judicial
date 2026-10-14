@@ -170,7 +170,6 @@ app.post("/api/test-api-key", async (req, res) => {
         const ai = new GoogleGenAI({ apiKey: key });
         const testModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest"];
         let lastErr: any;
-        const failedErrors: any[] = [];
         for (const m of testModels) {
             try {
                 await ai.models.generateContent({
@@ -181,7 +180,6 @@ app.post("/api/test-api-key", async (req, res) => {
                 return res.json({ success: true, message: `Chave validada com sucesso no Google Gemini (${m}).` });
             } catch (mErr: any) {
                 lastErr = mErr;
-                failedErrors.push(mErr);
                 const mMsg = mErr?.message || "";
                 if (mMsg.includes("503") || mMsg.includes("UNAVAILABLE") || mMsg.includes("high demand") || 
                     mMsg.includes("429") || mMsg.includes("RESOURCE_EXHAUSTED") || mMsg.includes("Quota exceeded") ||
@@ -191,36 +189,12 @@ app.post("/api/test-api-key", async (req, res) => {
                 break;
             }
         }
-
-        const isDemandOrQuota = (e: any) => {
-            const msg = (e?.message || String(e || "")).toLowerCase();
-            return msg.includes("503") || msg.includes("unavailable") || msg.includes("high demand") || 
-                   msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota exceeded");
-        };
-
-        if (failedErrors.length > 0 && failedErrors.every(isDemandOrQuota)) {
-            return res.json({
-                success: true,
-                warning: true,
-                message: "Não foi possível confirmar agora: os servidores do Google estão com alta demanda ou a cota por minuto está esgotada. A chave não foi reprovada, tente novamente em instantes."
-            });
-        }
-
         return res.status(400).json({
             success: false,
             error: formatGeminiError(lastErr) || "Chave inválida ou limite atingido no Google Gemini."
         });
     } catch (err: any) {
         console.log("[Test API Key] Validação retornou:", err?.message || err);
-        const msg = (err?.message || String(err || "")).toLowerCase();
-        if (msg.includes("503") || msg.includes("unavailable") || msg.includes("high demand") || 
-            msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota exceeded")) {
-            return res.json({
-                success: true,
-                warning: true,
-                message: "Não foi possível confirmar agora: os servidores do Google estão com alta demanda ou a cota por minuto está esgotada. A chave não foi reprovada, tente novamente em instantes."
-            });
-        }
         return res.status(400).json({
             success: false,
             error: formatGeminiError(err) || "Chave inválida ou limite atingido no Google Gemini."
@@ -1264,7 +1238,6 @@ app.post("/api/audit-assessor-draft", async (req, res) => {
             pdfFiles,
             specificInstructions,
             customPromptText,
-            cabinetTesesText,
             previousAuditResult,
             previousDraft,
             assessorCorrectionNotes
@@ -1351,26 +1324,8 @@ DIRETRIZES OBRIGATÓRIAS DE AUDITORIA FORENSE (PADRÃO OURO DO MAGISTRADO):
    - PONTO 3: ATOS SUBSEQUENTES: Reação das partes e da serventia após as decisões recentes (cumprimentos voluntários, depósitos, inércias/revelias, certidões de decurso de prazo, intimações pendentes, laudos ou acordos). A minuta não pode ignorar esses atos supervenientes.
    - PONTO 4: ESTADO ATUAL: Verificação categórica se o feito está maduro para sentença (instrução finda, prova desnecessária), saneamento (organização probatória do art. 357 CPC), decisão interlocutória/tutela (tutela provisória pendente pós-emenda ou urgente) ou se ainda está em curso de prazo legal (risco de decisão precipitada!). Se a minuta sugerir sentença em curso de prazo, aponte IMEDIATAMENTE como alerta bloqueante!
 
-CALIBRAGEM DO AUDITOR (VALE PARA QUALQUER PROCESSO E QUALQUER ÁREA):
-0. CRITÉRIO: o PROMPT SELECIONADO pelo gabinete (campo "DIRETRIZ DE TESE / MODELO") e o CADERNO DE TESES, quando existirem, são o critério de mérito da avaliação. Avalie a minuta por essas regras e pelo que os autos mostram. Não importe regras, providências ou checklists de fora deles. Se o prompt e as teses forem silenciosos sobre um ponto, avalie apenas fidelidade aos autos, congruência com os pedidos, coerência com as decisões anteriores e coerência interna da minuta.
-1. MÉTODO: (a) extraia da minuta TODOS os comandos do dispositivo e TODAS as afirmações de fato do relatório e da fundamentação e preencha "confrontoMinutaAutos", item por item, localizando a base de cada um nos autos; (b) só depois formule apontamentos, usando exclusivamente o que esse confronto revelou.
-2. PROVA DO APONTAMENTO: todo alerta bloqueante ou de atenção deve trazer (i) o trecho literal da minuta, (ii) o elemento dos autos que o contradiz ou que a minuta omitiu, com Mov./Arq./Pág. e citação curta, e (iii) por que isso altera o resultado ou cria risco concreto. Se você não conseguir citar o elemento dos autos, NÃO emita o alerta.
-3. SEM PRESUNÇÕES: não presuma problemas pelo tipo de ato nem pelo assunto. Só levante um ponto se os próprios autos o mostrarem, citando onde está.
-4. PRESUNÇÃO DE REGULARIDADE: minuta coerente com os autos (pedidos apreciados, fatos fiéis, decisões anteriores respeitadas) e fundamentada em base jurídica plausível é APROVADA. Escolhas de fundamentação, de solução entre alternativas juridicamente possíveis ou de redação não são erro e não reduzem a nota.
-5. VOCABULÁRIO: só use "sem base legal", "ilegal", "ignorou" ou "contraria" quando puder indicar o dispositivo violado ou a prova dos autos desconsiderada. Caso contrário use "diverge de ..." ou "não localizei nos autos ...".
-6. IDENTIDADE: confira o número do processo e as partes da minuta e dos autos. Se não coincidirem, emita um único alerta bloqueante: "autos não correspondem à minuta".
-7. NOTA: parta de 100 e reduza apenas por erro demonstrado (alerta com prova): forte para bloqueante, leve para atenção. Sem alertas com prova, a nota fica entre 90 e 100 ("Aprovada sem Ressalvas").
-8. TOM: objetivo e construtivo. No campo "summary", a primeira frase é a conclusão (aprovar / aprovar com ajuste / devolver), depois no máximo 3 pontos.
-
 Você deve responder ESTRITAMENTE em formato JSON com o seguinte schema obrigatório:
 {
-  "confrontoMinutaAutos": [
-    {
-      "item": "comando do dispositivo ou afirmação de fato da minuta",
-      "baseNosAutos": "Mov./Arq./Pág. + citação curta que sustenta (ou 'não localizei nos autos')",
-      "resultado": "confirmado" | "sem_lastro" | "contradito" | "omissao_relevante"
-    }
-  ],
   "score": número de 0 a 100 com o score geral da minuta,
   "verdict": "Aprovada sem Ressalvas" | "Aprovada com Ressalvas" | "Requer Correções Obrigatórias" | "Crítica / Risco de Nulidade",
   "verdictColor": "emerald" | "amber" | "rose" | "indigo",
@@ -1471,7 +1426,6 @@ ${draftText}
 ----------------------------------------
 ${specificInstructions ? `DIRETRIZES DO MAGISTRADO / INSTRUÇÕES DO GABINETE:\n${specificInstructions}\n\n` : ''}
 ${customPromptText ? `DIRETRIZ DE TESE / MODELO:\n${customPromptText}\n\n` : ''}
-${cabinetTesesText ? `CADERNO DE TESES E PRÁTICAS DO GABINETE (a minuta deve segui-las; aderir a elas não pode ser penalizado):\n${String(cabinetTesesText).slice(0, 60000)}\n\n` : ''}
 ${isReAudit ? `[DADOS DE COMPARAÇÃO DE REAUDITORIA]:
 Score Anterior: ${previousAuditResult?.score || 'N/A'}
 Alertas Anteriores: ${JSON.stringify(previousAuditResult?.criticalAlerts || [])}
@@ -1485,10 +1439,10 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             keyPool: extractApiKeyPool(req),
             isNativeAllowed: isRequestNativeAllowed(req),
             res,
-            primaryModel: "gemini-3.6-flash",
+            primaryModel: "gemini-3.1-flash-lite",
             fallbackModel: "gemini-3.8-flash",
-            customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
-            timeoutMs: 150000,
+            customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest"],      // para priorizar rigor: ponha "gemini-3.8-flash" em 1º
+            timeoutMs: 120000,
             maxCycles: 2,
             contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }] }],
             config: {
@@ -2486,67 +2440,6 @@ async function generateWithFallbackAndRetry(options) {
         }
     }
     throw lastError;
-}
-
-// ========================================================================
-// PORTÃO DE PROFUNDIDADE (ETAPAS 1 E 2): impede minuta/sentença resumida, inclusive quando a esteira cai em Flash-Lite.
-// Mede o tamanho do relatório, da fundamentação e do dispositivo; se ficou abaixo do piso, refaz UMA vez expandindo.
-// Ajuste os pisos abaixo conforme a sua experiência (valores em caracteres / parágrafos).
-// ========================================================================
-const PISOS_PROFUNDIDADE: Record<string, { rel: number; fund: number; disp: number; par: number }> = {
-    sentenca: { rel: 1800, fund: 7000, disp: 500, par: 8 },
-    decisao:  { rel: 1400, fund: 4000, disp: 400, par: 5 },
-    embargos: { rel: 1000, fund: 3000, disp: 300, par: 3 },
-    despacho: { rel: 700,  fund: 1800, disp: 250, par: 2 }
-};
-function tipoDeAtoPorTexto(txt: any, padrao: string): string {
-    const s = String(txt || "").toLowerCase();
-    if (s.includes("embargo")) return "embargos";
-    if (s.includes("despach")) return "despacho";
-    if (s.includes("decis") || s.includes("saneam")) return "decisao";
-    if (s.includes("senten")) return "sentenca";
-    return PISOS_PROFUNDIDADE[padrao] ? padrao : "sentenca";
-}
-function avaliarProfundidadeMinuta(m: any, tipo: string, tamAutos: number, modeloRaso: boolean): { ok: boolean; falhas: string[] } {
-    const p = PISOS_PROFUNDIDADE[tipo] || PISOS_PROFUNDIDADE.sentenca;
-    const rel = String(m?.relatorio || ""), fund = String(m?.fundamentacao || ""), disp = String(m?.dispositivo || "");
-    // Modelos rasos (Flash-Lite / latest) seguem o piso cheio; modelos profundos (3.6 / 3.8), 60% dele. Autos grandes pedem um pouco mais.
-    const fator = (modeloRaso ? 1 : 0.6) * (tamAutos > 400000 ? 1.4 : tamAutos > 150000 ? 1.2 : 1);
-    const nPar = fund.split(/\n\s*\n/).filter((x) => x.trim().length > 60).length;
-    const falhas: string[] = [];
-    if (rel.length < p.rel * fator) falhas.push(`relatório com ${rel.length} caracteres (mínimo ${Math.round(p.rel * fator)})`);
-    if (fund.length < p.fund * fator) falhas.push(`fundamentação com ${fund.length} caracteres (mínimo ${Math.round(p.fund * fator)})`);
-    if (disp.length < p.disp * fator) falhas.push(`dispositivo com ${disp.length} caracteres (mínimo ${Math.round(p.disp * fator)})`);
-    if (nPar < Math.ceil(p.par * fator)) falhas.push(`fundamentação com ${nPar} parágrafos (mínimo ${Math.ceil(p.par * fator)})`);
-    return { ok: falhas.length === 0, falhas };
-}
-async function expandirMinutaResumida(a: { partes: any[]; sistema: string; minuta: any; falhas: string[]; req: any; res: any; userApiKey: any; timeoutMs: number }): Promise<{ relatorio: string; fundamentacao: string; dispositivo: string } | null> {
-    try {
-        const instrucao = `ATENÇÃO — A MINUTA PRELIMINAR ABAIXO FICOU RESUMIDA DEMAIS E NÃO ATENDE AOS PISOS DE PROFUNDIDADE: ${a.falhas.join("; ")}.
-REFAÇA integralmente os campos "relatorio", "fundamentacao" e "dispositivo", mantendo todos os fatos, partes, datas, valores e comandos corretos da minuta preliminar e ACRESCENTANDO tudo o que consta dos autos e foi omitido. Regras: (1) NÃO resuma, NÃO use listas telegráficas nem fórmulas genéricas; (2) um parágrafo próprio para cada pedido, ponto controvertido e prova relevante, com a localização (Mov. X, Arq. Y, Pág. Z) e transcrição literal entre aspas dos trechos centrais; (3) fundamentação em subtópicos Markdown (### 1., ### 2., ...), com os dispositivos legais e precedentes aplicáveis; (4) dispositivo operacional, pedido por pedido; (5) preserve o estilo, as teses e as diretrizes do gabinete já aplicados. Responda SOMENTE com o JSON {"relatorio": "...", "fundamentacao": "...", "dispositivo": "..."}.
-MINUTA PRELIMINAR A EXPANDIR:
-${JSON.stringify({ relatorio: a.minuta?.relatorio || "", fundamentacao: a.minuta?.fundamentacao || "", dispositivo: a.minuta?.dispositivo || "" })}`;
-        const resp: any = await generateWithFallbackAndRetry({
-            apiKey: a.userApiKey,
-            keyPool: extractApiKeyPool(a.req),
-            isNativeAllowed: isRequestNativeAllowed(a.req),
-            res: a.res,
-            primaryModel: "gemini-3.6-flash",
-            fallbackModel: "gemini-3.8-flash",
-            customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
-            timeoutMs: a.timeoutMs,
-            maxCycles: 1,
-            contents: [{ role: "user", parts: [...a.partes, { text: instrucao }] }],
-            config: { systemInstruction: a.sistema, temperature: 0.2, maxOutputTokens: 32768, responseMimeType: "application/json" }
-        });
-        const j: any = safeParseJson(resp?.text || "");
-        if (j && typeof j.fundamentacao === "string" && j.fundamentacao.trim().length > 0) {
-            return { relatorio: String(j.relatorio || a.minuta?.relatorio || ""), fundamentacao: String(j.fundamentacao), dispositivo: String(j.dispositivo || a.minuta?.dispositivo || "") };
-        }
-    } catch (e: any) {
-        console.warn("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] A expansão não foi concluída; mantendo a minuta original:", e?.message || e);
-    }
-    return null;
 }
 
 async function generateHolisticSynopsis(fullProcessText: string, options: {
@@ -4727,25 +4620,6 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
     if (!stage1Json.relatorio && !stage1Json.fundamentacao && !stage1Json.dispositivo) {
         stage1Json = { relatorio: "", fundamentacao: stage1Text, dispositivo: "" };
     }
-
-    // PORTÃO DE PROFUNDIDADE DA ETAPA 1: se a minuta saiu resumida (típico de Flash-Lite), refaz uma vez expandindo
-    {
-        const raso1 = /lite|latest/i.test(String((stage1Response as any)?.usedModel || ""));
-        const tipo1 = tipoDeAtoPorTexto(stage1Json.actType, resolvedActType);
-        const av1 = avaliarProfundidadeMinuta(stage1Json, tipo1, (accumulatedPdfText || safeProcessText || "").length, raso1);
-        if (!av1.ok) {
-            if (raso1) {
-                console.log(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 resumida (${av1.falhas.join("; ")}). Expandindo a minuta...`);
-                const exp1 = await expandirMinutaResumida({ partes: stage1ContentsParts, sistema: stage1SystemInstruction, minuta: stage1Json, falhas: av1.falhas, req, res, userApiKey, timeoutMs: TIMEOUT_ETAPA });
-                if (exp1 && exp1.fundamentacao.length > String(stage1Json.fundamentacao || "").length) {
-                    stage1Json = { ...stage1Json, ...exp1 };
-                    console.log("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 expandida com sucesso.");
-                }
-            } else {
-                console.warn(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 (modelo profundo): ressalvas de piso detectadas (${av1.falhas.join("; ")}), mantendo sem expansão.`);
-            }
-        }
-    }
 }
 
 // SOBERANIA ABSOLUTA DO DISPOSITIVO SOBRE O TIPO DE ATO (ARTS. 203, 485 E 487 DO CPC):
@@ -5412,26 +5286,6 @@ if (parsed.minute.fundamentacao && stage1Json?.fundamentacao && parsed.minute.fu
     if (!sample || !parsed.minute.fundamentacao.includes(sample)) {
         console.log("[Assessor Judicial] Fundamentação sucinta detectada na Etapa 2. Integrando acervo fático-probatório da Etapa 1 para assegurar os 7 blocos obrigatórios...");
         parsed.minute.fundamentacao = `${stage1Json.fundamentacao}\n\n${parsed.minute.fundamentacao}`;
-    }
-}
-
-// PORTÃO DE PROFUNDIDADE DA ETAPA 2: se a minuta final saiu resumida, refaz uma vez expandindo
-if (!stage2Failed) {
-    const raso2 = /lite|latest/i.test(String((response as any)?.usedModel || ""));
-    const av2 = avaliarProfundidadeMinuta(parsed.minute, resolvedActType, (accumulatedPdfText || safeProcessText || "").length, raso2);
-    if (!av2.ok) {
-        if (raso2) {
-            console.log(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 resumida (${av2.falhas.join("; ")}). Expandindo a minuta...`);
-            const exp2 = await expandirMinutaResumida({ partes: [{ text: stage2Prompt }], sistema: stage2SystemInstruction, minuta: parsed.minute, falhas: av2.falhas, req, res, userApiKey, timeoutMs: 150000 });
-            if (exp2 && exp2.fundamentacao.length > String(parsed.minute.fundamentacao || "").length) {
-                parsed.minute.relatorio = exp2.relatorio || parsed.minute.relatorio;
-                parsed.minute.fundamentacao = exp2.fundamentacao;
-                parsed.minute.dispositivo = exp2.dispositivo || parsed.minute.dispositivo;
-                console.log("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 expandida com sucesso.");
-            }
-        } else {
-            console.warn(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 (modelo profundo): ressalvas de piso detectadas (${av2.falhas.join("; ")}), mantendo sem expansão.`);
-        }
     }
 }
 

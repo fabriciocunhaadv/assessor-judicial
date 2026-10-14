@@ -767,7 +767,6 @@ ${specificInstructions}`
           pdfFiles: sanitizedPdfFiles,
           specificInstructions,
           customPromptText: selectedPrompt?.promptText || "",
-          cabinetTesesText: (await getCabinetTeses().catch(() => null))?.text || "",
         }),
       });
 
@@ -1073,8 +1072,6 @@ ${specificInstructions}`
           previousAuditResult: reAuditSourceRecord.auditResult,
           previousDraft: reAuditSourceRecord.assessorDraft,
           assessorCorrectionNotes: reAuditNotes,
-          cabinetTesesText: (await getCabinetTeses().catch(() => null))?.text || "",
-          customPromptText: selectedPrompt?.promptText || "",
         }),
       });
 
