@@ -170,6 +170,7 @@ app.post("/api/test-api-key", async (req, res) => {
         const ai = new GoogleGenAI({ apiKey: key });
         const testModels = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest"];
         let lastErr: any;
+        const failedErrors: any[] = [];
         for (const m of testModels) {
             try {
                 await ai.models.generateContent({
@@ -180,6 +181,7 @@ app.post("/api/test-api-key", async (req, res) => {
                 return res.json({ success: true, message: `Chave validada com sucesso no Google Gemini (${m}).` });
             } catch (mErr: any) {
                 lastErr = mErr;
+                failedErrors.push(mErr);
                 const mMsg = mErr?.message || "";
                 if (mMsg.includes("503") || mMsg.includes("UNAVAILABLE") || mMsg.includes("high demand") || 
                     mMsg.includes("429") || mMsg.includes("RESOURCE_EXHAUSTED") || mMsg.includes("Quota exceeded") ||
@@ -189,12 +191,36 @@ app.post("/api/test-api-key", async (req, res) => {
                 break;
             }
         }
+
+        const isDemandOrQuota = (e: any) => {
+            const msg = (e?.message || String(e || "")).toLowerCase();
+            return msg.includes("503") || msg.includes("unavailable") || msg.includes("high demand") || 
+                   msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota exceeded");
+        };
+
+        if (failedErrors.length > 0 && failedErrors.every(isDemandOrQuota)) {
+            return res.json({
+                success: true,
+                warning: true,
+                message: "Não foi possível confirmar agora: os servidores do Google estão com alta demanda ou a cota por minuto está esgotada. A chave não foi reprovada, tente novamente em instantes."
+            });
+        }
+
         return res.status(400).json({
             success: false,
             error: formatGeminiError(lastErr) || "Chave inválida ou limite atingido no Google Gemini."
         });
     } catch (err: any) {
         console.log("[Test API Key] Validação retornou:", err?.message || err);
+        const msg = (err?.message || String(err || "")).toLowerCase();
+        if (msg.includes("503") || msg.includes("unavailable") || msg.includes("high demand") || 
+            msg.includes("429") || msg.includes("resource_exhausted") || msg.includes("quota exceeded")) {
+            return res.json({
+                success: true,
+                warning: true,
+                message: "Não foi possível confirmar agora: os servidores do Google estão com alta demanda ou a cota por minuto está esgotada. A chave não foi reprovada, tente novamente em instantes."
+            });
+        }
         return res.status(400).json({
             success: false,
             error: formatGeminiError(err) || "Chave inválida ou limite atingido no Google Gemini."
@@ -4708,11 +4734,15 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
         const tipo1 = tipoDeAtoPorTexto(stage1Json.actType, resolvedActType);
         const av1 = avaliarProfundidadeMinuta(stage1Json, tipo1, (accumulatedPdfText || safeProcessText || "").length, raso1);
         if (!av1.ok) {
-            console.log(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 resumida (${av1.falhas.join("; ")}). Expandindo a minuta...`);
-            const exp1 = await expandirMinutaResumida({ partes: stage1ContentsParts, sistema: stage1SystemInstruction, minuta: stage1Json, falhas: av1.falhas, req, res, userApiKey, timeoutMs: TIMEOUT_ETAPA });
-            if (exp1 && exp1.fundamentacao.length > String(stage1Json.fundamentacao || "").length) {
-                stage1Json = { ...stage1Json, ...exp1 };
-                console.log("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 expandida com sucesso.");
+            if (raso1) {
+                console.log(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 resumida (${av1.falhas.join("; ")}). Expandindo a minuta...`);
+                const exp1 = await expandirMinutaResumida({ partes: stage1ContentsParts, sistema: stage1SystemInstruction, minuta: stage1Json, falhas: av1.falhas, req, res, userApiKey, timeoutMs: TIMEOUT_ETAPA });
+                if (exp1 && exp1.fundamentacao.length > String(stage1Json.fundamentacao || "").length) {
+                    stage1Json = { ...stage1Json, ...exp1 };
+                    console.log("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 expandida com sucesso.");
+                }
+            } else {
+                console.warn(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 (modelo profundo): ressalvas de piso detectadas (${av1.falhas.join("; ")}), mantendo sem expansão.`);
             }
         }
     }
@@ -5390,13 +5420,17 @@ if (!stage2Failed) {
     const raso2 = /lite|latest/i.test(String((response as any)?.usedModel || ""));
     const av2 = avaliarProfundidadeMinuta(parsed.minute, resolvedActType, (accumulatedPdfText || safeProcessText || "").length, raso2);
     if (!av2.ok) {
-        console.log(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 resumida (${av2.falhas.join("; ")}). Expandindo a minuta...`);
-        const exp2 = await expandirMinutaResumida({ partes: [{ text: stage2Prompt }], sistema: stage2SystemInstruction, minuta: parsed.minute, falhas: av2.falhas, req, res, userApiKey, timeoutMs: 150000 });
-        if (exp2 && exp2.fundamentacao.length > String(parsed.minute.fundamentacao || "").length) {
-            parsed.minute.relatorio = exp2.relatorio || parsed.minute.relatorio;
-            parsed.minute.fundamentacao = exp2.fundamentacao;
-            parsed.minute.dispositivo = exp2.dispositivo || parsed.minute.dispositivo;
-            console.log("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 expandida com sucesso.");
+        if (raso2) {
+            console.log(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 resumida (${av2.falhas.join("; ")}). Expandindo a minuta...`);
+            const exp2 = await expandirMinutaResumida({ partes: [{ text: stage2Prompt }], sistema: stage2SystemInstruction, minuta: parsed.minute, falhas: av2.falhas, req, res, userApiKey, timeoutMs: 150000 });
+            if (exp2 && exp2.fundamentacao.length > String(parsed.minute.fundamentacao || "").length) {
+                parsed.minute.relatorio = exp2.relatorio || parsed.minute.relatorio;
+                parsed.minute.fundamentacao = exp2.fundamentacao;
+                parsed.minute.dispositivo = exp2.dispositivo || parsed.minute.dispositivo;
+                console.log("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 expandida com sucesso.");
+            }
+        } else {
+            console.warn(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 (modelo profundo): ressalvas de piso detectadas (${av2.falhas.join("; ")}), mantendo sem expansão.`);
         }
     }
 }
