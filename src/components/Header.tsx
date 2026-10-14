@@ -173,7 +173,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Logo / Branding (Fixo à esquerda) */}
         <div 
           onClick={onGoHome}
-          className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0 select-none pr-2" 
+          className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group min-w-0 sm:shrink-0 select-none pr-2" 
           title="Ir para o Início / Nova Análise"
         >
           <div className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center shadow-xs transition duration-200 shrink-0 ${
@@ -183,9 +183,9 @@ export const Header: React.FC<HeaderProps> = ({
           }`}>
             {isJudge ? <Crown className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-300" /> : <Scale className="w-4 h-4 sm:w-4.5 sm:h-4.5" />}
           </div>
-          <div className="flex flex-col shrink-0">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <h1 className={`font-extrabold text-sm sm:text-base tracking-wide text-white font-sans flex items-center gap-1.5 transition ${
+          <div className="flex flex-col min-w-0 sm:shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <h1 className={`font-extrabold text-sm sm:text-base tracking-wide text-white font-sans flex items-center gap-1.5 transition truncate min-w-0 ${
                 isJudge ? "group-hover:text-amber-300" : "group-hover:text-emerald-300"
               }`}>
                 Assessor Judicial
@@ -196,13 +196,13 @@ export const Header: React.FC<HeaderProps> = ({
                   MAGISTRADO
                 </span>
               ) : (
-                <span className="px-1.5 py-0.2 rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 font-mono text-[8px] sm:text-[9px] font-bold flex items-center gap-1 shrink-0">
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 font-mono text-[8px] sm:text-[9px] font-bold flex max-[400px]:hidden items-center gap-1 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   ON
                 </span>
               )}
             </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-300 font-medium whitespace-nowrap flex items-center gap-1">
+            <p className="text-[10px] sm:text-[11px] text-slate-300 font-medium whitespace-nowrap truncate flex items-center gap-1">
               {isJudge ? (
                 <span className="text-amber-200 font-semibold flex items-center gap-1">
                   <Scale className="w-3 h-3 text-amber-300" />
@@ -275,12 +275,12 @@ export const Header: React.FC<HeaderProps> = ({
             {isMobileMenuOpen ? (
               <>
                 <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-300" />
-                <span>Fechar</span>
+                <span className="hidden sm:inline">Fechar</span>
               </>
             ) : (
               <>
                 <Menu className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" />
-                <span>Menu</span>
+                <span className="hidden sm:inline">Menu</span>
               </>
             )}
           </button>
