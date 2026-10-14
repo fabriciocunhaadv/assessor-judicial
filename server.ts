@@ -2462,6 +2462,67 @@ async function generateWithFallbackAndRetry(options) {
     throw lastError;
 }
 
+// ========================================================================
+// PORTÃO DE PROFUNDIDADE (ETAPAS 1 E 2): impede minuta/sentença resumida, inclusive quando a esteira cai em Flash-Lite.
+// Mede o tamanho do relatório, da fundamentação e do dispositivo; se ficou abaixo do piso, refaz UMA vez expandindo.
+// Ajuste os pisos abaixo conforme a sua experiência (valores em caracteres / parágrafos).
+// ========================================================================
+const PISOS_PROFUNDIDADE: Record<string, { rel: number; fund: number; disp: number; par: number }> = {
+    sentenca: { rel: 1800, fund: 7000, disp: 500, par: 8 },
+    decisao:  { rel: 1400, fund: 4000, disp: 400, par: 5 },
+    embargos: { rel: 1000, fund: 3000, disp: 300, par: 3 },
+    despacho: { rel: 700,  fund: 1800, disp: 250, par: 2 }
+};
+function tipoDeAtoPorTexto(txt: any, padrao: string): string {
+    const s = String(txt || "").toLowerCase();
+    if (s.includes("embargo")) return "embargos";
+    if (s.includes("despach")) return "despacho";
+    if (s.includes("decis") || s.includes("saneam")) return "decisao";
+    if (s.includes("senten")) return "sentenca";
+    return PISOS_PROFUNDIDADE[padrao] ? padrao : "sentenca";
+}
+function avaliarProfundidadeMinuta(m: any, tipo: string, tamAutos: number, modeloRaso: boolean): { ok: boolean; falhas: string[] } {
+    const p = PISOS_PROFUNDIDADE[tipo] || PISOS_PROFUNDIDADE.sentenca;
+    const rel = String(m?.relatorio || ""), fund = String(m?.fundamentacao || ""), disp = String(m?.dispositivo || "");
+    // Modelos rasos (Flash-Lite / latest) seguem o piso cheio; modelos profundos (3.6 / 3.8), 60% dele. Autos grandes pedem um pouco mais.
+    const fator = (modeloRaso ? 1 : 0.6) * (tamAutos > 400000 ? 1.4 : tamAutos > 150000 ? 1.2 : 1);
+    const nPar = fund.split(/\n\s*\n/).filter((x) => x.trim().length > 60).length;
+    const falhas: string[] = [];
+    if (rel.length < p.rel * fator) falhas.push(`relatório com ${rel.length} caracteres (mínimo ${Math.round(p.rel * fator)})`);
+    if (fund.length < p.fund * fator) falhas.push(`fundamentação com ${fund.length} caracteres (mínimo ${Math.round(p.fund * fator)})`);
+    if (disp.length < p.disp * fator) falhas.push(`dispositivo com ${disp.length} caracteres (mínimo ${Math.round(p.disp * fator)})`);
+    if (nPar < Math.ceil(p.par * fator)) falhas.push(`fundamentação com ${nPar} parágrafos (mínimo ${Math.ceil(p.par * fator)})`);
+    return { ok: falhas.length === 0, falhas };
+}
+async function expandirMinutaResumida(a: { partes: any[]; sistema: string; minuta: any; falhas: string[]; req: any; res: any; userApiKey: any; timeoutMs: number }): Promise<{ relatorio: string; fundamentacao: string; dispositivo: string } | null> {
+    try {
+        const instrucao = `ATENÇÃO — A MINUTA PRELIMINAR ABAIXO FICOU RESUMIDA DEMAIS E NÃO ATENDE AOS PISOS DE PROFUNDIDADE: ${a.falhas.join("; ")}.
+REFAÇA integralmente os campos "relatorio", "fundamentacao" e "dispositivo", mantendo todos os fatos, partes, datas, valores e comandos corretos da minuta preliminar e ACRESCENTANDO tudo o que consta dos autos e foi omitido. Regras: (1) NÃO resuma, NÃO use listas telegráficas nem fórmulas genéricas; (2) um parágrafo próprio para cada pedido, ponto controvertido e prova relevante, com a localização (Mov. X, Arq. Y, Pág. Z) e transcrição literal entre aspas dos trechos centrais; (3) fundamentação em subtópicos Markdown (### 1., ### 2., ...), com os dispositivos legais e precedentes aplicáveis; (4) dispositivo operacional, pedido por pedido; (5) preserve o estilo, as teses e as diretrizes do gabinete já aplicados. Responda SOMENTE com o JSON {"relatorio": "...", "fundamentacao": "...", "dispositivo": "..."}.
+MINUTA PRELIMINAR A EXPANDIR:
+${JSON.stringify({ relatorio: a.minuta?.relatorio || "", fundamentacao: a.minuta?.fundamentacao || "", dispositivo: a.minuta?.dispositivo || "" })}`;
+        const resp: any = await generateWithFallbackAndRetry({
+            apiKey: a.userApiKey,
+            keyPool: extractApiKeyPool(a.req),
+            isNativeAllowed: isRequestNativeAllowed(a.req),
+            res: a.res,
+            primaryModel: "gemini-3.6-flash",
+            fallbackModel: "gemini-3.8-flash",
+            customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
+            timeoutMs: a.timeoutMs,
+            maxCycles: 1,
+            contents: [{ role: "user", parts: [...a.partes, { text: instrucao }] }],
+            config: { systemInstruction: a.sistema, temperature: 0.2, maxOutputTokens: 32768, responseMimeType: "application/json" }
+        });
+        const j: any = safeParseJson(resp?.text || "");
+        if (j && typeof j.fundamentacao === "string" && j.fundamentacao.trim().length > 0) {
+            return { relatorio: String(j.relatorio || a.minuta?.relatorio || ""), fundamentacao: String(j.fundamentacao), dispositivo: String(j.dispositivo || a.minuta?.dispositivo || "") };
+        }
+    } catch (e: any) {
+        console.warn("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] A expansão não foi concluída; mantendo a minuta original:", e?.message || e);
+    }
+    return null;
+}
+
 async function generateHolisticSynopsis(fullProcessText: string, options: {
     apiKey?: string;
     keyPool?: string[];
@@ -4640,6 +4701,21 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
     if (!stage1Json.relatorio && !stage1Json.fundamentacao && !stage1Json.dispositivo) {
         stage1Json = { relatorio: "", fundamentacao: stage1Text, dispositivo: "" };
     }
+
+    // PORTÃO DE PROFUNDIDADE DA ETAPA 1: se a minuta saiu resumida (típico de Flash-Lite), refaz uma vez expandindo
+    {
+        const raso1 = /lite|latest/i.test(String((stage1Response as any)?.usedModel || ""));
+        const tipo1 = tipoDeAtoPorTexto(stage1Json.actType, resolvedActType);
+        const av1 = avaliarProfundidadeMinuta(stage1Json, tipo1, (accumulatedPdfText || safeProcessText || "").length, raso1);
+        if (!av1.ok) {
+            console.log(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 resumida (${av1.falhas.join("; ")}). Expandindo a minuta...`);
+            const exp1 = await expandirMinutaResumida({ partes: stage1ContentsParts, sistema: stage1SystemInstruction, minuta: stage1Json, falhas: av1.falhas, req, res, userApiKey, timeoutMs: TIMEOUT_ETAPA });
+            if (exp1 && exp1.fundamentacao.length > String(stage1Json.fundamentacao || "").length) {
+                stage1Json = { ...stage1Json, ...exp1 };
+                console.log("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 1 expandida com sucesso.");
+            }
+        }
+    }
 }
 
 // SOBERANIA ABSOLUTA DO DISPOSITIVO SOBRE O TIPO DE ATO (ARTS. 203, 485 E 487 DO CPC):
@@ -5306,6 +5382,22 @@ if (parsed.minute.fundamentacao && stage1Json?.fundamentacao && parsed.minute.fu
     if (!sample || !parsed.minute.fundamentacao.includes(sample)) {
         console.log("[Assessor Judicial] Fundamentação sucinta detectada na Etapa 2. Integrando acervo fático-probatório da Etapa 1 para assegurar os 7 blocos obrigatórios...");
         parsed.minute.fundamentacao = `${stage1Json.fundamentacao}\n\n${parsed.minute.fundamentacao}`;
+    }
+}
+
+// PORTÃO DE PROFUNDIDADE DA ETAPA 2: se a minuta final saiu resumida, refaz uma vez expandindo
+if (!stage2Failed) {
+    const raso2 = /lite|latest/i.test(String((response as any)?.usedModel || ""));
+    const av2 = avaliarProfundidadeMinuta(parsed.minute, resolvedActType, (accumulatedPdfText || safeProcessText || "").length, raso2);
+    if (!av2.ok) {
+        console.log(`[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 resumida (${av2.falhas.join("; ")}). Expandindo a minuta...`);
+        const exp2 = await expandirMinutaResumida({ partes: [{ text: stage2Prompt }], sistema: stage2SystemInstruction, minuta: parsed.minute, falhas: av2.falhas, req, res, userApiKey, timeoutMs: 150000 });
+        if (exp2 && exp2.fundamentacao.length > String(parsed.minute.fundamentacao || "").length) {
+            parsed.minute.relatorio = exp2.relatorio || parsed.minute.relatorio;
+            parsed.minute.fundamentacao = exp2.fundamentacao;
+            parsed.minute.dispositivo = exp2.dispositivo || parsed.minute.dispositivo;
+            console.log("[Assessor Judicial - PORTÃO DE PROFUNDIDADE] Etapa 2 expandida com sucesso.");
+        }
     }
 }
 
