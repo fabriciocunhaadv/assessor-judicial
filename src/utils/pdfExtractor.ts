@@ -3,6 +3,7 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { cleanJudicialPdfText } from "./judicialTextCleaner";
 import { getApiHeaders } from "./apiKeyManager";
+import { textoOcultoDeDocumento, blocoTextoOculto } from "./pdfTextoOculto";
 
 // Configure worker properly with exact version match for browser / sandboxed iframes
 try {
@@ -146,6 +147,7 @@ export async function extractTextFromPdf(
 
     const numPages = pdf.numPages || 1;
     const pageParagraphs: string[] = [];
+    let ocultoTexto = "";
 
     // Determine which pages to extract for massive dossier optimization:
     // Court dossiers can reach 400-1000 pages (mostly bank statements, medical images or receipts).
@@ -399,6 +401,9 @@ export async function extractTextFromPdf(
       }
     }
 
+    // texto em fonte branca (invisível ao leitor, mas lido pela IA) vira trecho identificado no texto dos autos; tem de vir antes do destroy
+    try { ocultoTexto = blocoTextoOculto(await textoOcultoDeDocumento(pdf, pdfjsLib as any)); } catch { /* sem detecção */ }
+
     // Clean up pdf instance
     if (pdf && typeof pdf.destroy === "function") {
       try {
@@ -408,7 +413,7 @@ export async function extractTextFromPdf(
 
     // Join all pages seamlessly without artificial page break headers
     const rawJoinedText = pageParagraphs.join("\n\n");
-    const cleanedText = cleanJudicialPdfText(rawJoinedText);
+    const cleanedText = cleanJudicialPdfText(rawJoinedText) + ocultoTexto;
 
     return {
       text: cleanedText,

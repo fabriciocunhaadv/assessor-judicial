@@ -12,6 +12,7 @@ import { deduplicateJudicialPdfFiles, deduplicateTextBlocks } from './src/utils/
 import { extractFromCoverPage } from './src/utils/judicialMetadataExtractor';
 import { gerarComAutosGrandes } from './src/utils/autosGrandes';
 import { detectarInjecao, instrucaoDefesaInjecao } from './src/utils/promptInjection';
+import { textoOcultoDeDocumento, blocoTextoOculto } from './src/utils/pdfTextoOculto';
 import fs from 'fs';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
@@ -2141,6 +2142,7 @@ async function extractTextFromPdfBuffer(buffer) {
                 text += `[Página ${i} de ${pdf.numPages}]\n` + pageText + '\n\n';
             }
         }
+        try { text += blocoTextoOculto(await textoOcultoDeDocumento(pdf, pdfjsLib as any)); } catch { /* sem detecção de texto escondido */ }
         return text;
     } catch (e) {
         console.error(e);

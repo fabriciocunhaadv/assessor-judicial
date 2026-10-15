@@ -10,13 +10,15 @@ export interface ResultadoInjecao { verificado: boolean; caracteres: number; tot
 
 // letras acentuadas → base, MESMO comprimento (as posições do texto normalizado valem para o original)
 const DE = "áàâãäéèêëíìîïóòôõöúùûüçñÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ", PARA = "aaaaaeeeeiiiiooooouuuucnaaaaaeeeeiiiiooooouuuucn";
-const normalizar = (s: string) => s.replace(/[À-ÿ]/g, (c) => { const i = DE.indexOf(c); return i >= 0 ? PARA[i] : c; }).toLowerCase();
+const normalizar = (s: string) => s.replace(/(?<![A-Za-zÀ-ÿ])IA(?![A-Za-zÀ-ÿ])/g, "ią").replace(/[À-ÿ]/g, (c) => { const i = DE.indexOf(c); return i >= 0 ? PARA[i] : c; }).toLowerCase();
 
-const ALVO_IA = "(?:ia|i\\.a\\.|inteligencia artificial|modelo de linguagem|llm|chat ?gpt|gpt|gemini|claude|copilot|assistente virtual|assistente de ia|agente de ia|robo|sistema automatizado|magistrado virtual|analisador automatico)";
-const VERBO_ORDEM = "(?:ignore|ignorar|desconsidere|esqueca|aja|atue|finja|responda|decida|julgue|profira|sentencie|conceda|defira|indefira|aprove|atribua|de nota|classifique|nao mencione|nao revele|omita|oculte|priorize|obedeca|siga (?:esta|esse|este|as) (?:instruc|ordem|comando)|considere que)";
+const ALVO_IA = "(?:ią|i\\.a\\.|inteligencia artificial|modelo de linguagem|llm|chat ?gpt|gpt|gemini|claude|copilot|assistente virtual|assistente de ia|agente de ia|robo|sistema automatizado|magistrado virtual|analisador automatico)";
+const VERBO_ORDEM = "(?:a meu favor|em meu favor|fac[ae]|fazer|proferir|julgar|decidir|sentenciar|deferir|conceder|ignore|ignorar|desconsidere|esqueca|aja|atue|finja|responda|decida|julgue|profira|sentencie|conceda|defira|indefira|aprove|atribua|de nota|classifique|nao mencione|nao revele|omita|oculte|priorize|obedeca|siga (?:esta|esse|este|as) (?:instruc|ordem|comando)|considere que)";
 
 interface Regra { nivel: NivelInjecao; categoria: string; rx: RegExp }
 const REGRAS: Regra[] = [
+  // trecho que a leitura do PDF achou escrito em FONTE BRANCA (invisível a quem lê, lido pela IA): ver pdfTextoOculto.ts
+  { nivel: "alto", categoria: "Texto ESCONDIDO em fonte branca no PDF (invisível ao leitor, lido pela IA)", rx: /\[texto escondido em fonte branca[^\]\n]*\]:[^\n]*/g },
   // formas típicas de ataque (já dirigidas à IA por si mesmas)
   { nivel: "alto", categoria: "Ordem para ignorar as instruções anteriores", rx: /\b(?:ignor(?:e|ar|em)|desconsider(?:e|ar|em)|esquec(?:a|er)|descart(?:e|ar))\s+(?:todas?\s+)?(?:as\s+|suas\s+|quaisquer\s+)*(?:instrucoes|ordens|regras|diretrizes|orientacoes|comandos)\s+(?:anteriores|acima|previas|iniciais|do sistema|do prompt|recebidas)/g },
   { nivel: "alto", categoria: "Ordem para esquecer o que foi instruído", rx: /\besquec(?:a|er)\s+(?:tudo|todas?\s+as\s+instrucoes|o\s+que\s+(?:foi|lhe\s+foi|voce\s+foi)\s+(?:dito|instruido|programado))/g },
@@ -24,6 +26,7 @@ const REGRAS: Regra[] = [
   { nivel: "alto", categoria: "Troca de papel da IA", rx: /\b(?:you are now (?:a|an|in)\b|a partir de agora,? (?:voce|tu) (?:e|sera|atua(?:ra)? como)\b|new instructions?\s*:|novas instrucoes\s*:|aja como (?:se fosse )?(?:um|uma)\b[^.]{0,60}\b(?:sem restricoes|sem filtros|desenvolvedor|administrador))/g },
   { nivel: "alto", categoria: "Referência a prompt/sistema da IA", rx: /(?:\bsystem\s*prompt\b|\bprompt\s+(?:do\s+)?sistema\b|\bprompt\s+oculto\b|\bjailbreak\b|\bdeveloper mode\b|\bmodo\s+(?:desenvolvedor|deus)\b|\[\s*(?:system|sistema|assistant|assistente)\s*\]|<\|?\s*(?:im_start|im_end|system|endoftext)\s*\|?>|^#{2,3}\s*(?:system|instruc)|reveal (?:your|the) (?:system )?prompt|revele (?:o seu|seu|o) prompt)/gm },
   { nivel: "alto", categoria: "Mensagem dirigida à IA que lê o processo", rx: new RegExp(`(?:\\bse\\s+(?:voce|vc)\\s+(?:e|for|esta lendo|estiver lendo)\\s+(?:uma?\\s+)?${ALVO_IA}|\\b(?:instrucao|mensagem|nota|aviso|recado|comando)\\s+(?:para|a|ao|à)\\s+(?:a\\s+|o\\s+)?${ALVO_IA}\\b|\\batencao\\s*[,:\\-]?\\s*(?:a\\s+)?${ALVO_IA}\\b|\\bao\\s+(?:ler|processar|analisar)\\s+(?:este|esse)\\s+(?:texto|documento|arquivo)\\s*,?\\s*${ALVO_IA}\\b|\\bif\\s+you\\s+are\\s+(?:an?\\s+)?(?:ai|llm|language model|assistant|chatbot)\\b)`, "g") },
+  { nivel: "alto", categoria: "Aviso ao juiz/assessor sobre uso de IA, com pedido de decisão", rx: new RegExp(`\\b(?:caso|se|quando)\\s+(?:o\\s+|a\\s+|os\\s+)?(?:juiz|juiza|magistrad[oa]|julgador[a]?|assessor[a]?|servidor[a]?|gabinete)\\w*(?:\\s+\\w+){0,3}?\\s+(?:esteja|estiver|estejam|use|usar|utilize|utilizar|utilizando|usando|valer|recorra|recorrer)\\s+(?:de\\s+)?(?:uma?\\s+|da\\s+)?${ALVO_IA}`, "g") },
   // ordem direta para a IA próxima de uma menção a ela (menos certo: pode ser argumento jurídico sobre IA)
   { nivel: "medio", categoria: "Ordem próxima a uma menção à IA", rx: new RegExp(`\\b${ALVO_IA}\\b[^.\\n]{0,160}\\b${VERBO_ORDEM}\\b|\\b${VERBO_ORDEM}\\b[^.\\n]{0,160}\\b(?:modelo de linguagem|llm|chat ?gpt|inteligencia artificial)\\b`, "g") },
 ];
@@ -45,7 +48,7 @@ export function detectarInjecao(texto: string, max = 20): ResultadoInjecao {
   const RX_MOV = /\b(?:movimenta[a-z]*|mov\.?|evento)\s*(?:n[o.]?\s*)?[:\-]?\s*(\d{1,4})\b/g, RX_ARQ = /\b(?:arquivo|arq\.?)\s*(?:n[o.]?\s*)?[:\-]?\s*(\d{1,3})\b/g, RX_PAG = /\b(?:pag(?:ina)?\.?|fls?\.?|folha)\s*(\d{1,4})\b/g, RX_DOC = /\[=== (?:PE[ÇC]A \/ DOCUMENTO|AUTOS DO PROCESSO)\s*:\s*([^\]]{1,160}?)\s*===\]/g;
   const local = (pos: number) => {
     const mv = ultimo(RX_MOV, n, pos), ar = ultimo(RX_ARQ, n, pos), pg = paginaDe(pos) ?? (ultimo(RX_PAG, n, pos) ? Number(ultimo(RX_PAG, n, pos)![1]) : undefined), dc = ultimo(RX_DOC, t, pos);
-    return { movimentacao: mv ? Number(mv[1]) : undefined, arquivo: ar ? Number(ar[1]) : undefined, pagina: pg, documento: dc ? dc[1].trim() : undefined };
+    return { movimentacao: mv ? Number(mv[1]) : undefined, arquivo: ar ? Number(ar[1]) : undefined, pagina: pg, documento: dc ? dc[1].replace(/\s*\([^)]*\)\s*$/, "").trim() : undefined };
   };
   const recorte = (pos: number, len: number) => t.slice(Math.max(0, pos - 60), Math.min(t.length, pos + len + 100)).replace(/\s+/g, " ").trim();
   const achados: AchadoInjecao[] = [];
@@ -57,7 +60,13 @@ export function detectarInjecao(texto: string, max = 20): ResultadoInjecao {
     while ((m = r.rx.exec(n))) {
       if (m[0].length === 0) { r.rx.lastIndex++; continue; }
       const a = m.index, b = m.index + m[0].length;
-      if (livre(a, b)) { ocupado.push([a, b]); achados.push({ nivel: r.nivel, categoria: r.categoria, trecho: recorte(a, m[0].length), ...local(a), posicao: a }); }
+      if (livre(a, b)) {
+        ocupado.push([a, b]);
+        if (r.categoria.startsWith("Texto ESCONDIDO")) {      // o trecho é o próprio texto escondido; a página é a do arquivo PDF
+          const bruto = t.slice(a, b), pg = bruto.match(/p[aá]g\.?\s*(\d+)/i);
+          achados.push({ nivel: r.nivel, categoria: r.categoria, trecho: bruto.replace(/^[^\]]*\]:\s*/, "").slice(0, 400), pagina: pg ? Number(pg[1]) : undefined, documento: local(a).documento, posicao: a });
+        } else achados.push({ nivel: r.nivel, categoria: r.categoria, trecho: recorte(a, m[0].length), ...local(a), posicao: a });
+      }
     }
   }
   // texto invisível
