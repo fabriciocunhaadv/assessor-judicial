@@ -1596,7 +1596,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
         {/* Tab 1: Formatted Document View */}
         {activeTab === "formatted" && (
           <div className="space-y-4">
-            {result?.alertaInjecao && result.alertaInjecao.total > 0 && <AvisoPromptInjection info={result.alertaInjecao} />}
+            {result?.alertaInjecao && <AvisoPromptInjection info={result.alertaInjecao} />}
             {result?.autosReduzidos && <AvisoAutosReduzidos info={result.autosReduzidos} />}
 
             {/* Automatic Pre-Audit Security Seal & Certificate */}

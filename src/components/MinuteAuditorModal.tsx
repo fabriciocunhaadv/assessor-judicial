@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { AvisoPromptInjection } from "./AvisoPromptInjection";
 import ReactMarkdown from 'react-markdown';
 import {
   ShieldCheck,
@@ -2569,6 +2570,8 @@ ${reAuditNotes}`
           {mainTab === "analysis" && auditResult && (
             <div className="space-y-6">
               
+              {auditResult.alertaInjecao && <AvisoPromptInjection info={auditResult.alertaInjecao} />}
+
               {/* SCORE CARD & VERDICT BANNER */}
               <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-amber-500/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
                 

@@ -202,10 +202,12 @@ export interface GenerationResult {
     fullText?: string;
   };
   alertaInjecao?: {
+    verificado?: boolean;
+    caracteres?: number;
     total: number;
     alto: number;
     medio: number;
-    achados: { nivel: "alto" | "medio"; categoria: string; trecho: string; pagina?: number; posicao: number }[];
+    achados: { nivel: "alto" | "medio"; categoria: string; trecho: string; pagina?: number; movimentacao?: number; arquivo?: number; documento?: string; posicao: number }[];
   };
   autosReduzidos?: {
     tokensOriginais: number;
@@ -637,6 +639,14 @@ export interface DocumentInspectionResult {
 }
 
 export interface AssessorDraftAuditResult {
+  alertaInjecao?: {
+    verificado?: boolean;
+    caracteres?: number;
+    total: number;
+    alto: number;
+    medio: number;
+    achados: { nivel: "alto" | "medio"; categoria: string; trecho: string; pagina?: number; movimentacao?: number; arquivo?: number; documento?: string; posicao: number }[];
+  };
   score: number;
   verdict: "Aprovada sem Ressalvas" | "Aprovada com Ressalvas" | "Requer Correções Obrigatórias" | "Crítica / Risco de Nulidade";
   verdictColor: "emerald" | "amber" | "rose" | "indigo";

@@ -885,7 +885,7 @@ app.post("/api/generate-minute-turbo", async (req, res) => {
             accumulatedText = accumulatedText.substring(0, 1500000);
         }
         let alertaInjecaoT: any = null, defesaInjecaoT = "";
-        try { const r = detectarInjecao(accumulatedText); if (r.total > 0) { alertaInjecaoT = r; defesaInjecaoT = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][turbo] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
+        try { const r = detectarInjecao(accumulatedText); if (r.verificado) alertaInjecaoT = r; if (r.total > 0) { defesaInjecaoT = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][turbo] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
         // Configuração defensiva de batimento cardíaco (anti-timeout do Cloud Run e mobile)
         if (!res.headersSent) {
@@ -1303,6 +1303,9 @@ app.post("/api/audit-assessor-draft", async (req, res) => {
 
         // Filtro de Ruídos em Certidões e Metadados Cartorários
         accumulatedProcessText = filterInnocuousCertificates(cleanJudicialPdfText(accumulatedProcessText));
+        // ALERTA DE PROMPT INJECTION (Lupa do Magistrado): varre os autos antes de qualquer corte/sinopse
+        let alertaInjecaoL: any = null, defesaInjecaoL = "";
+        try { const r = detectarInjecao(accumulatedProcessText); if (r.verificado) alertaInjecaoL = r; if (r.total > 0) { defesaInjecaoL = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][lupa] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
         // Deduplicação de blocos de texto repetitivos dentro dos autos
         const textDedup = deduplicateTextBlocks(accumulatedProcessText);
@@ -1320,7 +1323,8 @@ app.post("/api/audit-assessor-draft", async (req, res) => {
             try {
                 generatedHolisticSynopsis = await generateHolisticSynopsis(accumulatedProcessText, {
                     apiKey,
-                    keyPool: extractApiKeyPool(req)
+                    keyPool: extractApiKeyPool(req),
+                    defesa: defesaInjecaoL
                 });
                 if (generatedHolisticSynopsis && generatedHolisticSynopsis.length > 200) {
                     if (accumulatedProcessText.length <= 400000) {
@@ -1497,7 +1501,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             maxCycles: 2,
             contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }] }],
             config: {
-                systemInstruction: "Você é um juiz de direito auditor rigoroso. Responda apenas com JSON válido e completo.",
+                systemInstruction: "Você é um juiz de direito auditor rigoroso. Responda apenas com JSON válido e completo." + defesaInjecaoL,
                 responseMimeType: "application/json"
             }
         };
@@ -1578,6 +1582,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             modelUsed: response.modelVersion || "Gemini 3.1 Flash-Lite"
         };
 
+        if (alertaInjecaoL) (finalResult as any).alertaInjecao = alertaInjecaoL;
         return res.json(finalResult);
     } catch (err: any) {
         console.error("Erro no audit-assessor-draft:", err);
@@ -2568,6 +2573,7 @@ async function generateHolisticSynopsis(fullProcessText: string, options: {
     apiKey?: string;
     keyPool?: string[];
     isNativeAllowed?: boolean;
+    defesa?: string;
 }): Promise<string> {
     const synopsisPrompt = `Você é um Assessor Jurídico e Pesquisador Forense de Gabinete especializado de altíssima performance.
 Sua missão é realizar a leitura integral e elaborar a SINOPSE HOLÍSTICA FORENSE DOS AUTOS deste processo judicial volumoso.
@@ -2615,7 +2621,7 @@ ${fullProcessText.slice(0, 500000)}`;
             isNativeAllowed: options.isNativeAllowed,
             primaryModel: "gemini-3.1-flash-lite",
             fallbackModel: "gemini-flash-latest",
-            contents: [{ parts: [{ text: synopsisPrompt }] }],
+            contents: [{ parts: [{ text: synopsisPrompt + (options.defesa || "") }] }],
             config: {
                 temperature: 0.1,
                 maxOutputTokens: 3072
@@ -3819,7 +3825,8 @@ if (accumulatedPdfText.length > 1500000) {
 let alertaInjecao: any = null; let defesaInjecao = "";
 try {
     const rInj = detectarInjecao(accumulatedPdfText + "\n" + safeProcessText);
-    if (rInj.total > 0) { alertaInjecao = rInj; defesaInjecao = instrucaoDefesaInjecao(rInj); console.log(`[Prompt Injection] ${rInj.total} indício(s) nos autos (${rInj.alto} alto, ${rInj.medio} médio): ${rInj.achados.slice(0, 3).map(x => x.categoria).join(" | ")}`); }
+    if (rInj.verificado) alertaInjecao = rInj;
+    if (rInj.total > 0) { defesaInjecao = instrucaoDefesaInjecao(rInj); console.log(`[Prompt Injection] ${rInj.total} indício(s) nos autos (${rInj.alto} alto, ${rInj.medio} médio): ${rInj.achados.slice(0, 3).map(x => x.categoria).join(" | ")}`); }
 } catch (eInj) { console.log("[Prompt Injection] falha na verificação (ignorada):", (eInj as any)?.message); }
 const hasPdfs=Boolean(pdfFiles&&Array.isArray(pdfFiles)&&pdfFiles.length>0);const hasPrompt=Boolean(customPromptText&&typeof customPromptText==="string"&&customPromptText.trim().length>0);const hasProcessNumber=Boolean(processInfo?.processNumber&&processInfo.processNumber.trim().length>3&&processInfo.processNumber!=="Extrair automaticamente dos autos");const hasAnyContent=hasText||accumulatedPdfText.length>0||contentsParts.length>0||hasPdfs||hasPrompt||hasProcessNumber;if(!hasAnyContent){return res.status(400).json({error:"É obrigatório fornecer o PDF dos autos, o texto processual ou as diretrizes do prompt."})}
 
