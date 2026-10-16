@@ -1058,7 +1058,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
         try {
             parsed = JSON.parse(response.text);
         } catch {
-            parsed = safeParseJson(response.text) || {};
+            parsed = safeParseObj(response.text) || {};
         }
 
         // Suporte a estruturas aninhadas caso o modelo retorne envelope
@@ -1508,7 +1508,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
 
         const response = await generateWithFallbackAndRetry(options);
         const responseText = response.text || "{}";
-        const parsed = safeParseJson(responseText) || {};
+        const parsed = safeParseObj(responseText) || {};
 
         // Normalização e salvaguardas nos dados retornados
         const score = typeof parsed.score === 'number' ? Math.max(0, Math.min(100, Math.round(parsed.score))) : 75;
@@ -1732,7 +1732,7 @@ Você DEVE responder ESTRITAMENTE em formato JSON com o seguinte schema:
 
             const response = await gerarMesa(options);
             const responseText = response.text || "{}";
-            const parsed = safeParseJson(responseText) || {};
+            const parsed = safeParseObj(responseText) || {};
             const usage = response.usageMetadata ? {
                 promptTokenCount: response.usageMetadata.promptTokenCount || 0,
                 candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0,
@@ -1795,7 +1795,7 @@ Responda ESTRITAMENTE em JSON:
                 contents: [{ role: "user", parts: [{ text: systemPrompt + defesa + "\n\n" + userPrompt }] }],
                 config: { systemInstruction: "Você é um assistente de audiências judiciais que responde apenas com JSON válido, sem inventar dados." + defesa, responseMimeType: "application/json", temperature: 0.1 }
             });
-            const ata: any = safeParseJson(response.text || "{}") || {};
+            const ata: any = safeParseObj(response.text || "{}") || {};
             if ((response as any).autosReduzidos?.resumo) ata.pontosAtencao = [{ nivel: "medio", texto: "[SISTEMA] " + (response as any).autosReduzidos.resumo, localizacao: "autos reduzidos" }, ...(Array.isArray(ata.pontosAtencao) ? ata.pontosAtencao : [])];
             // conferência por regras fixas: toda localização "Mov. N" tem de existir nos autos; nomes de testemunhas e partes têm de aparecer no texto
             const norm = (x: string) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ");
@@ -1842,7 +1842,7 @@ Responda ESTRITAMENTE em JSON: {"operacoes":[...],"resumo":"1 a 2 frases do que 
                 contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
                 config: { systemInstruction: "Você edita documentos judiciais por operações e responde apenas com JSON válido, sem inventar dados.", responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 4096 }
             });
-            const out: any = safeParseJson(response.text || "{}") || {};
+            const out: any = safeParseObj(response.text || "{}") || {};
             const ops = (Array.isArray(out.operacoes) ? out.operacoes : []).filter((o: any) => o && ["replace", "insert_after", "delete"].includes(o.op) && Number.isInteger(Number(o.id))).slice(0, 80);
             const usage = response.usageMetadata ? { promptTokenCount: response.usageMetadata.promptTokenCount || 0, candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0, totalTokenCount: response.usageMetadata.totalTokenCount || 0 } : undefined;
             return res.json({ success: true, actionType: 'preliminary_minutes_edit', data: { operacoes: ops, resumo: String(out.resumo || ""), usouAutos: !!trechos }, usage, modelUsed: response.modelVersion || "Gemini Flash" });
@@ -2050,7 +2050,7 @@ A Ata deve conter:
         };
 
         const response = await generateWithFallbackAndRetry(options);
-        const parsed = safeParseJson(response.text || "{}") || {};
+        const parsed = safeParseObj(response.text || "{}") || {};
 
         return res.json({
             success: true,
@@ -2117,7 +2117,7 @@ Retorne estritamente em JSON com o formato:
         };
 
         const response = await generateWithFallbackAndRetry(options);
-        const parsed = safeParseJson(response.text || "{}") || {};
+        const parsed = safeParseObj(response.text || "{}") || {};
 
         return res.json({
             success: true,
@@ -2810,6 +2810,13 @@ ${fullProcessText.slice(0, 500000)}`;
     return "";
 }
 
+// A IA às vezes devolve o objeto dentro de uma lista ("[ { ... } ]"): desembrulha para as seções (relatório, fundamentação, dispositivo) não caírem no texto bruto.
+function desembrulharObjeto(x: any): any {
+    if (Array.isArray(x)) { const o = x.find((i: any) => i && typeof i === "object" && !Array.isArray(i)); return o ? desembrulharObjeto(o) : x; }
+    return x;
+}
+function safeParseObj(str: any) { return desembrulharObjeto(safeParseJson(str)); }
+
 function safeParseJson(str: any) {
     if (!str || typeof str !== 'string') return null;
     let clean = str.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -3272,7 +3279,7 @@ function normalizeGeneratedMinuteAndAudit(rawParsed: any, rawOutputText: string,
         parsed = parsed.find(item => item && typeof item === 'object' && (item.minute || item.sentence || item.fundamentacao || item.relatorio)) || parsed[0] || {};
     }
     if (!parsed || typeof parsed !== 'object') {
-        parsed = safeParseJson(rawOutputText) || {};
+        parsed = safeParseObj(rawOutputText) || {};
         if (Array.isArray(parsed)) {
             parsed = parsed.find(item => item && typeof item === 'object' && (item.minute || item.sentence || item.fundamentacao || item.relatorio)) || parsed[0] || {};
         }
@@ -4925,7 +4932,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
         throw new Error("Não foi possível gerar a resposta preliminar do Assessor Fático (Etapa 1).");
     }
 
-    stage1Json = safeParseJson(stage1Text) || {};
+    stage1Json = safeParseObj(stage1Text) || {};
     if (!stage1Json.relatorio && !stage1Json.fundamentacao && !stage1Json.dispositivo) {
         stage1Json = { relatorio: "", fundamentacao: stage1Text, dispositivo: "" };
     }
@@ -5567,7 +5574,7 @@ if (stage2Failed || !outputText) {
         stage2Notice: "Minuta entregue com sucesso com base na análise fática integral da Etapa 1 (proteção de créditos faturados ativa)."
     };
 } else {
-    parsed = safeParseJson(outputText);
+    parsed = safeParseObj(outputText);
     if (Array.isArray(parsed)) {
         parsed = parsed.find(item => item && typeof item === 'object' && (item.minute || item.sentence || item.fundamentacao || item.relatorio)) || parsed[0] || {};
     }
