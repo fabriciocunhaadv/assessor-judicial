@@ -228,7 +228,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
     setResultStats(null);
 
     const controller = new AbortController();
-    const abortTimeout = setTimeout(() => controller.abort(), 180000); // 3 minutos para comportar processos maiores com segurança
+    const abortTimeout = setTimeout(() => controller.abort(), 780000); // 13 minutos: processos grandes passam por várias partes e esperam a janela de 1 minuto da IA
 
     try {
       const response = await fetch("/api/generate-minute-turbo", {
