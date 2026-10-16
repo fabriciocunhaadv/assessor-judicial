@@ -339,8 +339,15 @@ export const saveHistoryToDb = async (analysis: SavedAnalysis): Promise<void> =>
   if (!auth.currentUser) return;
   const user = auth.currentUser;
   const unitId = getActiveUnitId();
+  // a marcação "lançado no Projudi" não pode se perder quando o ato é salvo de novo (por exemplo, ao editar a minuta)
+  const refDoc = doc(db, getTenantPath('history'), analysis.id);
+  let lancado: number | null | undefined = analysis.lancadoProjudi;
+  if (lancado === undefined) {
+    try { const ex = await getDoc(refDoc); if (ex.exists()) lancado = (ex.data() as SavedAnalysis).lancadoProjudi; } catch { /* sem leitura: segue sem a marca */ }
+  }
   const dataToSave: any = cleanForFirestore({
     ...analysis,
+    ...(lancado !== undefined ? { lancadoProjudi: lancado } : {}),
     tenant: globalTenantId,
     unitId: analysis.unitId || unitId,
     createdBy: analysis.createdBy || user.uid,
@@ -348,7 +355,7 @@ export const saveHistoryToDb = async (analysis: SavedAnalysis): Promise<void> =>
     creatorEmail: analysis.creatorEmail || user.email || '',
   });
 
-  await setDoc(doc(db, getTenantPath('history'), analysis.id), dataToSave);
+  await setDoc(refDoc, dataToSave);
 };
 
 export const updateAnalysisChatAndMinute = async (
@@ -392,6 +399,14 @@ export const updateAnalysisChatAndMinute = async (
   } catch (err) {
     console.warn("Could not update chat in Firestore history:", err);
   }
+};
+
+export const updateAnalysisLancadoInDb = async (analysisId: string, quando: number | null): Promise<void> => {
+  if (!auth.currentUser || !analysisId) return;
+  const docRef = doc(db, getTenantPath('history'), analysisId);
+  const existing = await getDoc(docRef);
+  if (!existing.exists()) return;
+  await updateDoc(docRef, { lancadoProjudi: quando });
 };
 
 export const updateAnalysisUnitInDb = async (

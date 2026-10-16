@@ -240,7 +240,7 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<void> => {
   let updatedList: SavedAnalysis[];
   if (existingIdx >= 0) {
     updatedList = [...localList];
-    updatedList[existingIdx] = analysis;
+    updatedList[existingIdx] = { ...analysis, lancadoProjudi: analysis.lancadoProjudi ?? localList[existingIdx].lancadoProjudi };
   } else {
     updatedList = [analysis, ...localList];
   }
@@ -321,6 +321,32 @@ export const deleteDossierFromHistory = async (processNumber: string, unitId?: s
     }
   } catch (e) {
     console.warn("Error cleaning local history keys for dossier:", e);
+  }
+};
+
+// Marca (ou desmarca, com null) que o ato já foi lançado no Projudi. Grava na nuvem e nos caches locais.
+export const marcarLancadoProjudi = async (id: string, quando: number | null): Promise<void> => {
+  if (!id) return;
+  try {
+    const { updateAnalysisLancadoInDb } = await import("../lib/firestoreUtils");
+    await updateAnalysisLancadoInDb(id, quando);
+  } catch (err) {
+    console.warn("Could not update 'lançado no Projudi' in DB:", err);
+  }
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("assessor_fabricio_history_cache_")) {
+        const raw = safeGetItem(key);
+        if (!raw) continue;
+        try {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) safeSetItem(key, JSON.stringify(list.map((item: SavedAnalysis) => (item && item.id === id ? { ...item, lancadoProjudi: quando } : item))));
+        } catch {}
+      }
+    }
+  } catch (e) {
+    console.warn("Error updating local history cache:", e);
   }
 };
 

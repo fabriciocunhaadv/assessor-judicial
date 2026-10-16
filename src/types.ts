@@ -287,6 +287,7 @@ export interface SavedAnalysis {
   creatorEmail?: string;
   chatMessages?: ChatMessage[];
   unitId?: string;
+  lancadoProjudi?: number | null;      // quando o assessor marcou este ato como já lançado no Projudi (controle de quem já foi concluído)
 }
 
 export interface InitialPetitionFile {

@@ -40,6 +40,7 @@ import {
   exportHistoryJson,
   importHistoryFromJson,
   isCorruptedHistoryItem,
+  marcarLancadoProjudi,
 } from "../utils/historyDb";
 import { auth } from "../lib/firebase";
 import { getUserProfile } from "../lib/firestoreUtils";
@@ -123,6 +124,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<"todos" | "civel" | "fazenda" | "criminal" | "familia" | "infancia" | "outros">("todos");
   const [scopeFilter, setScopeFilter] = useState<"todos" | "meus">("todos");
   const [viewMode, setViewMode] = useState<"dossiers" | "flat">("dossiers");
+  const [lancFilter, setLancFilter] = useState<"todos" | "pendentes" | "lancados">("todos");
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<SavedAnalysis | null>(null);
@@ -296,6 +298,22 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // Controle de lançamento no Projudi: o assessor marca os atos que já lançou, para não perder a sequência
+  const alternarLancado = async (ato: SavedAnalysis, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const quando = ato.lancadoProjudi ? null : Date.now();
+    setHistory((prev) => prev.map((it) => (it.id === ato.id ? { ...it, lancadoProjudi: quando } : it)));
+    try {
+      await marcarLancadoProjudi(ato.id, quando);
+      showFeedback(quando ? `Processo ${ato.processNumber} marcado como LANÇADO no Projudi.` : `Marcação de lançamento removida (${ato.processNumber}).`);
+    } catch {
+      showFeedback("Não consegui gravar a marcação agora; tente de novo.");
+    }
+  };
+  const qtdLancados = history.filter((it) => it && it.id && !isCorruptedHistoryItem(it) && it.lancadoProjudi).length;
+  const qtdPendentes = history.filter((it) => it && it.id && !isCorruptedHistoryItem(it) && !it.lancadoProjudi).length;
+  const formatarLancado = (t?: number | null) => (t ? `${new Date(t).toLocaleDateString()} ${new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "");
+
   // Filtragem dos registros
   const filteredHistory = history.filter((item) => {
     if (!item || !item.id || isCorruptedHistoryItem(item)) return false;
@@ -309,6 +327,9 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
       toSafeString(item.result?.minute?.parties?.defendant).toLowerCase().includes(term);
 
     if (!matchesTerm) return false;
+
+    if (lancFilter === "pendentes" && item.lancadoProjudi) return false;
+    if (lancFilter === "lancados" && !item.lancadoProjudi) return false;
 
     if (scopeFilter === "meus") {
       if (currentUid && item.createdBy !== currentUid) return false;
@@ -529,6 +550,27 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
               ))}
             </div>
 
+            {/* Row 1b: Lançamento no Projudi */}
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-xs py-0.5" data-testid="filtro-lancamento">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-slate-500" />
+                Projudi:
+              </span>
+              {([["todos", "Todos"], ["pendentes", `A lançar (${qtdPendentes})`], ["lancados", `Lançados (${qtdLancados})`]] as const).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => { setLancFilter(id); setCurrentPage(1); }}
+                  className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition cursor-pointer whitespace-nowrap shrink-0 ${
+                    lancFilter === id
+                      ? id === "lancados" ? "bg-emerald-600 text-white shadow-xs" : "bg-indigo-600 text-white shadow-xs"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {/* Row 2: Category / Competence Filter */}
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-xs py-0.5">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
@@ -592,7 +634,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                 return (
                   <div
                     key={dossier.id}
-                    className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-300 hover:shadow-md transition flex flex-col justify-between space-y-2 sm:space-y-3 group"
+                    className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border shadow-2xs hover:border-indigo-300 hover:shadow-md transition flex flex-col justify-between space-y-2 sm:space-y-3 group ${latestAct?.lancadoProjudi ? "bg-emerald-50/60 border-emerald-300" : "bg-white border-slate-200"}`}
                   >
                     <div>
                       {/* Top Header of the Dossier Card */}
@@ -779,6 +821,22 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                           {dossier.creators.join(", ")}
                         </div>
                       </div>
+
+                      {latestAct && (
+                        <button
+                          onClick={(e) => alternarLancado(latestAct, e)}
+                          data-testid="btn-lancado-projudi"
+                          className={`w-full justify-center px-2.5 py-1.5 rounded-lg border font-bold text-xs flex items-center gap-1.5 transition cursor-pointer ${
+                            latestAct.lancadoProjudi
+                              ? "bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700"
+                              : "bg-white border-slate-300 text-slate-700 hover:bg-emerald-50 hover:border-emerald-400"
+                          }`}
+                          title={latestAct.lancadoProjudi ? "Já lançado no Projudi. Clique para desfazer a marcação." : "Marcar este processo como já lançado no Projudi"}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                          <span>{latestAct.lancadoProjudi ? `Lançado no Projudi em ${formatarLancado(latestAct.lancadoProjudi)} (desfazer)` : "Marcar como lançado no Projudi"}</span>
+                        </button>
+                      )}
 
                       <div className="flex items-center justify-between gap-2 pt-1 flex-wrap sm:flex-nowrap">
                         <button
@@ -982,9 +1040,19 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                           )}
                         </div>
 
-                        <div className="flex items-center text-[11px] font-bold text-indigo-600 gap-1 opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition">
-                          <span>Carregar Minuta</span>
-                          <ArrowRight className="w-3 h-3" />
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => alternarLancado(item, e)}
+                            className={`px-1.5 py-0.5 rounded-md border text-[10px] font-bold flex items-center gap-1 transition cursor-pointer ${item.lancadoProjudi ? "bg-emerald-600 border-emerald-700 text-white" : "bg-white border-slate-300 text-slate-600 hover:bg-emerald-50"}`}
+                            title={item.lancadoProjudi ? `Lançado no Projudi em ${formatarLancado(item.lancadoProjudi)} (clique para desfazer)` : "Marcar como lançado no Projudi"}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>{item.lancadoProjudi ? "Lançado" : "Lançar"}</span>
+                          </button>
+                          <div className="flex items-center text-[11px] font-bold text-indigo-600 gap-1 opacity-80 group-hover:opacity-100 group-hover:translate-x-1 transition">
+                            <span>Carregar Minuta</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </div>
                         </div>
                       </div>
                     </div>
