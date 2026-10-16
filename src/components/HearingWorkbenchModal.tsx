@@ -356,7 +356,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
         const responseText = await response.text();
         resData = JSON.parse(responseText);
       } catch (e) {
-        throw new Error("Falha ao processar comando com IA: o servidor retornou um formato inválido.");
+        throw new Error("Falha ao processar comando com IA: resposta do servidor incompleta ou vazia (conexão interrompida ou servidor reiniciando).");
       }
 
       if (resData?.error) throw new Error(String(resData.error));      // a resposta é mantida viva por pulsos: o erro vem no corpo JSON
@@ -444,8 +444,8 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     } catch (err: any) {
       console.error('Hearing Copilot error:', err);
       // pico de demanda do Google (503): espera 20 s e tenta UMA vez de novo, sozinho (a ata preliminar e o briefing são chamadas únicas)
-      if (/\b503\b|alta demanda|pico tempor/i.test(err?.message || '') && !extraPayload.__tentou && ['briefing', 'preliminary_minutes', 'minutes', 'deliberation', 'instant_sentence'].includes(actionType)) {
-        setAiError('Servidores de IA do Google sobrecarregados (503). Tentando de novo automaticamente em 20 segundos…');
+      if (/\b503\b|alta demanda|pico tempor|resposta do servidor incompleta/i.test(err?.message || '') && !extraPayload.__tentou && ['briefing', 'preliminary_minutes', 'minutes', 'deliberation', 'instant_sentence'].includes(actionType)) {
+        setAiError('Servidor de IA indisponível por instantes (503 ou conexão interrompida). Tentando de novo automaticamente em 20 segundos…');
         await new Promise((r) => setTimeout(r, 20000));
         return await runAiHearingCopilot(actionType, { ...extraPayload, __tentou: true }, baseHearing);
       }
