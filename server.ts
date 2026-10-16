@@ -14,6 +14,19 @@ import { gerarComAutosGrandes } from './src/utils/autosGrandes';
 import { detectarInjecao, instrucaoDefesaInjecao } from './src/utils/promptInjection';
 import { textoOcultoDeDocumento, blocoTextoOculto } from './src/utils/pdfTextoOculto';
 import fs from 'fs';
+// Dispositivo escrito para a ESCRIVANIA cumprir sem interpretação (pedido do magistrado: "o óbvio deve ser dito sempre"). Entra nas instruções de todas as minutas (Etapa 1, Etapa 2 e Turbo).
+const REGRA_DISPOSITIVO_CARTORIO = `
+
+[DISPOSITIVO OPERACIONAL PARA A ESCRIVANIA — OBRIGATÓRIO EM TODA MINUTA]
+O campo "dispositivo" deve ser escrito para ser CUMPRIDO pela escrivania/cartório sem qualquer interpretação. Isso NÃO altera a tese, a conclusão nem o estilo da minuta: só a forma de expor os comandos.
+1. Itens numerados (1., 2., 3. ...), UMA providência por item, com verbo no imperativo: "Intime-se", "Expeça-se", "Certifique-se", "Oficie-se", "Libere-se", "Proceda-se", "Cumpra-se", "Arquive-se".
+2. Cada item deve dizer, quando for o caso: QUEM pratica o ato (escrivania, oficial de justiça, parte, banco, outro juízo); O QUÊ exatamente; sobre QUAL OBJETO (nome completo da parte, valores em R$, conta/ativo, número do processo ou da movimentação/arquivo/página que serve de base); EM QUE PRAZO (dias úteis ou corridos e contados de quando); e POR QUAL MEIO (SISBAJUD, RENAJUD, Projudi, alvará eletrônico, ofício, mandado, carta precatória).
+3. DIGA O ÓBVIO, sempre: o que parece evidente para o juiz precisa constar. Exemplos: após juntada de planilha ou cálculo, determinar expressamente o desbloqueio e a liberação do valor excedente, indicando o valor bloqueado, o valor a liberar e o remanescente; expedir alvará da quantia devida em favor de quem, no valor de R$ X, para qual conta; EXPEDIR CARTA PRECATÓRIA sempre que o ato tiver de ser cumprido em outra comarca, inclusive de outro Estado, informando comarca/UF; certificar nos autos o cumprimento, o decurso de prazo e a ausência de manifestação ("com certidão"); indicar a forma de intimação (pelo sistema, pessoal, por carta, por oficial de justiça) e o destinatário.
+4. Siga a ORDEM de cumprimento e escreva as CONDIÇÕES expressas ("após a juntada da planilha...", "decorrido o prazo sem manifestação...", "com o trânsito em julgado...").
+5. Quando houver comandos para a escrivania e para as partes, separe em dois blocos com os títulos "Determinações à escrivania:" e "Determinações às partes:".
+6. Encerre com o ato final (ex.: "Cumpridas as determinações, voltem os autos conclusos." ou "Arquive-se com as baixas de estilo."), e nunca use fórmulas vagas como "providencie-se o necessário" ou "cumpra-se na forma da lei" sem especificar o que fazer.
+7. NÃO invente dados. Se faltar valor, conta, nome, comarca ou prazo, escreva entre colchetes o que o assessor deve completar, por exemplo: [informar valor], [informar comarca/UF].`;
+
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 
@@ -1027,7 +1040,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
                 { role: "user", parts: [{ text: userPrompt }] }
             ],
             config: {
-                systemInstruction: systemPrompt + defesaInjecaoT,
+                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + defesaInjecaoT,
                 temperature: 0.1,
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
@@ -4883,6 +4896,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
     };
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
+    stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO;
     const stage1StartTimer = Date.now();
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 3000);      // maior para autos grandes
     stage1Response = await gerarComAutosGrandes(generateWithFallbackAndRetry, {
@@ -5500,6 +5514,7 @@ let stage2ErrorMsg = "";
 
 try {
     const stage2StartTimer = Date.now();
+    stage2SystemInstruction += REGRA_DISPOSITIVO_CARTORIO;
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage2Prompt, stage2SystemInstruction) / 10000) * 3000);
     response = await generateWithFallbackAndRetry({
         apiKey: stage2KeyPool[0] || userApiKey,
