@@ -208,7 +208,8 @@ export const getHistory = async (): Promise<SavedAnalysis[]> => {
       // Filter out tombstones and corrupted entries immediately
       const cleanList = filterAndPrune(dbList);
       // Logado: o Firestore (com cache em IndexedDB) é a fonte única; NÃO grava no localStorage (limite ~5 MB).
-      return cleanList;
+      const marcas = lerMarcas();
+      return cleanList.map((it) => (Object.prototype.hasOwnProperty.call(marcas, it.id) ? { ...it, lancadoProjudi: marcas[it.id] } : it));
     } catch (err) {
       console.warn("Could not fetch history from DB, falling back to local cache:", err);
       return filterAndPrune(localList);
@@ -325,11 +326,23 @@ export const deleteDossierFromHistory = async (processNumber: string, unitId?: s
 };
 
 // Marca (ou desmarca, com null) que o ato já foi lançado no Projudi. Grava na nuvem e nos caches locais.
+const CHAVE_MARCAS = "assessor_lancados_pendentes_v1";
+const lerMarcas = (): Record<string, number | null> => {
+  try { return JSON.parse(safeGetItem(CHAVE_MARCAS) || "{}") || {}; } catch { return {}; }
+};
+const setMarcaLocal = (id: string, quando: number | null | undefined) => {
+  const m = lerMarcas();
+  if (quando === undefined) delete m[id]; else m[id] = quando;
+  safeSetItem(CHAVE_MARCAS, JSON.stringify(m));
+};
+
 export const marcarLancadoProjudi = async (id: string, quando: number | null): Promise<void> => {
   if (!id) return;
+  // a marcação fica guardada neste aparelho até a nuvem confirmar; assim a atualização automática da lista não a desfaz
+  setMarcaLocal(id, quando);
   try {
     const { updateAnalysisLancadoInDb } = await import("../lib/firestoreUtils");
-    await updateAnalysisLancadoInDb(id, quando);
+    if (await updateAnalysisLancadoInDb(id, quando)) setMarcaLocal(id, undefined);
   } catch (err) {
     console.warn("Could not update 'lançado no Projudi' in DB:", err);
   }

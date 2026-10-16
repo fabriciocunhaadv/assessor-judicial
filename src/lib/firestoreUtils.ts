@@ -401,12 +401,23 @@ export const updateAnalysisChatAndMinute = async (
   }
 };
 
-export const updateAnalysisLancadoInDb = async (analysisId: string, quando: number | null): Promise<void> => {
-  if (!auth.currentUser || !analysisId) return;
-  const docRef = doc(db, getTenantPath('history'), analysisId);
-  const existing = await getDoc(docRef);
-  if (!existing.exists()) return;
-  await updateDoc(docRef, { lancadoProjudi: quando });
+export const updateAnalysisLancadoInDb = async (analysisId: string, quando: number | null): Promise<boolean> => {
+  if (!auth.currentUser || !analysisId) return false;
+  // o ato pode estar no caminho do gabinete atual ou nos caminhos legados lidos por getHistoryFromDb
+  const caminhos = [getTenantPath('history'), 'gabinetes/gabinete_default/history', 'gabinetes/gab_rafael_machado/history', 'history'];
+  let gravou = false;
+  for (const caminho of Array.from(new Set(caminhos))) {
+    try {
+      const docRef = doc(db, caminho, analysisId);
+      const existing = await getDoc(docRef);
+      if (!existing.exists()) continue;
+      await updateDoc(docRef, { lancadoProjudi: quando });
+      gravou = true;
+    } catch (e) {
+      console.warn("Could not update lancadoProjudi at", caminho, e);
+    }
+  }
+  return gravou;
 };
 
 export const updateAnalysisUnitInDb = async (
