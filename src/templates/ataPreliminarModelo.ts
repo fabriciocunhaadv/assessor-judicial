@@ -1,0 +1,128 @@
+// MODELO DA ATA PRELIMINAR. Para trocar o modelo do documento, edite SOMENTE este arquivo:
+//  - MODELO_ATA: títulos, ordem das seções e rodapé;
+//  - montarBlocos(): como cada seção é escrita (títulos, colunas das tabelas, frases).
+// O visualizador, a impressão/PDF, o Word e o "copiar" usam os mesmos blocos, então mudam juntos.
+import type { AtaPreliminarDados } from "../types";
+
+export type SecaoAta = "cabecalho" | "partes" | "resumo" | "testemunhas" | "citacoes" | "pedidos" | "atencao" | "controversia";
+export interface ModeloAta { id: string; nome: string; brasao: string[]; titulo: string; aviso: string; secoes: { id: SecaoAta; titulo: string }[] }
+
+export const MODELO_ATA: ModeloAta = {
+  id: "padrao-v1",
+  nome: "Ata preliminar — modelo padrão",
+  brasao: ["PODER JUDICIÁRIO DO ESTADO DE GOIÁS"],
+  titulo: "ATA PRELIMINAR DE AUDIÊNCIA",
+  aviso: "Documento de apoio ao magistrado, elaborado a partir dos autos. Não substitui a ata da audiência. Itens marcados como “conferir” devem ser verificados nos autos.",
+  secoes: [
+    { id: "cabecalho", titulo: "1. Identificação do processo" },
+    { id: "partes", titulo: "2. Partes e advogados" },
+    { id: "resumo", titulo: "3. Resumo do processo" },
+    { id: "testemunhas", titulo: "4. Testemunhas indicadas" },
+    { id: "citacoes", titulo: "5. Citações e intimações" },
+    { id: "pedidos", titulo: "6. Pedidos relacionados à audiência" },
+    { id: "atencao", titulo: "7. Pontos de atenção para o juiz" },
+    { id: "controversia", titulo: "8. Pontos controvertidos e o que falta provar" },
+  ],
+};
+
+export type Bloco =
+  | { tipo: "brasao"; texto: string }
+  | { tipo: "titulo"; texto: string }
+  | { tipo: "subtitulo"; texto: string }
+  | { tipo: "paragrafo"; texto: string; destaque?: "aviso" | "conferir" | "vazio" }
+  | { tipo: "lista"; itens: { texto: string; conferir?: boolean; nivel?: string }[] }
+  | { tipo: "tabela"; colunas: string[]; linhas: { celulas: string[]; conferir?: boolean }[] };
+
+const NC = "não consta nos autos";
+const v = (x?: string) => (x && String(x).trim() ? String(x).trim() : NC);
+const loc = (x?: string) => (x && String(x).trim() ? String(x).trim() : "localização não identificada");
+const POLO: Record<string, string> = { ativo: "Polo ativo", passivo: "Polo passivo", terceiro: "Terceiro", ministerio_publico: "Ministério Público" };
+const RESULT: Record<string, string> = { positiva: "Positiva", negativa: "Negativa", edital: "Por edital", hora_certa: "Hora certa", aguardando: "Aguardando cumprimento", nao_localizada: "Não localizada nos autos" };
+const SIT: Record<string, string> = { intimada: "Intimada", nao_intimada: "Não intimada", negativa: "Intimação negativa", aguardando: "Aguardando", nao_localizada: "Não localizada nos autos" };
+const INDICADA: Record<string, string> = { autor: "Autor", reu: "Réu", outro: "Outro" };
+
+export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA): Bloco[] {
+  const b: Bloco[] = [];
+  m.brasao.forEach((t) => b.push({ tipo: "brasao", texto: t }));
+  b.push({ tipo: "titulo", texto: m.titulo });
+  b.push({ tipo: "paragrafo", texto: m.aviso, destaque: "aviso" });
+  if (d.alertaInjecao && d.alertaInjecao.total > 0) {
+    b.push({ tipo: "paragrafo", destaque: "conferir", texto: `ALERTA: possível tentativa de manipular a IA nos autos (${d.alertaInjecao.total} trecho(s)). ` + d.alertaInjecao.achados.slice(0, 5).map((a) => `${[a.movimentacao != null ? `Mov. ${a.movimentacao}` : "", a.arquivo != null ? `Arq. ${a.arquivo}` : "", a.pagina != null ? `Pág. ${a.pagina}` : ""].filter(Boolean).join(", ") || "local não identificado"}: “${a.trecho.slice(0, 160)}”`).join(" | ") });
+  }
+  for (const s of m.secoes) {
+    b.push({ tipo: "subtitulo", texto: s.titulo });
+    if (s.id === "cabecalho") {
+      const c = d.cabecalho || {};
+      b.push({ tipo: "tabela", colunas: ["Campo", "Informação"], linhas: ([["Processo nº", c.numeroProcesso], ["Classe", c.classe], ["Assunto", c.assunto], ["Vara / Juízo", c.vara], ["Comarca", c.comarca], ["Valor da causa", c.valorCausa], ["Distribuição", c.dataDistribuicao], ["Tipo de audiência", c.tipoAudiencia], ["Data e hora da audiência", c.dataHoraAudiencia]] as [string, string | undefined][]).map(([k, x]) => ({ celulas: [k, v(x)] })) });
+    } else if (s.id === "partes") {
+      const l = d.partes || [];
+      if (!l.length) b.push({ tipo: "paragrafo", texto: NC, destaque: "vazio" });
+      else b.push({ tipo: "tabela", colunas: ["Polo", "Nome / qualificação", "Documento", "Advogado(s)", "Onde consta"], linhas: l.map((p) => ({ conferir: p.conferir, celulas: [POLO[p.polo || ""] || v(p.polo), [v(p.nome), p.qualificacao].filter(Boolean).join(" — "), v(p.documento), (p.advogados || []).map((a) => `${a.nome || ""}${a.oab ? ` (OAB ${a.oab})` : ""}`).join("; ") || NC, loc(p.localizacao) + (p.conferir ? " [conferir]" : "")] })) });
+    } else if (s.id === "resumo") {
+      b.push({ tipo: "paragrafo", texto: v(d.resumo) });
+    } else if (s.id === "testemunhas") {
+      const l = d.testemunhas || [];
+      if (!l.length) b.push({ tipo: "paragrafo", texto: "Nenhuma testemunha arrolada nos autos.", destaque: "vazio" });
+      else b.push({ tipo: "tabela", colunas: ["Testemunha", "Indicada por", "Onde foi indicada", "Intimação", "Onde consta a intimação"], linhas: l.map((t) => ({ conferir: t.conferir, celulas: [v(t.nome) + (t.qualificacao ? ` — ${t.qualificacao}` : ""), INDICADA[t.indicadaPor || ""] || v(t.indicadaPor), loc(t.localizacao), (SIT[t.situacaoIntimacao || ""] || NC) + (t.dataIntimacao ? ` (${t.dataIntimacao})` : ""), loc(t.localizacaoIntimacao) + (t.conferir ? " [conferir]" : "")] })) });
+    } else if (s.id === "citacoes") {
+      const l = d.citacoesIntimacoes || [];
+      if (!l.length) b.push({ tipo: "paragrafo", texto: NC, destaque: "vazio" });
+      else b.push({ tipo: "tabela", colunas: ["Destinatário", "Ato", "Resultado", "Data", "Onde consta"], linhas: l.map((c) => ({ conferir: c.conferir, celulas: [v(c.destinatario) + (c.papel ? ` (${c.papel})` : ""), c.ato === "citacao" ? "Citação" : c.ato === "intimacao" ? "Intimação" : v(c.ato), (RESULT[c.resultado || ""] || NC) + (c.observacao ? ` — ${c.observacao}` : ""), v(c.data), loc(c.localizacao) + (c.conferir ? " [conferir]" : "")] })) });
+    } else if (s.id === "pedidos") {
+      const l = d.pedidosAudiencia || [];
+      if (!l.length) b.push({ tipo: "paragrafo", texto: "Nenhum pedido relacionado à audiência localizado nos autos.", destaque: "vazio" });
+      else b.push({ tipo: "tabela", colunas: ["Pedido", "Requerente", "Resumo", "Decisão", "Onde consta"], linhas: l.map((p) => ({ conferir: p.conferir, celulas: [v(p.tipo), v(p.requerente) + (p.data ? ` (${p.data})` : ""), v(p.resumo), p.decisao && p.decisao.trim() ? p.decisao : "sem decisão localizada", loc(p.localizacao) + (p.conferir ? " [conferir]" : "")] })) });
+    } else if (s.id === "atencao") {
+      const l = d.pontosAtencao || [];
+      if (!l.length) b.push({ tipo: "paragrafo", texto: "Nenhum ponto de atenção identificado.", destaque: "vazio" });
+      else b.push({ tipo: "lista", itens: l.map((p) => ({ nivel: p.nivel, conferir: p.conferir, texto: `${p.nivel === "alto" ? "[ALTO] " : p.nivel === "medio" ? "[MÉDIO] " : ""}${v(p.texto)} (${loc(p.localizacao)})${p.conferir ? " [conferir: " + (p.motivoConferir || "") + "]" : ""}` })) });
+    } else if (s.id === "controversia") {
+      const l = d.pontosControvertidos || [];
+      if (l.length) b.push({ tipo: "lista", itens: l.map((x) => ({ texto: x })) }); else b.push({ tipo: "paragrafo", texto: NC, destaque: "vazio" });
+      b.push({ tipo: "paragrafo", texto: "O que falta provar: " + v(d.faltaProvar) });
+    }
+  }
+  return b;
+}
+
+const esc = (s: string) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+
+export const CSS_ATA = `
+.ata{font-family:"Times New Roman",serif;color:#111;font-size:12pt;line-height:1.45}
+.ata .brasao{text-align:center;font-weight:bold;letter-spacing:.5px;margin:0}
+.ata .titulo{text-align:center;font-weight:bold;font-size:14pt;margin:10px 0 8px}
+.ata .sub{font-weight:bold;margin:16px 0 6px;border-bottom:1px solid #999;padding-bottom:2px;break-after:avoid}
+.ata p{margin:4px 0;text-align:justify}
+.ata .aviso{font-size:9.5pt;color:#444;border:1px solid #bbb;padding:5px 8px;background:#f6f6f6}
+.ata .conferir{color:#8a1c1c;border:1px solid #c33;background:#fdecea;padding:5px 8px;font-weight:bold}
+.ata .vazio{color:#555;font-style:italic}
+.ata table{width:100%;border-collapse:collapse;margin:4px 0;font-size:10.5pt}
+.ata th,.ata td{border:1px solid #888;padding:3px 5px;vertical-align:top;text-align:left}
+.ata th{background:#e9e9e9}
+.ata tr.conf td{background:#fff6d6}
+.ata ul{margin:4px 0 4px 18px;padding:0}
+.ata li.conf{background:#fff6d6}
+.ata li.alto{color:#8a1c1c;font-weight:bold}
+.ata tr{break-inside:avoid}
+`;
+
+export function blocosParaHtml(bl: Bloco[]): string {
+  return `<div class="ata">` + bl.map((x) => {
+    if (x.tipo === "brasao") return `<p class="brasao">${esc(x.texto)}</p>`;
+    if (x.tipo === "titulo") return `<p class="titulo">${esc(x.texto)}</p>`;
+    if (x.tipo === "subtitulo") return `<p class="sub">${esc(x.texto)}</p>`;
+    if (x.tipo === "paragrafo") return `<p class="${x.destaque || ""}">${esc(x.texto)}</p>`;
+    if (x.tipo === "lista") return `<ul>` + x.itens.map((i) => `<li class="${i.conferir ? "conf " : ""}${i.nivel === "alto" ? "alto" : ""}">${esc(i.texto)}</li>`).join("") + `</ul>`;
+    return `<table><thead><tr>${x.colunas.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>` + x.linhas.map((l) => `<tr class="${l.conferir ? "conf" : ""}">${l.celulas.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`;
+  }).join("") + `</div>`;
+}
+
+export function blocosParaTexto(bl: Bloco[]): string {
+  return bl.map((x) => {
+    if (x.tipo === "brasao" || x.tipo === "titulo") return x.texto.toUpperCase() + "\n";
+    if (x.tipo === "subtitulo") return "\n" + x.texto.toUpperCase();
+    if (x.tipo === "paragrafo") return x.texto;
+    if (x.tipo === "lista") return x.itens.map((i) => "• " + i.texto).join("\n");
+    return x.linhas.map((l) => "• " + l.celulas.map((c, i) => (x.colunas[i] ? x.colunas[i] + ": " : "") + c).join(" | ")).join("\n");
+  }).join("\n");
+}

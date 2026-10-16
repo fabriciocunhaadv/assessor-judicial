@@ -1750,6 +1750,54 @@ Você DEVE responder ESTRITAMENTE em formato JSON com o seguinte schema:
             });
         }
 
+        if (actionType === 'preliminary_minutes') {
+            // ATA PRELIMINAR: documento de apoio ao juiz ANTES da audiência. Só o que consta nos autos; cada dado com a localização (Mov., Arq., Pág.).
+            const rInj = (() => { try { return detectarInjecao(safeCaseText); } catch { return null; } })();
+            const defesa = rInj && rInj.total > 0 ? instrucaoDefesaInjecao(rInj) : "";
+            const systemPrompt = `Você é Assessor Judicial de gabinete e prepara a ATA PRELIMINAR da audiência para o juiz, lendo os autos fornecidos.
+REGRAS INEGOCIÁVEIS:
+1. Use SOMENTE o que consta nos autos. Se um dado não constar, escreva "não consta nos autos". É PROIBIDO inventar nomes, datas, documentos ou usar nomes de exemplo.
+2. Toda informação sobre partes, testemunhas, citação, intimação e pedidos deve trazer a LOCALIZAÇÃO exata no formato "Mov. X, Arq. Y, Pág. Z". Os PDFs do Projudi trazem em cada página um carimbo vermelho ("Movimentacao X : ...", "Arquivo Y", "Pag. Z") e/ou marcadores "[Página N de M]": use-os. Se a localização não puder ser determinada com segurança, escreva "localização não identificada" (nunca chute números).
+3. Testemunhas: liste apenas as ARROLADAS/INDICADAS pelas partes nos autos (petição inicial, contestação, rol de testemunhas, ata anterior, despacho). Informe quem indicou. Se não houver nenhuma, a lista fica vazia.
+4. Citação e intimação: para cada PARTE e cada TESTEMUNHA, informe se foi citada/intimada, o resultado (positiva, negativa, por edital, por hora certa, aguardando, ou nao_localizada se os autos nada trazem), a data e a localização. Considere certidões de oficial de justiça, AR, mandados, publicações, juntada de comprovantes e intimações via sistema (prazo/decurso).
+5. Pedidos relacionados à audiência: adiamento/redesignação, intimação ou substituição de testemunha, videoconferência/telepresencial, dispensa de audiência, justificativa de ausência, pedido de provas, acordo/conciliação, preliminares pendentes. Informe quem pediu, quando, o que pediu, se há decisão (e onde).
+6. "pontosAtencao": o que o juiz deve saber ANTES da audiência (parte sem citação/intimação válida, prazo pendente, revelia, testemunha arrolada fora do prazo ou acima do limite do rito, tutela ou preliminar pendente, sinal de acordo, parte vulnerável, inconsistências). Cada um com nível (alto, medio, baixo) e localização.
+7. Linguagem objetiva e neutra, sem juízo de valor sobre o mérito.
+Responda ESTRITAMENTE em JSON:
+{
+ "cabecalho": {"numeroProcesso":"","classe":"","assunto":"","vara":"","comarca":"","valorCausa":"","dataDistribuicao":"","tipoAudiencia":"","dataHoraAudiencia":""},
+ "partes": [{"polo":"ativo|passivo|terceiro|ministerio_publico","nome":"","documento":"","qualificacao":"","advogados":[{"nome":"","oab":""}],"localizacao":""}],
+ "resumo": "5 a 8 linhas: do que se trata e em que fase está",
+ "testemunhas": [{"nome":"","indicadaPor":"autor|reu|outro","qualificacao":"","localizacao":"","situacaoIntimacao":"intimada|nao_intimada|negativa|aguardando|nao_localizada","dataIntimacao":"","localizacaoIntimacao":""}],
+ "citacoesIntimacoes": [{"destinatario":"","papel":"autor|reu|testemunha|outro","ato":"citacao|intimacao","resultado":"positiva|negativa|edital|hora_certa|aguardando|nao_localizada","data":"","localizacao":"","observacao":""}],
+ "pedidosAudiencia": [{"tipo":"","requerente":"","resumo":"","data":"","decisao":"","localizacao":""}],
+ "pontosAtencao": [{"nivel":"alto|medio|baixo","texto":"","localizacao":""}],
+ "pontosControvertidos": ["..."],
+ "faltaProvar": "string"
+}`;
+            const userPrompt = `DADOS JÁ CONHECIDOS (conferir com os autos): processo ${processNumber || "?"}; autor ${author || "?"}; réu ${defendant || "?"}.\nObservações do assessor: ${notes || "nenhuma"}\n\nAUTOS DO PROCESSO:\n\n${safeCaseText || 'Nenhum texto integral extraído.'}`;
+            const response = await generateWithFallbackAndRetry({
+                apiKey, keyPool: extractApiKeyPool(req), isNativeAllowed: isRequestNativeAllowed(req), res,
+                contents: [{ role: "user", parts: [{ text: systemPrompt + defesa + "\n\n" + userPrompt }] }],
+                config: { systemInstruction: "Você é um assistente de audiências judiciais que responde apenas com JSON válido, sem inventar dados." + defesa, responseMimeType: "application/json", temperature: 0.1 }
+            });
+            const ata: any = safeParseJson(response.text || "{}") || {};
+            // conferência por regras fixas: toda localização "Mov. N" tem de existir nos autos; nomes de testemunhas e partes têm de aparecer no texto
+            const norm = (x: string) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ");
+            const nt = norm(safeCaseText);
+            const movExiste = (loc: string) => { const m = String(loc || "").match(/mov\.?\s*(\d+)/i); if (!m) return true; return new RegExp(`(?:movimenta[a-z]*|mov\\.?|evento)\\s*(?:n[o.]?\\s*)?[:\\-]?\\s*${m[1]}\\b`, "i").test(nt); };
+            const nomeExiste = (nome: string) => { const n = norm(nome); if (n.length < 5) return true; const partes = n.split(" ").filter((w) => w.length > 2); return partes.length === 0 || partes.every((w) => nt.includes(w)) || nt.includes(n); };
+            const marca = (o: any, nome?: string, loc?: string) => { if (!o) return; const motivos: string[] = []; if (loc && !movExiste(loc)) motivos.push("a movimentação indicada não aparece no texto dos autos"); if (nome && !nomeExiste(nome)) motivos.push("o nome não aparece no texto dos autos"); if (motivos.length) { o.conferir = true; o.motivoConferir = motivos.join("; "); } };
+            const arr = (x: any) => (Array.isArray(x) ? x : []);
+            arr(ata.partes).forEach((x: any) => marca(x, x?.nome, x?.localizacao));
+            arr(ata.testemunhas).forEach((x: any) => { marca(x, x?.nome, x?.localizacao); if (!x?.conferir) marca(x, undefined, x?.localizacaoIntimacao); });
+            arr(ata.citacoesIntimacoes).forEach((x: any) => marca(x, x?.destinatario, x?.localizacao));
+            arr(ata.pedidosAudiencia).forEach((x: any) => marca(x, undefined, x?.localizacao));
+            arr(ata.pontosAtencao).forEach((x: any) => marca(x, undefined, x?.localizacao));
+            const usage = response.usageMetadata ? { promptTokenCount: response.usageMetadata.promptTokenCount || 0, candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0, totalTokenCount: response.usageMetadata.totalTokenCount || 0 } : undefined;
+            return res.json({ success: true, actionType: 'preliminary_minutes', data: { ...ata, alertaInjecao: rInj && rInj.verificado ? rInj : undefined, geradaEm: new Date().toISOString() }, usage, modelUsed: response.modelVersion || "Gemini Flash" });
+        }
+
         if (actionType === 'questions') {
             const systemPrompt = `Você é um Juiz Instrutor experiente. Formule de 3 a 5 perguntas técnicas e cirúrgicas para a oitiva da seguinte pessoa em audiência de instrução:
 Nome: ${witnessContext?.name || 'Testemunha / Parte'}

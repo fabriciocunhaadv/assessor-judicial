@@ -51,6 +51,7 @@ import { Zap,
   ArrowDownToLine,
   Target,
 } from 'lucide-react';
+import { AtaPreliminarViewer } from './AtaPreliminarViewer';
 import {
   HearingRecord,
   HearingWitness,
@@ -105,6 +106,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
   const [searchFilter, setSearchFilter] = useState('');
   const [activeTab, setActiveTab] = useState<'briefing' | 'inquiring' | 'deliberations' | 'sentence' | 'minutes'>('briefing');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [showAtaPreliminar, setShowAtaPreliminar] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'workbench'>('workbench');
   const [viewMode, setViewMode] = useState<'normal' | 'mutirao'>('normal');
 
@@ -216,7 +218,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
 
   // AI Action Runner
   const runAiHearingCopilot = async (
-    actionType: 'briefing' | 'questions' | 'deliberation' | 'instant_sentence' | 'minutes',
+    actionType: 'briefing' | 'questions' | 'deliberation' | 'instant_sentence' | 'minutes' | 'preliminary_minutes',
     extraPayload: any = {},
     baseHearing?: HearingRecord
   ) => {
@@ -334,6 +336,11 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
         };
         setActiveHearing(updated);
         await handleSaveActiveHearing(updated);
+      } else if (actionType === 'preliminary_minutes') {
+        const updated: HearingRecord = { ...currentHearing, ataPreliminar: resData.data || {} };
+        setActiveHearing(updated);
+        await handleSaveActiveHearing(updated);
+        setShowAtaPreliminar(true);
       } else if (actionType === 'questions') {
         const questionsText = resData.text;
         return questionsText;
@@ -1346,6 +1353,20 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                               <FileUp className="w-4 h-4" />
                               <span>{isExtractingPdf ? 'Lendo Arquivos...' : 'Selecionar PDF(s) dos Autos'}</span>
                             </button>
+
+                            {activeHearing.rawSourceText && (
+                              <button
+                                type="button"
+                                data-testid="btn-ata-preliminar"
+                                onClick={() => (activeHearing.ataPreliminar ? setShowAtaPreliminar(true) : runAiHearingCopilot('preliminary_minutes'))}
+                                disabled={isExtractingPdf || isLoadingAi}
+                                className="w-full sm:w-auto px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs border border-indigo-400/50 flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                title="Abre a ata preliminar (cabeçalho, partes, testemunhas, citações/intimações, pedidos e pontos de atenção) a partir dos autos"
+                              >
+                                {isLoadingAi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                <span>{isLoadingAi ? 'Preparando a ata...' : activeHearing.ataPreliminar ? 'Abrir ata preliminar' : 'Ata preliminar'}</span>
+                              </button>
+                            )}
 
                             {activeHearing.rawSourceText && (
                               <button
@@ -2935,6 +2956,15 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
           </>
         )}
       </div>
+      {showAtaPreliminar && activeHearing?.ataPreliminar && (
+        <AtaPreliminarViewer
+          ata={activeHearing.ataPreliminar}
+          processNumber={activeHearing.processNumber}
+          carregando={isLoadingAi}
+          onClose={() => setShowAtaPreliminar(false)}
+          onRegenerate={() => runAiHearingCopilot('preliminary_minutes')}
+        />
+      )}
     </div>
   );
 };

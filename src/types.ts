@@ -940,6 +940,7 @@ export interface HearingRecord {
   // Extração de PDF e Peças
   uploadedPdfNames?: string[];
   rawSourceText?: string;
+  ataPreliminar?: AtaPreliminarDados;
 
   // Briefing, Resumo e Matriz Probatória Completa
   caseFactsSummary?: string;
@@ -1149,3 +1150,19 @@ export interface CabinetMonthlyTokenUsage {
   modules?: Partial<Record<ExecutionModuleType, ModuleTokenUsageStats>>;
 }
 
+
+
+// ATA PRELIMINAR DA AUDIÊNCIA (apoio ao juiz antes da audiência; só o que consta nos autos, com a localização Mov./Arq./Pág.)
+export interface AtaPreliminarDados {
+  cabecalho?: { numeroProcesso?: string; classe?: string; assunto?: string; vara?: string; comarca?: string; valorCausa?: string; dataDistribuicao?: string; tipoAudiencia?: string; dataHoraAudiencia?: string };
+  partes?: { polo?: string; nome?: string; documento?: string; qualificacao?: string; advogados?: { nome?: string; oab?: string }[]; localizacao?: string; conferir?: boolean; motivoConferir?: string }[];
+  resumo?: string;
+  testemunhas?: { nome?: string; indicadaPor?: string; qualificacao?: string; localizacao?: string; situacaoIntimacao?: string; dataIntimacao?: string; localizacaoIntimacao?: string; conferir?: boolean; motivoConferir?: string }[];
+  citacoesIntimacoes?: { destinatario?: string; papel?: string; ato?: string; resultado?: string; data?: string; localizacao?: string; observacao?: string; conferir?: boolean; motivoConferir?: string }[];
+  pedidosAudiencia?: { tipo?: string; requerente?: string; resumo?: string; data?: string; decisao?: string; localizacao?: string; conferir?: boolean; motivoConferir?: string }[];
+  pontosAtencao?: { nivel?: string; texto?: string; localizacao?: string; conferir?: boolean; motivoConferir?: string }[];
+  pontosControvertidos?: string[];
+  faltaProvar?: string;
+  alertaInjecao?: AssessorDraftAuditResult["alertaInjecao"];
+  geradaEm?: string;
+}
