@@ -1814,7 +1814,7 @@ Responda ESTRITAMENTE em JSON:
             const userPrompt = `DADOS JÁ CONHECIDOS (conferir com os autos): processo ${processNumber || "?"}; autor ${author || "?"}; réu ${defendant || "?"}.\nObservações do assessor: ${notes || "nenhuma"}\n\nAUTOS DO PROCESSO:\n\n${safeCaseText || 'Nenhum texto integral extraído.'}`;
             const response = await generateWithFallbackAndRetry({
                 apiKey, keyPool: extractApiKeyPool(req), isNativeAllowed: isRequestNativeAllowed(req), res,
-                customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"], maxCycles: 2,
+                customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"], maxCycles: 3, cycleDelayMs: 8000,
                 contents: [{ role: "user", parts: [{ text: systemPrompt + defesa + "\n\n" + userPrompt }] }],
                 config: { systemInstruction: "Você é um assistente de audiências judiciais que responde apenas com JSON válido, sem inventar dados." + defesa, responseMimeType: "application/json", temperature: 0.1 }
             });
@@ -2423,7 +2423,7 @@ async function generateWithFallbackAndRetry(options) {
     for (let cycle = 1; cycle <= maxPipelineCycles; cycle++) {
         if (cycle > 1) {
             // Intervalo necessário para resfriamento de cluster sem estourar limites por minuto
-            const cycleInterval = cycle === 2 ? 3000 : 4500;
+            const cycleInterval = options.cycleDelayMs || (cycle === 2 ? 3000 : 4500);
             console.log(`[Assessor Judicial] Indisponibilidade de toda a esteira por alta demanda transitória. Reiniciando esteira completa (Ciclo ${cycle}/${maxPipelineCycles}) com intervalo preventivo (${cycleInterval}ms)...`);
             await new Promise(resolve => setTimeout(resolve, cycleInterval));
         }

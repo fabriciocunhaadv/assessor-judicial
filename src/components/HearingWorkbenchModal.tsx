@@ -440,6 +440,12 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
       }
     } catch (err: any) {
       console.error('Hearing Copilot error:', err);
+      // pico de demanda do Google (503): espera 20 s e tenta UMA vez de novo, sozinho (a ata preliminar e o briefing são chamadas únicas)
+      if (/\b503\b|alta demanda|pico tempor/i.test(err?.message || '') && !extraPayload.__tentou && ['briefing', 'preliminary_minutes', 'minutes', 'deliberation', 'instant_sentence'].includes(actionType)) {
+        setAiError('Servidores de IA do Google sobrecarregados (503). Tentando de novo automaticamente em 20 segundos…');
+        await new Promise((r) => setTimeout(r, 20000));
+        return await runAiHearingCopilot(actionType, { ...extraPayload, __tentou: true }, baseHearing);
+      }
       setAiError(err.message || 'Erro ao conectar aos serviços de IA.');
     } finally {
       setIsLoadingAi(false);
