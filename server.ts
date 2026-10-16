@@ -2408,8 +2408,11 @@ async function generateWithFallbackAndRetry(options) {
     if (fbModel && !initialList.includes(fbModel)) {
         initialList.push(fbModel);
     }
+    // ROTA ALTERNATIVA: os módulos usam filas curtas (os modelos mais fortes primeiro). Quando o Google fica sobrecarregado (503 / fila retida) nesses modelos,
+    // os demais modelos Flash vigentes entram ao FINAL da fila como rota de contingência (outros "pools" de capacidade do Google); modelo indisponível é pulado.
+    const rotaExtra = defaultFlashQueue.filter(m => !(options.customModelQueue || []).includes(m));
     const modelsToTry = (Array.isArray(options.customModelQueue) && options.customModelQueue.length > 0)
-        ? options.customModelQueue
+        ? [...options.customModelQueue, ...rotaExtra]
         : [
             ...initialList,
             ...defaultFlashQueue.filter(m => !initialList.includes(m))
