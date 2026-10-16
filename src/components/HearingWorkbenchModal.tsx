@@ -69,7 +69,8 @@ import {
   SAMPLE_HEARINGS,
 } from '../utils/hearingsDb';
 import { extractTextFromPdf } from '../utils/pdfExtractor';
-import { exportHearingMinutesToDocx, printHearingMinutes } from '../utils/documentExport';
+import { montarTermoTexto, termoTextoParaBlocos } from '../templates/termoAudiencia';
+import { blocosParaHtml, blocosParaTexto, htmlParaBlocos } from '../templates/ataPreliminarModelo';
 import { useAuth } from '../lib/AuthContext';
 import { getCustomApiKey, checkUserAiAccess, requestOpenApiKeyModal, getApiHeaders } from '../utils/apiKeyManager';
 import { getKnowledgeDocs } from '../utils/knowledgeDb';
@@ -109,6 +110,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
   const [activeTab, setActiveTab] = useState<'briefing' | 'inquiring' | 'deliberations' | 'sentence' | 'minutes'>('briefing');
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showAtaPreliminar, setShowAtaPreliminar] = useState(false);
+  const [showTermo, setShowTermo] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'workbench'>('workbench');
   const [viewMode, setViewMode] = useState<'normal' | 'mutirao'>('normal');
 
@@ -216,6 +218,18 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     } catch (e) {
       console.warn('Erro ao salvar audiência:', e);
     }
+  };
+
+  const contextoAta = () => ({ juiz: resolveJudgeName(), assessor: activeHearing?.assessorName, data: activeHearing?.scheduledDate, hora: activeHearing?.scheduledTime, modalidade: activeHearing?.hearingModality, vara: activeHearing?.courtName, comarca: activeHearing?.comarcaName });
+  const termoTexto = () => (minutesDraft || activeHearing?.hearingMinutesDraft || '');
+  // Termo (aba 5): salva o texto editado no visualizador
+  const salvarTermoHtml = async (html: string) => {
+    if (!activeHearing) return;
+    const texto = blocosParaTexto(htmlParaBlocos(html));
+    setMinutesDraft(texto);
+    const updated: HearingRecord = { ...activeHearing, hearingMinutesDraft: texto, hearingMinutesGeneratedAt: Date.now() };
+    setActiveHearing(updated);
+    await handleSaveActiveHearing(updated);
   };
 
   // Ata preliminar: salvar a versão editada e pedir alterações ao copiloto
@@ -467,166 +481,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
   // Montar Esqueleto Padrão Imediato da Ata (Sem esperar IA - Modelo Paradigma)
   const handleBuildStandardMinutesTemplate = () => {
     if (!activeHearing) return;
-    const isCriminal =
-      activeHearing.hearingArea === 'criminal' ||
-      (activeHearing.actionClass || '').toLowerCase().includes('penal') ||
-      (activeHearing.actionClass || '').toLowerCase().includes('crime');
-
-    const hDate = activeHearing.scheduledDate
-      ? new Date(activeHearing.scheduledDate + 'T00:00:00').toLocaleDateString('pt-BR')
-      : new Date().toLocaleDateString('pt-BR');
-
-    const formatHearingTime = (timeStr?: string) => {
-      if (!timeStr) return '14H00';
-      const clean = timeStr.trim().replace('h', ':').replace('H', ':');
-      const [h, m] = clean.split(':');
-      if (h && m) {
-        return `${h.padStart(2, '0')}H${m.padStart(2, '0')}`;
-      }
-      return timeStr.toUpperCase();
-    };
-
-    const hTime = formatHearingTime(activeHearing.scheduledTime);
-    const judiciary = (activeHearing.judiciaryState || 'PODER JUDICIÁRIO DO ESTADO DE GOIÁS').toUpperCase();
-    const comarca = (activeHearing.comarcaName || activeHearing.courtName || 'COMARCA DE MONTES CLAROS DE GOIÁS').toUpperCase();
-    const title = (activeHearing.hearingTitle || 'AUDIÊNCIA DE INSTRUÇÃO E JULGAMENTO').toUpperCase();
-
-    // Juiz
-    const rawJudge = resolveJudgeName();
-    const judgeUpper = rawJudge.toUpperCase().startsWith('DR.') ? rawJudge.toUpperCase() : `DR. ${rawJudge.toUpperCase()}`;
-    const judgeSignatureName = rawJudge.replace(/^dr\.\s*/i, '').replace(/^dra\.\s*/i, '');
-
-    // Promotor (Criminal)
-    const rawPromotor = activeHearing.prosecutorName || 'Dra. Júlia Lopes de Souza';
-    const promotorUpper =
-      rawPromotor.toUpperCase().startsWith('DR.') || rawPromotor.toUpperCase().startsWith('DRA.')
-        ? rawPromotor.toUpperCase()
-        : `DRA. ${rawPromotor.toUpperCase()}`;
-
-    // Partes e Patronos
-    const autorUpper = (activeHearing.author || 'PARTE AUTORA').toUpperCase();
-    const rawAdvAutor = activeHearing.plaintiffLawyerName || 'Dra. Lara Campos Azevedo';
-    const advAutorUpper =
-      rawAdvAutor.toUpperCase().startsWith('DR.') || rawAdvAutor.toUpperCase().startsWith('DRA.')
-        ? rawAdvAutor.toUpperCase()
-        : `DRA. ${rawAdvAutor.toUpperCase()}`;
-
-    const reuUpper = (activeHearing.defendant || 'PARTE RÉ').toUpperCase();
-    const rawAdvReu =
-      activeHearing.defendantLawyerName ||
-      (isCriminal ? 'Dra. Jaqueline da Silva Rodrigues' : 'Dr. Paulo Henrique de Morais');
-    const advReuUpper =
-      rawAdvReu.toUpperCase().startsWith('DR.') || rawAdvReu.toUpperCase().startsWith('DRA.')
-        ? rawAdvReu.toUpperCase()
-        : `DR. ${rawAdvReu.toUpperCase()}`;
-
-    // 1. Cabeçalho Centralizado
-    let text = `${judiciary}\n${comarca}\n${title}\n\n`;
-
-    // 2. Bloco de Identificação
-    text += `DATA: ${hDate} às ${hTime}\n`;
-    text += `PROCESSO Nº. ${activeHearing.processNumber || 'N/A'}\n`;
-    text += `JUIZ: ${judgeUpper}\n`;
-
-    if (isCriminal) {
-      text += `PROMOTORA: ${promotorUpper}\n`;
-      text += `ACUSADO: ${reuUpper}\n`;
-      text += `ADVOGADA: ${advReuUpper}\n`;
-    } else {
-      text += `REQUERENTES: ${autorUpper}\n`;
-      text += `ADVOGADA DOS REQUERENTES: ${advAutorUpper}\n`;
-      text += `REQUERIDO: ${reuUpper}\n`;
-      text += `ADVOGADO DO REQUERIDO: ${advReuUpper}\n`;
-    }
-
-    if (activeHearing.studentOuvinte) {
-      text += `ESTUDANTE: ${activeHearing.studentOuvinte}\n`;
-    }
-
-    text += `\n`;
-
-    // 3. CORPO DO TERMO EM PARÁGRAFO CONTÍNUO
-    if (isCriminal) {
-      const vitimas = activeHearing.victimsNames || 'as vítimas qualificadas nos autos';
-      text += `ABERTA A AUDIÊNCIA: Realizado o pregão, verificou-se a presença do acusado ${reuUpper}, acompanhado de sua advogada ${advReuUpper}. Presente a representante do Ministério Público. Presente as vítimas ${vitimas}. `;
-      text += `Iniciada a instrução, colheu-se o depoimento das vítimas ${vitimas}. `;
-
-      const informantes = (activeHearing.witnesses || []).filter((w) => w.role === 'informante');
-      const compromissadas = (activeHearing.witnesses || []).filter((w) => w.role === 'testemunha_reu' || w.role === 'testemunha_autor');
-      const dispensadas = (activeHearing.witnesses || []).filter((w) => w.status === 'dispensado');
-
-      if (informantes.length > 0) {
-        text += `Em seguida, foi ouvido o informante ${informantes.map((i) => i.name.toUpperCase()).join(' e ')}. `;
-      }
-      if (compromissadas.length > 0) {
-        text += `Em seguida, foi ouvida a testemunha ${compromissadas.map((c) => c.name.toUpperCase()).join(' e ')}. `;
-      }
-      if (dispensadas.length > 0) {
-        text += `A testemunha ${dispensadas.map((d) => d.name.toUpperCase()).join(' e ')} foi dispensada. `;
-      }
-
-      text += `Após, entrevista reservada entre o acusado com sua advogada, houve o interrogatório do acusado ${reuUpper}. `;
-
-      if (activeHearing.hearingOccurrences) {
-        text += `${activeHearing.hearingOccurrences} `;
-      }
-
-      if (activeHearing.instantSentenceDraft || sentenceDraft) {
-        text += `Ato contínuo, o MM. Juiz proferiu a seguinte SENTENÇA: “${sentenceDraft || activeHearing.instantSentenceDraft}” `;
-      } else {
-        const prazo = activeHearing.alegacoesFinaisPrazo || '05 (cinco) dias';
-        text += `Ato contínuo, o MM. Juiz proferiu o seguinte DESPACHO: “Encerrada a instrução, abra-se vistas às partes para apresentação de alegações finais, pelo prazo sucessivo de ${prazo}, iniciando-se pelo Ministério Público. Atenda-se.” `;
-      }
-    } else {
-      // CÍVEL
-      const repReu = activeHearing.defendantPrepostoName
-        ? `, na pessoa do representante ${activeHearing.defendantPrepostoName.toUpperCase()}`
-        : '';
-      text += `ABERTA A AUDIÊNCIA: Realizado o pregão, verificou-se a presença dos autores ${autorUpper}, acompanhados de sua advogada ${advAutorUpper}. Presente a parte requerida${repReu}, acompanhado de seu advogado ${advReuUpper}. `;
-
-      if (activeHearing.defendantPrepostoName) {
-        text += `Iniciada a instrução, houve o depoimento pessoal do requerido ${activeHearing.defendantPrepostoName.toUpperCase()}. `;
-      } else {
-        text += `Iniciada a instrução, houve o depoimento pessoal das partes. `;
-      }
-
-      text += `Nos termos do artigo 459, §1°, do CPC, o MM Juiz decidiu inquirir as testemunhas antes da inquirição feita pelas partes. `;
-
-      const informantes = (activeHearing.witnesses || []).filter((w) => w.role === 'informante');
-      const compromissadas = (activeHearing.witnesses || []).filter((w) => w.role === 'testemunha_autor' || w.role === 'testemunha_reu');
-      const dispensadas = (activeHearing.witnesses || []).filter((w) => w.status === 'dispensado');
-
-      if (informantes.length > 0) {
-        text += `Após, foram ouvidos os informantes ${informantes.map((i) => i.name.toUpperCase()).join(', ')}. `;
-      }
-      if (compromissadas.length > 0) {
-        text += `Em seguida, foi ouvida a testemunha ${compromissadas.map((c) => c.name.toUpperCase()).join(', ')}. `;
-      }
-      if (dispensadas.length > 0) {
-        text += `A testemunha ${dispensadas.map((d) => d.name.toUpperCase()).join(', ')} foi dispensada. `;
-      }
-
-      if (activeHearing.hearingOccurrences) {
-        text += `${activeHearing.hearingOccurrences} `;
-      }
-
-      if (activeHearing.instantSentenceDraft || sentenceDraft) {
-        text += `Ato contínuo, o MM. Juiz proferiu a seguinte SENTENÇA: “${sentenceDraft || activeHearing.instantSentenceDraft}” `;
-      } else if (activeHearing.deliberationDraft || deliberationDraft) {
-        text += `Ato contínuo, pelo MM. Juiz foi homologado o acordo nos seguintes termos: “${deliberationDraft || activeHearing.deliberationDraft}” `;
-      } else {
-        const prazo = activeHearing.alegacoesFinaisPrazo || '10 (dez) dias';
-        text += `Ato contínuo, o MM. Juiz proferiu o seguinte DESPACHO: “Encerrada a instrução, abra-se vistas as partes para apresentarem memoriais, no prazo sucessivo de ${prazo}, iniciando-se pela parte autora. Após, conclusos para sentença. Atenda-se.” `;
-      }
-    }
-
-    // Fecho e Declaração da Secretária
-    const secLine = activeHearing.secretarySignature || 'Eu GMF, Secretária, digitei e subscrevi o presente termo.';
-    text += `Nada mais havendo encerrou-se o presente termo que lido e achado conforme vai devidamente assinado. Ficam as partes cientes do prazo de 24h da publicação para qualquer alteração na ata, devendo fazê-lo por petição junto ao processo. ${secLine}\n\n`;
-
-    // 4. Assinatura Centralizada
-    text += `${judgeSignatureName}\nJuiz de Direito`;
-
+    const text = montarTermoTexto(activeHearing, contextoAta());
     setMinutesDraft(text);
     const updated: HearingRecord = {
       ...activeHearing,
@@ -635,7 +490,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     };
     setActiveHearing(updated);
     handleSaveActiveHearing(updated);
-    setImportNotification('Ata montada com exatidão conforme o modelo paradigma do Tribunal!');
+    setImportNotification('Termo montado no layout do Tribunal. Complete os campos [entre colchetes].');
     setTimeout(() => setImportNotification(null), 3000);
   };
 
@@ -700,25 +555,27 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
   };
 
   // Exportar Word (.docx)
-  const handleExportMinutesDocx = () => {
+  const handleExportMinutesDocx = async () => {
     if (!activeHearing) return;
-    const text = minutesDraft || activeHearing.hearingMinutesDraft;
-    if (!text) {
-      setAiError('A ata está vazia. Gere ou redija o termo antes de exportar.');
-      return;
-    }
-    exportHearingMinutesToDocx(activeHearing.processNumber, text, 'Termo de Audiência');
+    const text = termoTexto();
+    if (!text) { setAiError('A ata está vazia. Gere ou redija o termo antes de exportar.'); return; }
+    try {
+      const ctx = contextoAta();
+      const { blocosParaDocx } = await import('../templates/ataPreliminarDocx');
+      const blob = await blocosParaDocx(termoTextoParaBlocos(text, ctx), { juiz: ctx.juiz });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `TERMO-DE-AUDIENCIA-${String(activeHearing.processNumber || '').replace(/[^\d.-]/g, '') || 'processo'}.docx`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch (e: any) { setAiError('Falha ao gerar o Word: ' + (e?.message || e)); }
   };
 
-  // Imprimir Ata
+  // Imprimir / PDF: abre o visualizador do termo (que já imprime no layout oficial)
   const handlePrintMinutes = () => {
     if (!activeHearing) return;
-    const text = minutesDraft || activeHearing.hearingMinutesDraft;
-    if (!text) {
-      setAiError('A ata está vazia. Gere ou redija o termo antes de imprimir.');
-      return;
-    }
-    printHearingMinutes(activeHearing.processNumber, text);
+    if (!termoTexto()) { setAiError('A ata está vazia. Gere ou redija o termo antes de imprimir.'); return; }
+    setShowTermo(true);
   };
 
   // Upload and Extract PDFs handler (The "Magic" Pipeline)
@@ -2413,6 +2270,16 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                               <span>Esqueleto Padrão</span>
                             </button>
 
+                            <button
+                              onClick={() => { if (!termoTexto()) handleBuildStandardMinutesTemplate(); setShowTermo(true); }}
+                              data-testid="btn-visualizar-termo"
+                              className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                              title="Abrir o termo no layout oficial (editar, copiloto, PDF e Word)"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              <span>Visualizar termo</span>
+                            </button>
+
                             {/* Botão Toggle Configurações/Presenças */}
                             <button
                               onClick={() => setShowMinutesConfig(!showMinutesConfig)}
@@ -2984,6 +2851,19 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
           </>
         )}
       </div>
+      {showTermo && activeHearing && createPortal(
+        <AtaPreliminarViewer
+          ata={{} as any}
+          modo="termo"
+          htmlInicial={blocosParaHtml(termoTextoParaBlocos(termoTexto(), contextoAta()))}
+          onSalvar={salvarTermoHtml}
+          onCopilot={copilotoAta}
+          processNumber={activeHearing.processNumber}
+          contexto={contextoAta()}
+          carregando={isLoadingAi}
+          onClose={() => setShowTermo(false)}
+        />
+      , document.body)}
       {showAtaPreliminar && activeHearing?.ataPreliminar && createPortal(
         <AtaPreliminarViewer
           ata={activeHearing.ataPreliminar}

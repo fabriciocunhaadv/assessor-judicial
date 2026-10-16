@@ -1767,7 +1767,7 @@ REGRAS INEGOCIÁVEIS:
 7. Linguagem objetiva e neutra, sem juízo de valor sobre o mérito.
 Responda ESTRITAMENTE em JSON:
 {
- "cabecalho": {"numeroProcesso":"","classe":"","assunto":"natureza da ação, ex.: Ação de Obrigação de Fazer c/c Indenização por Danos Morais","vara":"nome da vara/juízo, ex.: Vara da Fazenda Pública Estadual","comarca":"apenas o nome da comarca, ex.: Anápolis","valorCausa":"","dataDistribuicao":"","tipoAudiencia":"","dataHoraAudiencia":"ex.: 07/10/2026, às 15h00min"},
+ "cabecalho": {"numeroProcesso":"","classe":"","assunto":"natureza da ação, ex.: Ação de Obrigação de Fazer c/c Indenização por Danos Morais","vara":"nome da vara/juízo, ex.: Vara da Fazenda Pública Estadual","comarca":"apenas o nome da comarca, ex.: Anápolis","valorCausa":"","dataDistribuicao":"","tipoAudiencia":"","dataHoraAudiencia":"ex.: 07/10/2026, às 15h00min","juizDesignouAudiencia":"nome do Juiz de Direito que DETERMINOU o agendamento ou, se houve, o REAGENDAMENTO mais recente da audiência (despacho/decisão/ato ordinatório assinado por ele); vazio se não constar"},
  "partes": [{"polo":"ativo|passivo|terceiro|ministerio_publico (uma entrada por parte; Estado/Município/autarquia também entram, com seu procurador em advogados)","nome":"","documento":"","qualificacao":"","advogados":[{"nome":"","oab":""}],"localizacao":""}],
  "resumo": "5 a 8 linhas: do que se trata e em que fase está",
  "testemunhas": [{"nome":"","indicadaPor":"autor|reu|outro","qualificacao":"","localizacao":"","situacaoIntimacao":"intimada|nao_intimada|negativa|aguardando|nao_localizada","dataIntimacao":"","localizacaoIntimacao":""}],
@@ -1920,20 +1920,55 @@ Redija a sentença em mesa (relatório sucinto/dispensado na forma da lei, funda
         }
 
         if (actionType === 'minutes') {
-            const systemPrompt = `Você é o escrivão/assessor de audiência responsável por redigir a ATA DE AUDIÊNCIA DE INSTRUÇÃO E JULGAMENTO completa.
-Parâmetros da Ata: ${JSON.stringify(minutesParams || {})}
+            const systemPrompt = `Você é assessor de juiz do TJGO e vai redigir o TERMO DE AUDIÊNCIA (ata final) da audiência já realizada.
+DADOS DA AUDIÊNCIA (JSON): ${JSON.stringify(minutesParams || {})}
 Processo: ${processNumber || ''}
 Autor: ${author || ''}
 Réu: ${defendant || ''}
 
-Redija o Termo de Assentada completo, contendo cabeçalho institucional, pregão, presenças, depoimentos colhidos, deliberações e fecho formal com assinaturas.`;
+SAÍDA: somente texto puro (sem markdown, sem asteriscos, sem crases), exatamente neste layout, uma informação por linha:
+PODER JUDICIÁRIO
+Comarca de <comarca>
+<vara/juízo>
+Sala de Audiências
+
+TERMO DE AUDIÊNCIA
+
+Data: <dd/mm/aaaa, às HHhMMmin>
+Número do Processo: <número>
+Natureza: <classe/assunto>
+<Requerente|Promotor|Acusado|Requerido>: <nome>
+Advogado: <nome e OAB, se constar>
+(demais partes, uma linha "Rótulo: valor" cada)
+
+PRESENTES
+<um parágrafo: quem estava presente e como — juiz, partes, advogados, MP, testemunhas, vítimas>
+
+OCORRÊNCIAS
+<parágrafos: abertura na forma da lei, modalidade, advertência sobre divulgação dos registros audiovisuais, tentativa de conciliação se houve, oitivas (com resumo fiel de cada depoimento), requerimentos e decisões incidentais>
+
+DELIBERAÇÕES
+<parágrafos: decisão/despacho/sentença proferida; prazos (alegações finais/memoriais) e conclusão>
+
+ENCERRAMENTO DA AUDIÊNCIA
+<parágrafo de encerramento: dispensa de assinaturas se videoconferência, prazo de 2 dias para apontar desconformidade, "Encerrado o ato." e "Eu, <assessor>, Assessor de Juiz de Direito, o digitei.">
+
+<NOME DO JUIZ EM MAIÚSCULAS>
+Juiz de Direito
+(assinado digitalmente)
+
+REGRAS:
+- Use SOMENTE os dados fornecidos acima. NUNCA invente nomes, datas, números, OAB ou fatos. O que não constar vira um campo entre colchetes, ex.: [nome do advogado].
+- Dúvida sobre presença/ausência: escreva [Presente/Ausente].
+- Cabeçalho, títulos das seções e assinatura exatamente como no layout; não use outros títulos.
+- Linguagem formal, objetiva, terceira pessoa, tempo passado.`;
 
             const options = {
                 apiKey,
                 keyPool: extractApiKeyPool(req),
                 res,
                 contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
-                config: { systemInstruction: "Redija termo oficial de assentada e ata de audiência." }
+                config: { systemInstruction: "Redija o Termo de Audiência do TJGO em texto puro, no layout solicitado, sem inventar dados." }
             };
 
             const response = await generateWithFallbackAndRetry(options);

@@ -1155,7 +1155,7 @@ export interface CabinetMonthlyTokenUsage {
 
 // ATA PRELIMINAR DA AUDIÊNCIA (apoio ao juiz antes da audiência; só o que consta nos autos, com a localização Mov./Arq./Pág.)
 export interface AtaPreliminarDados {
-  cabecalho?: { numeroProcesso?: string; classe?: string; assunto?: string; vara?: string; comarca?: string; valorCausa?: string; dataDistribuicao?: string; tipoAudiencia?: string; dataHoraAudiencia?: string };
+  cabecalho?: { numeroProcesso?: string; classe?: string; assunto?: string; vara?: string; comarca?: string; valorCausa?: string; dataDistribuicao?: string; tipoAudiencia?: string; dataHoraAudiencia?: string; juizDesignouAudiencia?: string };
   partes?: { polo?: string; nome?: string; documento?: string; qualificacao?: string; advogados?: { nome?: string; oab?: string }[]; localizacao?: string; conferir?: boolean; motivoConferir?: string }[];
   resumo?: string;
   testemunhas?: { nome?: string; indicadaPor?: string; qualificacao?: string; localizacao?: string; situacaoIntimacao?: string; dataIntimacao?: string; localizacaoIntimacao?: string; conferir?: boolean; motivoConferir?: string }[];

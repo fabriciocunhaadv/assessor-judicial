@@ -21,6 +21,7 @@ const CSS_VISUALIZADOR = `
 .atav-painel{background:#191c24;border-color:rgba(255,255,255,.1)}
 .atav-tab{color:#9aa3b5;border-bottom:2px solid transparent}.atav-tab:hover{color:#e8eaf0}
 .atav-tab-on{color:#fff;border-bottom:2px solid #6b93ff}
+.atav-tab-cop{color:#fff;font-weight:800;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-bottom:2px solid #c4b5fd;box-shadow:0 0 0 1px rgba(196,181,253,.35),0 4px 14px rgba(99,102,241,.45)}.atav-tab-cop:hover{filter:brightness(1.12);color:#fff}
 .atav-card{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);border-radius:10px;padding:8px}
 .atav-card-alto{border-color:rgba(248,113,113,.5);background:rgba(239,68,68,.12)}
 .atav-card-medio{border-color:rgba(251,191,36,.45);background:rgba(245,158,11,.12)}
@@ -37,6 +38,8 @@ const CSS_VISUALIZADOR = `
 export interface RespostaCopilotoAta { html: string; resumo?: string }
 interface Props {
   ata: AtaPreliminarDados;
+  modo?: "preliminar" | "termo";                         // termo = aba 5 (Termo de Audiência final)
+  htmlInicial?: string;                                   // modo termo: documento montado a partir do texto da aba 5
   htmlEditado?: string;                                   // versão salva depois de editar (substitui a gerada)
   processNumber?: string;
   contexto?: ContextoAta;                                 // juiz, assessor, data/hora e modalidade da audiência
@@ -48,10 +51,11 @@ interface Props {
 }
 
 // Visualizador da ata preliminar: folha A4 com zoom, edição direta no documento, copiloto para pedir alterações em linguagem natural e exportação.
-export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, contexto, onClose, onRegenerate, carregando, onSalvar, onCopilot }: Props) {
+export function AtaPreliminarViewer({ ata, modo = "preliminar", htmlInicial, htmlEditado, processNumber, contexto, onClose, onRegenerate, carregando, onSalvar, onCopilot }: Props) {
   const [zoom, setZoom] = useState(1);
   const [painel, setPainel] = useState(true);
-  const [aba, setAba] = useState<"resumo" | "copiloto">("resumo");
+  const termo = modo === "termo";
+  const [aba, setAba] = useState<"resumo" | "copiloto">(termo ? "copiloto" : "resumo");
   const [pagina, setPagina] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [aviso, setAviso] = useState("");
@@ -66,11 +70,12 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, contexto,
   const folha = useRef<HTMLDivElement>(null);
   const doc = useRef<HTMLDivElement>(null);
 
-  const ctx = contexto || {};
+  const juizAutos = String(ata?.cabecalho?.juizDesignouAudiencia || "").trim().replace(/^(excelent[ií]ssimo|exmo\.?)\s+/i, "");
+  const ctx = { ...(contexto || {}), ...(juizAutos ? { juiz: juizAutos } : {}) };
   const rodape = rodapeJuiz(ctx);
   const ctxKey = JSON.stringify(ctx);
   const blocosGerados = useMemo(() => montarBlocos(ata, MODELO_ATA, ctx), [ata, ctxKey]);
-  const htmlGerado = useMemo(() => blocosParaHtml(blocosGerados), [blocosGerados]);
+  const htmlGerado = useMemo(() => (termo ? (htmlInicial || "") : blocosParaHtml(blocosGerados)), [blocosGerados, termo, htmlInicial]);
   const [htmlBase, setHtmlBase] = useState<string>(htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado);
   useEffect(() => { setHtmlBase(htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado); setSujo(false); }, [htmlGerado, htmlEditado]);
   // o conteúdo do documento só é reescrito quando muda a base (não a cada tecla: preserva o cursor)
@@ -78,7 +83,7 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, contexto,
 
   const htmlCorrente = useCallback(() => sanitizarHtmlAta(doc.current?.innerHTML ?? htmlBase), [htmlBase]);
   const numero = ata.cabecalho?.numeroProcesso || processNumber || "processo";
-  const nomeArquivo = `ATA-PRELIMINAR-${String(numero).replace(/[^\d.-]/g, "") || "processo"}`;
+  const nomeArquivo = `${termo ? "TERMO-DE-AUDIENCIA" : "ATA-PRELIMINAR"}-${String(numero).replace(/[^\d.-]/g, "") || "processo"}`;
   const aConferir = useMemo(() => [...(ata.partes || []), ...(ata.testemunhas || []), ...(ata.citacoesIntimacoes || []), ...(ata.pedidosAudiencia || []), ...(ata.pontosAtencao || [])].filter((x: any) => x.conferir).length, [ata]);
 
   useEffect(() => {
@@ -152,7 +157,7 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, contexto,
         <button onClick={tentarFechar} className="atav-btn p-1.5 rounded-full" title="Fechar (Esc)"><X className="w-5 h-5" /></button>
         <span className="atav-pdf px-1.5 py-0.5 rounded text-[10px] font-black">PDF</span>
         <span className="text-sm font-semibold truncate">{nomeArquivo}.pdf</span>
-        {sujo ? <span className="atav-amber text-xs">• alterações não salvas</span> : (htmlEditado && htmlEditado.trim() ? <span className="atav-green text-xs">• versão editada salva</span> : <span className="atav-muted hidden md:inline text-xs truncate">{MODELO_ATA.nome}</span>)}
+        {sujo ? <span className="atav-amber text-xs">• alterações não salvas</span> : (htmlEditado && htmlEditado.trim() ? <span className="atav-green text-xs">• versão editada salva</span> : <span className="atav-muted hidden md:inline text-xs truncate">{termo ? "Termo de Audiência" : MODELO_ATA.nome}</span>)}
         <div className="ml-auto flex items-center gap-1">
           {aviso && <span className="atav-green text-xs mr-2">{aviso}</span>}
           {onSalvar && <>
@@ -192,10 +197,10 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, contexto,
         {painel && (
           <aside className="atav-painel w-96 shrink-0 border-l flex-col hidden md:flex" data-testid="ata-painel">
             <div className="flex border-b text-xs font-semibold" style={{ borderColor: "rgba(255,255,255,.1)" }}>
-              <button onClick={() => setAba("resumo")} className={`atav-tab flex-1 py-2.5 ${aba === "resumo" ? "atav-tab-on" : ""}`}>Resumo</button>
-              {onCopilot && <button onClick={() => setAba("copiloto")} data-testid="ata-aba-copiloto" className={`atav-tab flex-1 py-2.5 flex items-center justify-center gap-1.5 ${aba === "copiloto" ? "atav-tab-on" : ""}`}><Sparkles className="w-3.5 h-3.5" />Copiloto</button>}
+              {!termo && <button onClick={() => setAba("resumo")} className={`atav-tab flex-1 py-2.5 ${aba === "resumo" ? "atav-tab-on" : ""}`}>Resumo</button>}
+              {onCopilot && <button onClick={() => setAba("copiloto")} data-testid="ata-aba-copiloto" className={`atav-tab atav-tab-cop flex-1 py-2.5 flex items-center justify-center gap-1.5 text-sm ${aba === "copiloto" ? "" : "animate-pulse"}`}><Sparkles className="w-4 h-4" />Copiloto IA</button>}
             </div>
-            {aba === "resumo" && (
+            {aba === "resumo" && !termo && (
               <div className="flex-1 overflow-auto p-3 space-y-3">
                 {ata.alertaInjecao && <div className="atav-claro"><AvisoPromptInjection info={ata.alertaInjecao as any} /></div>}
                 <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "#dfe3ee" }}>{ata.resumo || "Resumo não disponível."}</p>

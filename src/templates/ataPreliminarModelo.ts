@@ -62,7 +62,6 @@ export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA, c
   const vara = String(ctx.vara || c.vara || "").trim();
   b.push({ tipo: "cabecalho", linhas: [m.orgao, comarca ? `Comarca de ${comarca}` : "Comarca de [comarca]", vara || "[vara / juízo]", m.salaTexto] });
   b.push({ tipo: "titulo", texto: m.titulo });
-  b.push({ tipo: "paragrafo", texto: m.aviso, destaque: "aviso" });
   if (d.alertaInjecao && d.alertaInjecao.total > 0) {
     b.push({ tipo: "paragrafo", destaque: "conferir", texto: `ALERTA: possível tentativa de manipular a IA nos autos (${d.alertaInjecao.total} trecho(s)). ` + d.alertaInjecao.achados.slice(0, 5).map((a) => `${[a.movimentacao != null ? `Mov. ${a.movimentacao}` : "", a.arquivo != null ? `Arq. ${a.arquivo}` : "", a.pagina != null ? `Pág. ${a.pagina}` : ""].filter(Boolean).join(", ") || "local não identificado"}: “${a.trecho.slice(0, 160)}”`).join(" | ") });
   }
@@ -109,7 +108,7 @@ export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA, c
   }
 
   // ===== minuta do termo, para completar durante o ato =====
-  const juiz = String(ctx.juiz || "").trim();
+  const juiz = String(c.juizDesignouAudiencia || "").trim().replace(/^(excelent[ií]ssimo|exmo\.?)\s+/i, "") || String(ctx.juiz || "").trim();
   const juizN = juiz ? (/^dr/i.test(juiz) ? juiz : `Dr. ${juiz}`) : "[nome do Juiz de Direito]";
   const modo = ctx.modalidade === "presencial" ? "presencial" : ctx.modalidade === "telepresencial" ? "telepresencial, por meio do aplicativo Zoom Meetings, nos termos da Resolução CNJ n. 354/2020" : "[telepresencial, por meio do aplicativo Zoom Meetings, nos termos da Resolução CNJ n. 354/2020 / presencial]";
   b.push({ tipo: "secao", texto: "PRESENTES" });
