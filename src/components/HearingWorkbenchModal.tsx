@@ -2991,6 +2991,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
           onSalvar={salvarAtaHtml}
           onCopilot={copilotoAta}
           processNumber={activeHearing.processNumber}
+          contexto={{ juiz: resolveJudgeName(), assessor: activeHearing.assessorName, data: activeHearing.scheduledDate, hora: activeHearing.scheduledTime, modalidade: activeHearing.hearingModality, vara: activeHearing.courtName, comarca: activeHearing.comarcaName }}
           carregando={isLoadingAi}
           onClose={() => setShowAtaPreliminar(false)}
           onRegenerate={() => runAiHearingCopilot('preliminary_minutes')}

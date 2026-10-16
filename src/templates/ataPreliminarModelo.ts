@@ -1,65 +1,90 @@
-// MODELO DA ATA PRELIMINAR. Para trocar o modelo do documento, edite SOMENTE este arquivo:
-//  - MODELO_ATA: títulos, ordem das seções e rodapé;
-//  - montarBlocos(): como cada seção é escrita (títulos, colunas das tabelas, frases).
+// MODELO DA ATA PRELIMINAR (layout igual ao "Termo de Audiência" do gabinete: brasão, cabeçalho em Courier, título, linhas "rótulo: valor",
+// seções centralizadas e rodapé com número da página e nome do juiz). Para trocar o modelo, edite SOMENTE este arquivo:
+//  - MODELO_ATA: textos fixos, nomes e ordem das seções;
+//  - montarBlocos(): como cada seção é escrita (colunas das tabelas, frases, campos a completar entre [colchetes]);
+//  - CSS_ATA: aparência (fontes, tamanhos, cores).
 // O visualizador, a impressão/PDF, o Word e o "copiar" usam os mesmos blocos, então mudam juntos.
 import type { AtaPreliminarDados } from "../types";
+import { BRASAO_GOIAS_SRC } from "./brasaoGoias";
 
-export type SecaoAta = "cabecalho" | "partes" | "resumo" | "testemunhas" | "citacoes" | "pedidos" | "atencao" | "controversia";
-export interface ModeloAta { id: string; nome: string; brasao: string[]; titulo: string; aviso: string; secoes: { id: SecaoAta; titulo: string }[] }
+export type SecaoAta = "resumo" | "testemunhas" | "citacoes" | "pedidos" | "atencao" | "controversia";
+export interface ModeloAta { id: string; nome: string; orgao: string; salaTexto: string; titulo: string; aviso: string; secoes: { id: SecaoAta; titulo: string }[] }
 
 export const MODELO_ATA: ModeloAta = {
-  id: "padrao-v1",
-  nome: "Ata preliminar — modelo padrão",
-  brasao: ["PODER JUDICIÁRIO DO ESTADO DE GOIÁS"],
+  id: "termo-goias-v1",
+  nome: "Ata preliminar — modelo Termo de Audiência",
+  orgao: "PODER JUDICIÁRIO",
+  salaTexto: "Sala de Audiências",
   titulo: "ATA PRELIMINAR DE AUDIÊNCIA",
-  aviso: "Documento de apoio ao magistrado, elaborado a partir dos autos. Não substitui a ata da audiência. Itens marcados como “conferir” devem ser verificados nos autos.",
+  aviso: "Documento de apoio ao magistrado, elaborado a partir dos autos. Os campos entre [colchetes] são para completar durante o ato; os itens “conferir” devem ser verificados nos autos.",
   secoes: [
-    { id: "cabecalho", titulo: "1. Identificação do processo" },
-    { id: "partes", titulo: "2. Partes e advogados" },
-    { id: "resumo", titulo: "3. Resumo do processo" },
-    { id: "testemunhas", titulo: "4. Testemunhas indicadas" },
-    { id: "citacoes", titulo: "5. Citações e intimações" },
-    { id: "pedidos", titulo: "6. Pedidos relacionados à audiência" },
-    { id: "atencao", titulo: "7. Pontos de atenção para o juiz" },
-    { id: "controversia", titulo: "8. Pontos controvertidos e o que falta provar" },
+    { id: "resumo", titulo: "RESUMO DO PROCESSO" },
+    { id: "testemunhas", titulo: "TESTEMUNHAS INDICADAS" },
+    { id: "citacoes", titulo: "CITAÇÕES E INTIMAÇÕES" },
+    { id: "pedidos", titulo: "PEDIDOS RELACIONADOS À AUDIÊNCIA" },
+    { id: "atencao", titulo: "PONTOS DE ATENÇÃO" },
+    { id: "controversia", titulo: "PONTOS CONTROVERTIDOS E O QUE FALTA PROVAR" },
   ],
 };
 
+// Dados do gabinete e da audiência que não vêm dos autos
+export interface ContextoAta { juiz?: string; assessor?: string; data?: string; hora?: string; modalidade?: "presencial" | "telepresencial" | "hibrida"; vara?: string; comarca?: string }
+
 export type Bloco =
-  | { tipo: "brasao"; texto: string }
+  | { tipo: "cabecalho"; linhas: string[] }
   | { tipo: "titulo"; texto: string }
-  | { tipo: "subtitulo"; texto: string }
-  | { tipo: "paragrafo"; texto: string; destaque?: "aviso" | "conferir" | "vazio" }
+  | { tipo: "meta"; rotulo: string; valor: string }
+  | { tipo: "secao"; texto: string }
+  | { tipo: "paragrafo"; texto: string; destaque?: "aviso" | "conferir" | "vazio" | "corpo" }
   | { tipo: "lista"; itens: { texto: string; conferir?: boolean; nivel?: string }[] }
-  | { tipo: "tabela"; colunas: string[]; linhas: { celulas: string[]; conferir?: boolean }[] };
+  | { tipo: "tabela"; colunas: string[]; linhas: { celulas: string[]; conferir?: boolean }[] }
+  | { tipo: "assinatura"; linhas: string[] };
 
 const NC = "não consta nos autos";
 const v = (x?: string) => (x && String(x).trim() ? String(x).trim() : NC);
 const loc = (x?: string) => (x && String(x).trim() ? String(x).trim() : "localização não identificada");
-const POLO: Record<string, string> = { ativo: "Polo ativo", passivo: "Polo passivo", terceiro: "Terceiro", ministerio_publico: "Ministério Público" };
 const RESULT: Record<string, string> = { positiva: "Positiva", negativa: "Negativa", edital: "Por edital", hora_certa: "Hora certa", aguardando: "Aguardando cumprimento", nao_localizada: "Não localizada nos autos" };
 const SIT: Record<string, string> = { intimada: "Intimada", nao_intimada: "Não intimada", negativa: "Intimação negativa", aguardando: "Aguardando", nao_localizada: "Não localizada nos autos" };
 const INDICADA: Record<string, string> = { autor: "Autor", reu: "Réu", outro: "Outro" };
+const ROTULO_POLO: Record<string, string> = { ativo: "Requerente", passivo: "Requerido", terceiro: "Terceiro Interessado", ministerio_publico: "Ministério Público" };
 
-export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA): Bloco[] {
+const apenasComarca = (c?: string) => String(c || "").replace(/^\s*comarca\s+de\s+/i, "").replace(/\s*[\/-]\s*GO\s*$/i, "").trim();
+const dataBr = (iso?: string) => { const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || ""); };
+const horaBr = (h?: string) => { const m = String(h || "").match(/^(\d{1,2}):(\d{2})/); return m ? `${m[1].padStart(2, "0")}h${m[2]}min` : String(h || ""); };
+const dr = (nome?: string) => { const n = String(nome || "").trim(); return !n ? "" : /^(dr|dra|des)\.?\s/i.test(n) ? n : n; };
+const advTxt = (p: { advogados?: { nome?: string; oab?: string }[] }) => (p.advogados || []).filter((a) => a?.nome).map((a) => `${a.nome}${a.oab ? ` – OAB/${/^[A-Z]{2}\b/.test(String(a.oab).trim()) ? String(a.oab).trim().replace(/^([A-Z]{2})\s*/, "$1 n. ") : "GO n. " + a.oab}` : ""}`).join(" e ");
+const lista = (xs: string[]) => (xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", ") + " e " + xs[xs.length - 1]);
+
+export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA, ctx: ContextoAta = {}): Bloco[] {
   const b: Bloco[] = [];
-  m.brasao.forEach((t) => b.push({ tipo: "brasao", texto: t }));
+  const c = d.cabecalho || {};
+  const comarca = apenasComarca(ctx.comarca || c.comarca);
+  const vara = String(ctx.vara || c.vara || "").trim();
+  b.push({ tipo: "cabecalho", linhas: [m.orgao, comarca ? `Comarca de ${comarca}` : "Comarca de [comarca]", vara || "[vara / juízo]", m.salaTexto] });
   b.push({ tipo: "titulo", texto: m.titulo });
   b.push({ tipo: "paragrafo", texto: m.aviso, destaque: "aviso" });
   if (d.alertaInjecao && d.alertaInjecao.total > 0) {
     b.push({ tipo: "paragrafo", destaque: "conferir", texto: `ALERTA: possível tentativa de manipular a IA nos autos (${d.alertaInjecao.total} trecho(s)). ` + d.alertaInjecao.achados.slice(0, 5).map((a) => `${[a.movimentacao != null ? `Mov. ${a.movimentacao}` : "", a.arquivo != null ? `Arq. ${a.arquivo}` : "", a.pagina != null ? `Pág. ${a.pagina}` : ""].filter(Boolean).join(", ") || "local não identificado"}: “${a.trecho.slice(0, 160)}”`).join(" | ") });
   }
+  // linhas "rótulo: valor" do termo
+  const dataTxt = c.dataHoraAudiencia && String(c.dataHoraAudiencia).trim() ? String(c.dataHoraAudiencia).trim() : (ctx.data ? `${dataBr(ctx.data)}${ctx.hora ? ", às " + horaBr(ctx.hora) : ""}` : "[data e hora]");
+  b.push({ tipo: "meta", rotulo: "Data:", valor: dataTxt });
+  b.push({ tipo: "meta", rotulo: "Número do Processo:", valor: v(c.numeroProcesso) });
+  b.push({ tipo: "meta", rotulo: "Natureza:", valor: v(c.assunto || c.classe) });
+  if (c.valorCausa && String(c.valorCausa).trim()) b.push({ tipo: "meta", rotulo: "Valor da causa:", valor: String(c.valorCausa).trim() });
+  const partes = d.partes || [];
+  if (!partes.length) b.push({ tipo: "meta", rotulo: "Partes:", valor: NC });
+  for (const p of partes) {
+    const rot = ROTULO_POLO[p.polo || ""] || "Parte";
+    b.push({ tipo: "meta", rotulo: rot + ":", valor: [v(p.nome), p.qualificacao && p.qualificacao.trim() ? `(${p.qualificacao.trim()})` : ""].filter(Boolean).join(" ") + (p.conferir ? " [conferir]" : "") });
+    const adv = advTxt(p);
+    if (adv) b.push({ tipo: "meta", rotulo: (p.advogados || []).length > 1 ? "Advogados:" : (p.polo === "ministerio_publico" ? "Promotor:" : "Advogado:"), valor: adv });
+  }
+
   for (const s of m.secoes) {
-    b.push({ tipo: "subtitulo", texto: s.titulo });
-    if (s.id === "cabecalho") {
-      const c = d.cabecalho || {};
-      b.push({ tipo: "tabela", colunas: ["Campo", "Informação"], linhas: ([["Processo nº", c.numeroProcesso], ["Classe", c.classe], ["Assunto", c.assunto], ["Vara / Juízo", c.vara], ["Comarca", c.comarca], ["Valor da causa", c.valorCausa], ["Distribuição", c.dataDistribuicao], ["Tipo de audiência", c.tipoAudiencia], ["Data e hora da audiência", c.dataHoraAudiencia]] as [string, string | undefined][]).map(([k, x]) => ({ celulas: [k, v(x)] })) });
-    } else if (s.id === "partes") {
-      const l = d.partes || [];
-      if (!l.length) b.push({ tipo: "paragrafo", texto: NC, destaque: "vazio" });
-      else b.push({ tipo: "tabela", colunas: ["Polo", "Nome / qualificação", "Documento", "Advogado(s)", "Onde consta"], linhas: l.map((p) => ({ conferir: p.conferir, celulas: [POLO[p.polo || ""] || v(p.polo), [v(p.nome), p.qualificacao].filter(Boolean).join(" — "), v(p.documento), (p.advogados || []).map((a) => `${a.nome || ""}${a.oab ? ` (OAB ${a.oab})` : ""}`).join("; ") || NC, loc(p.localizacao) + (p.conferir ? " [conferir]" : "")] })) });
-    } else if (s.id === "resumo") {
-      b.push({ tipo: "paragrafo", texto: v(d.resumo) });
+    b.push({ tipo: "secao", texto: s.titulo });
+    if (s.id === "resumo") {
+      b.push({ tipo: "paragrafo", texto: v(d.resumo), destaque: "corpo" });
     } else if (s.id === "testemunhas") {
       const l = d.testemunhas || [];
       if (!l.length) b.push({ tipo: "paragrafo", texto: "Nenhuma testemunha arrolada nos autos.", destaque: "vazio" });
@@ -67,11 +92,11 @@ export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA): 
     } else if (s.id === "citacoes") {
       const l = d.citacoesIntimacoes || [];
       if (!l.length) b.push({ tipo: "paragrafo", texto: NC, destaque: "vazio" });
-      else b.push({ tipo: "tabela", colunas: ["Destinatário", "Ato", "Resultado", "Data", "Onde consta"], linhas: l.map((c) => ({ conferir: c.conferir, celulas: [v(c.destinatario) + (c.papel ? ` (${c.papel})` : ""), c.ato === "citacao" ? "Citação" : c.ato === "intimacao" ? "Intimação" : v(c.ato), (RESULT[c.resultado || ""] || NC) + (c.observacao ? ` — ${c.observacao}` : ""), v(c.data), loc(c.localizacao) + (c.conferir ? " [conferir]" : "")] })) });
+      else b.push({ tipo: "tabela", colunas: ["Destinatário", "Ato", "Resultado", "Data", "Onde consta"], linhas: l.map((x) => ({ conferir: x.conferir, celulas: [v(x.destinatario) + (x.papel ? ` (${x.papel})` : ""), x.ato === "citacao" ? "Citação" : x.ato === "intimacao" ? "Intimação" : v(x.ato), (RESULT[x.resultado || ""] || NC) + (x.observacao ? ` — ${x.observacao}` : ""), v(x.data), loc(x.localizacao) + (x.conferir ? " [conferir]" : "")] })) });
     } else if (s.id === "pedidos") {
       const l = d.pedidosAudiencia || [];
       if (!l.length) b.push({ tipo: "paragrafo", texto: "Nenhum pedido relacionado à audiência localizado nos autos.", destaque: "vazio" });
-      else b.push({ tipo: "tabela", colunas: ["Pedido", "Requerente", "Resumo", "Decisão", "Onde consta"], linhas: l.map((p) => ({ conferir: p.conferir, celulas: [v(p.tipo), v(p.requerente) + (p.data ? ` (${p.data})` : ""), v(p.resumo), p.decisao && p.decisao.trim() ? p.decisao : "sem decisão localizada", loc(p.localizacao) + (p.conferir ? " [conferir]" : "")] })) });
+      else b.push({ tipo: "tabela", colunas: ["Pedido", "Requerente", "Resumo", "Decisão", "Onde consta"], linhas: l.map((x) => ({ conferir: x.conferir, celulas: [v(x.tipo), v(x.requerente) + (x.data ? ` (${x.data})` : ""), v(x.resumo), x.decisao && x.decisao.trim() ? x.decisao : "sem decisão localizada", loc(x.localizacao) + (x.conferir ? " [conferir]" : "")] })) });
     } else if (s.id === "atencao") {
       const l = d.pontosAtencao || [];
       if (!l.length) b.push({ tipo: "paragrafo", texto: "Nenhum ponto de atenção identificado.", destaque: "vazio" });
@@ -79,58 +104,106 @@ export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA): 
     } else if (s.id === "controversia") {
       const l = d.pontosControvertidos || [];
       if (l.length) b.push({ tipo: "lista", itens: l.map((x) => ({ texto: x })) }); else b.push({ tipo: "paragrafo", texto: NC, destaque: "vazio" });
-      b.push({ tipo: "paragrafo", texto: "O que falta provar: " + v(d.faltaProvar) });
+      b.push({ tipo: "paragrafo", texto: "O que falta provar: " + v(d.faltaProvar), destaque: "corpo" });
     }
   }
+
+  // ===== minuta do termo, para completar durante o ato =====
+  const juiz = String(ctx.juiz || "").trim();
+  const juizN = juiz ? (/^dr/i.test(juiz) ? juiz : `Dr. ${juiz}`) : "[nome do Juiz de Direito]";
+  const modo = ctx.modalidade === "presencial" ? "presencial" : ctx.modalidade === "telepresencial" ? "telepresencial, por meio do aplicativo Zoom Meetings, nos termos da Resolução CNJ n. 354/2020" : "[telepresencial, por meio do aplicativo Zoom Meetings, nos termos da Resolução CNJ n. 354/2020 / presencial]";
+  b.push({ tipo: "secao", texto: "PRESENTES" });
+  const linhasP: string[] = [`[Presente presencialmente na sala de audiências] o Juiz de Direito, ${juizN}.`];
+  for (const p of partes) {
+    const rot = (ROTULO_POLO[p.polo || ""] || "parte").toLowerCase();
+    const adv = advTxt(p);
+    linhasP.push(`[Presente/Ausente] ${rot === "requerente" || rot === "requerido" ? "o(a) " : ""}${rot} ${v(p.nome)}${adv ? `, [acompanhado(a) de seu(sua) advogado(a), ${adv}]` : ""}.`);
+  }
+  const tes = (d.testemunhas || []).filter((t) => t.nome);
+  if (tes.length) linhasP.push(`Testemunhas indicadas: ${lista(tes.map((t) => String(t.nome)))} [presentes/ausentes].`);
+  b.push({ tipo: "paragrafo", texto: linhasP.join(" "), destaque: "corpo" });
+  b.push({ tipo: "secao", texto: "OCORRÊNCIAS" });
+  b.push({ tipo: "paragrafo", destaque: "corpo", texto: `Declarada aberta a audiência, na forma da lei, o ato foi realizado de modo ${modo}. Na sequência, o Magistrado advertiu as partes acerca da vedação à divulgação não autorizada dos registros audiovisuais a pessoas estranhas ao processo.` });
+  const pend = (d.pedidosAudiencia || []).filter((x) => !x.decisao || !String(x.decisao).trim());
+  if (pend.length) b.push({ tipo: "paragrafo", destaque: "corpo", texto: `Requerimentos constantes dos autos ainda sem decisão: ${pend.map((x) => `${v(x.tipo)} (${v(x.requerente)}, ${loc(x.localizacao)})`).join("; ")}.` });
+  b.push({ tipo: "paragrafo", destaque: "corpo", texto: "[Registrar as ocorrências: oitivas, requerimentos e decisões incidentais.]" });
+  b.push({ tipo: "secao", texto: "DELIBERAÇÕES" });
+  b.push({ tipo: "paragrafo", destaque: "corpo", texto: "Pelo MM. Juiz de Direito foi proferida a seguinte D E C I S Ã O:" });
+  b.push({ tipo: "paragrafo", destaque: "corpo", texto: "[Texto da decisão.]" });
+  b.push({ tipo: "secao", texto: "ENCERRAMENTO DA AUDIÊNCIA" });
+  const assessor = String(ctx.assessor || "").trim() || "[nome do assessor]";
+  b.push({ tipo: "paragrafo", destaque: "corpo", texto: `[Pelo MM. Juiz foram dispensadas as assinaturas, por se tratar de audiência realizada por videoconferência.] Facultam-se às partes indicar eventual desconformidade ou irregularidade no conteúdo do presente termo de audiência, no prazo de 2 (dois) dias, contados da disponibilização deste no sistema PJD/TJGO. Encerrado o ato. Eu, ${assessor}, Assessor de Juiz de Direito, o digitei.` });
+  b.push({ tipo: "assinatura", linhas: [juiz ? juiz.replace(/^dr\.?a?\s+/i, "").toUpperCase() : "[NOME DO JUIZ DE DIREITO]", "Juiz de Direito", "(assinado digitalmente)"] });
   return b;
 }
 
 const esc = (s: string) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+// campos a completar: trechos entre [colchetes] ficam marcados
+const comCampos = (s: string) => esc(s).replace(/\[[^\]]{1,300}\]/g, (m) => `<span class="preencher">${m}</span>`);
 
 export const CSS_ATA = `
-.ata{background:#fff;font-family:"Times New Roman",serif;color:#111;font-size:12pt;line-height:1.45}
-.ata .brasao{text-align:center;font-weight:bold;letter-spacing:.5px;margin:0}
-.ata .titulo{text-align:center;font-weight:bold;font-size:14pt;margin:10px 0 8px}
-.ata .sub{font-weight:bold;margin:16px 0 6px;border-bottom:1px solid #999;padding-bottom:2px;break-after:avoid}
-.ata p{margin:4px 0;text-align:justify}
-.ata .aviso{font-size:9.5pt;color:#444;border:1px solid #bbb;padding:5px 8px;background:#f6f6f6}
+.ata{background:#fff;font-family:Candara,Calibri,"Segoe UI",Arial,sans-serif;color:#111;font-size:11.5pt;line-height:1.5}
+.ata .cab{text-align:center;margin:0 0 6px}
+.ata .cab img{height:78px;width:auto;display:block;margin:0 auto 6px}
+.ata .cab p{margin:0;font-family:"Courier New",Courier,monospace;font-weight:bold;font-size:9.5pt;line-height:1.25;text-align:center}
+.ata .titulo{text-align:center;font-weight:bold;font-size:17pt;margin:34px 0 22px}
+.ata .meta{margin:1px 0;text-align:left}
+.ata .meta .rot{font-weight:normal}
+.ata .meta b{font-weight:bold}
+.ata .secao,.ata .sub{text-align:center;font-weight:bold;font-size:12pt;margin:26px 0 10px;break-after:avoid}
+.ata p{margin:4px 0}
+.ata .corpo{text-align:justify;text-indent:30px;margin:6px 0}
+.ata .preencher{background:#fff1a8;border-radius:3px;padding:0 2px}
+.ata .aviso{font-size:9pt;color:#444;border:1px solid #bbb;padding:5px 8px;background:#f6f6f6;margin:10px 0}
 .ata .conferir{color:#8a1c1c;border:1px solid #c33;background:#fdecea;padding:5px 8px;font-weight:bold}
 .ata .vazio{color:#555;font-style:italic}
-.ata table{width:100%;border-collapse:collapse;margin:4px 0;font-size:10.5pt}
+.ata table{width:100%;border-collapse:collapse;margin:6px 0;font-size:10pt}
 .ata th,.ata td{border:1px solid #888;padding:3px 5px;vertical-align:top;text-align:left}
-.ata th{background:#e9e9e9}
+.ata th{background:#ececec}
 .ata tr.conf td{background:#fff6d6}
-.ata ul{margin:4px 0 4px 18px;padding:0}
+.ata ul{margin:4px 0 4px 20px;padding:0}
 .ata li.conf{background:#fff6d6}
 .ata li.alto{color:#8a1c1c;font-weight:bold}
 .ata tr{break-inside:avoid}
+.ata .assin{text-align:center;margin:34px 0 0;break-inside:avoid}
+.ata .assin p{margin:0;font-weight:bold}
+.ata .assin p+p{font-weight:normal}
+.ata-rodape{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #777;margin-top:34px;padding-top:4px;font-family:Arial,sans-serif;font-size:8pt;color:#222}
+.ata-rodape div:last-child{text-align:right}
 `;
 
 export function blocosParaHtml(bl: Bloco[]): string {
   return `<div class="ata">` + bl.map((x) => {
-    if (x.tipo === "brasao") return `<p class="brasao">${esc(x.texto)}</p>`;
+    if (x.tipo === "cabecalho") return `<div class="cab"><img src="${BRASAO_GOIAS_SRC}" alt="Brasão do Estado de Goiás">` + x.linhas.map((l) => `<p>${esc(l)}</p>`).join("") + `</div>`;
     if (x.tipo === "titulo") return `<p class="titulo">${esc(x.texto)}</p>`;
-    if (x.tipo === "subtitulo") return `<p class="sub">${esc(x.texto)}</p>`;
-    if (x.tipo === "paragrafo") return `<p class="${x.destaque || ""}">${esc(x.texto)}</p>`;
+    if (x.tipo === "meta") return `<p class="meta"><span class="rot">${esc(x.rotulo)}</span> <b>${esc(x.valor)}</b></p>`;
+    if (x.tipo === "secao") return `<p class="secao">${esc(x.texto)}</p>`;
+    if (x.tipo === "paragrafo") return `<p class="${x.destaque || ""}">${x.destaque === "corpo" ? comCampos(x.texto) : esc(x.texto)}</p>`;
     if (x.tipo === "lista") return `<ul>` + x.itens.map((i) => `<li class="${i.conferir ? "conf " : ""}${i.nivel === "alto" ? "alto" : ""}">${esc(i.texto)}</li>`).join("") + `</ul>`;
+    if (x.tipo === "assinatura") return `<div class="assin">` + x.linhas.map((l) => `<p>${esc(l)}</p>`).join("") + `</div>`;
     return `<table><thead><tr>${x.colunas.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>` + x.linhas.map((l) => `<tr class="${l.conferir ? "conf" : ""}">${l.celulas.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`;
   }).join("") + `</div>`;
 }
 
 export function blocosParaTexto(bl: Bloco[]): string {
   return bl.map((x) => {
-    if (x.tipo === "brasao" || x.tipo === "titulo") return x.texto.toUpperCase() + "\n";
-    if (x.tipo === "subtitulo") return "\n" + x.texto.toUpperCase();
+    if (x.tipo === "cabecalho") return x.linhas.join("\n") + "\n";
+    if (x.tipo === "titulo") return x.texto.toUpperCase() + "\n";
+    if (x.tipo === "meta") return `${x.rotulo} ${x.valor}`;
+    if (x.tipo === "secao") return "\n" + x.texto.toUpperCase();
     if (x.tipo === "paragrafo") return x.texto;
     if (x.tipo === "lista") return x.itens.map((i) => "• " + i.texto).join("\n");
+    if (x.tipo === "assinatura") return "\n" + x.linhas.join("\n");
     return x.linhas.map((l) => "• " + l.celulas.map((c, i) => (x.colunas[i] ? x.colunas[i] + ": " : "") + c).join(" | ")).join("\n");
   }).join("\n");
 }
 
+// Rodapé do termo (número da página + nome do juiz): usado na tela, na impressão e no Word
+export const rodapeJuiz = (ctx: ContextoAta) => ({ nome: String(ctx.juiz || "").replace(/^dr\.?a?\s+/i, "").trim() || "[nome do Juiz]", cargo: "Juiz de Direito" });
 
 // ===== Edição: o documento editado é guardado como HTML; estas funções limpam o HTML e o convertem de volta em blocos (Word) =====
-const TAGS_OK = new Set(["DIV", "P", "SPAN", "B", "STRONG", "I", "EM", "U", "BR", "UL", "OL", "LI", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD"]);
-const CLASSES_OK = new Set(["ata", "brasao", "titulo", "sub", "aviso", "conferir", "vazio", "conf", "alto"]);
+const TAGS_OK = new Set(["DIV", "P", "SPAN", "B", "STRONG", "I", "EM", "U", "BR", "UL", "OL", "LI", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD", "IMG"]);
+const CLASSES_OK = new Set(["ata", "brasao", "titulo", "sub", "aviso", "conferir", "vazio", "conf", "alto", "cab", "meta", "rot", "secao", "corpo", "preencher", "assin"]);
 
 export function sanitizarHtmlAta(html: string): string {
   const doc = new DOMParser().parseFromString(`<div id="raiz">${html || ""}</div>`, "text/html");
@@ -139,17 +212,20 @@ export function sanitizarHtmlAta(html: string): string {
     for (const f of Array.from(no.children)) {
       if (!TAGS_OK.has(f.tagName)) {
         if (["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "LINK", "META", "FORM", "INPUT", "BUTTON", "SVG"].includes(f.tagName.toUpperCase())) { f.remove(); continue; }
-        // tag desconhecida (ex.: font, h1): troca pelo conteúdo
         const frag = doc.createDocumentFragment(); while (f.firstChild) frag.appendChild(f.firstChild); f.replaceWith(frag); continue;
+      }
+      if (f.tagName === "IMG") {
+        const src = f.getAttribute("src") || "";
+        if (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+\/=]+$/.test(src)) { f.remove(); continue; }
       }
       for (const a of Array.from(f.attributes)) {
         if (a.name === "class") { const ok = a.value.split(/\s+/).filter((c) => CLASSES_OK.has(c)); if (ok.length) f.setAttribute("class", ok.join(" ")); else f.removeAttribute("class"); }
+        else if (f.tagName === "IMG" && (a.name === "src" || a.name === "alt")) { /* mantém */ }
         else if (!(["colspan", "rowspan"].includes(a.name))) f.removeAttribute(a.name);
       }
       limpar(f);
     }
   };
-  // repete: ao trocar tags desconhecidas pelo conteúdo, filhos novos precisam ser revistos
   for (let i = 0; i < 3; i++) limpar(raiz);
   return raiz.innerHTML;
 }
@@ -168,11 +244,16 @@ export function htmlParaBlocos(html: string): Bloco[] {
       bl.push({ tipo: "tabela", colunas: cab.length ? cab : (linhas[0]?.celulas.map(() => "") || []), linhas });
     } else if (f.tagName === "UL" || f.tagName === "OL") {
       bl.push({ tipo: "lista", itens: Array.from(f.querySelectorAll("li")).map((li) => ({ texto: txt(li), conferir: /conf/.test(li.className), nivel: /alto/.test(li.className) ? "alto" : undefined })) });
+    } else if (/\bcab\b/.test(cl)) {
+      bl.push({ tipo: "cabecalho", linhas: Array.from(f.querySelectorAll("p")).map(txt).filter(Boolean) });
+    } else if (/\bassin\b/.test(cl)) {
+      bl.push({ tipo: "assinatura", linhas: Array.from(f.querySelectorAll("p")).map(txt).filter(Boolean) });
     } else if (txt(f) || f.tagName === "P") {
-      if (/brasao/.test(cl)) bl.push({ tipo: "brasao", texto: txt(f) });
-      else if (/titulo/.test(cl)) bl.push({ tipo: "titulo", texto: txt(f) });
-      else if (/\bsub\b/.test(cl)) bl.push({ tipo: "subtitulo", texto: txt(f) });
-      else if (txt(f)) bl.push({ tipo: "paragrafo", texto: txt(f), destaque: /conferir/.test(cl) ? "conferir" : /aviso/.test(cl) ? "aviso" : /vazio/.test(cl) ? "vazio" : undefined });
+      if (/\bbrasao\b/.test(cl)) bl.push({ tipo: "cabecalho", linhas: [txt(f)] });
+      else if (/\btitulo\b/.test(cl)) bl.push({ tipo: "titulo", texto: txt(f) });
+      else if (/\b(secao|sub)\b/.test(cl)) bl.push({ tipo: "secao", texto: txt(f) });
+      else if (/\bmeta\b/.test(cl)) { const r = f.querySelector(".rot"); const rot = r ? txt(r) : ""; const todo = txt(f); bl.push({ tipo: "meta", rotulo: rot, valor: rot ? todo.slice(todo.indexOf(rot) + rot.length).trim() : todo }); }
+      else if (txt(f)) bl.push({ tipo: "paragrafo", texto: txt(f), destaque: /conferir/.test(cl) ? "conferir" : /aviso/.test(cl) ? "aviso" : /vazio/.test(cl) ? "vazio" : /corpo/.test(cl) ? "corpo" : undefined });
     }
   }
   return bl;
@@ -215,7 +296,12 @@ export function aplicarOperacoes(html: string, ops: OperacaoAta[]): { html: stri
       if (o.op === "delete") { alvo.remove(); aplicadas++; }
       else if (o.op === "replace") {
         if (alvo.tagName === "TR" && Array.isArray(o.celulas)) { Array.from(alvo.children).forEach((c, i) => { if (o.celulas![i] != null) c.textContent = limpo(o.celulas![i]); }); aplicadas++; }
-        else if (o.texto != null && alvo.tagName !== "TR") { alvo.textContent = limpo(o.texto); aplicadas++; }
+        else if (o.texto != null && alvo.tagName !== "TR") {
+          const t = limpo(o.texto);
+          if (alvo.classList.contains("meta") && /^[^:]{1,40}:\s*\S/.test(t)) { const k = t.indexOf(":"); alvo.innerHTML = ""; const r = doc.createElement("span"); r.className = "rot"; r.textContent = t.slice(0, k + 1); const b = doc.createElement("b"); b.textContent = t.slice(k + 1).trim(); alvo.append(r, " ", b); }
+          else alvo.textContent = t;
+          aplicadas++;
+        }
         else ignoradas++;
       } else if (o.op === "insert_after") {
         const tipo = o.tipo || (alvo.tagName.toLowerCase() as "p" | "li" | "tr");

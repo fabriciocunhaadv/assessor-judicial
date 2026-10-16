@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X, Printer, Copy, FileText, ZoomIn, ZoomOut, RefreshCw, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen, Loader2, Pencil, Save, Undo2, Send, Sparkles } from "lucide-react";
 import type { AtaPreliminarDados } from "../types";
-import { MODELO_ATA, montarBlocos, blocosParaHtml, blocosParaTexto, htmlParaBlocos, sanitizarHtmlAta, CSS_ATA } from "../templates/ataPreliminarModelo";
+import { MODELO_ATA, montarBlocos, blocosParaHtml, blocosParaTexto, htmlParaBlocos, sanitizarHtmlAta, rodapeJuiz, CSS_ATA, type ContextoAta } from "../templates/ataPreliminarModelo";
 import { AvisoPromptInjection } from "./AvisoPromptInjection";
 
 const A4_ALTURA = 1123;      // px de uma folha A4 a 96 dpi
@@ -39,6 +39,7 @@ interface Props {
   ata: AtaPreliminarDados;
   htmlEditado?: string;                                   // versão salva depois de editar (substitui a gerada)
   processNumber?: string;
+  contexto?: ContextoAta;                                 // juiz, assessor, data/hora e modalidade da audiência
   onClose: () => void;
   onRegenerate?: () => void;
   carregando?: boolean;
@@ -47,7 +48,7 @@ interface Props {
 }
 
 // Visualizador da ata preliminar: folha A4 com zoom, edição direta no documento, copiloto para pedir alterações em linguagem natural e exportação.
-export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, onClose, onRegenerate, carregando, onSalvar, onCopilot }: Props) {
+export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, contexto, onClose, onRegenerate, carregando, onSalvar, onCopilot }: Props) {
   const [zoom, setZoom] = useState(1);
   const [painel, setPainel] = useState(true);
   const [aba, setAba] = useState<"resumo" | "copiloto">("resumo");
@@ -65,7 +66,10 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, onClose, 
   const folha = useRef<HTMLDivElement>(null);
   const doc = useRef<HTMLDivElement>(null);
 
-  const blocosGerados = useMemo(() => montarBlocos(ata, MODELO_ATA), [ata]);
+  const ctx = contexto || {};
+  const rodape = rodapeJuiz(ctx);
+  const ctxKey = JSON.stringify(ctx);
+  const blocosGerados = useMemo(() => montarBlocos(ata, MODELO_ATA, ctx), [ata, ctxKey]);
   const htmlGerado = useMemo(() => blocosParaHtml(blocosGerados), [blocosGerados]);
   const [htmlBase, setHtmlBase] = useState<string>(htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado);
   useEffect(() => { setHtmlBase(htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado); setSujo(false); }, [htmlGerado, htmlEditado]);
@@ -105,14 +109,19 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, onClose, 
     f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
     document.body.appendChild(f);
     const d = f.contentDocument!;
-    d.open(); d.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${nomeArquivo}</title><style>@page{size:A4;margin:18mm}body{margin:0}${CSS_ATA}</style></head><body>${htmlCorrente()}</body></html>`); d.close();
-    setTimeout(() => { f.contentWindow?.focus(); f.contentWindow?.print(); setTimeout(() => f.remove(), 2000); }, 300);
+    // o cabeçalho (brasão + órgão/comarca/vara) vai no <thead>, que o navegador repete em cada página
+    const tmp = new DOMParser().parseFromString(`<div id="r">${htmlCorrente()}</div>`, "text/html");
+    const cab = tmp.querySelector(".ata .cab"); const cabHtml = cab ? cab.outerHTML : ""; cab?.remove();
+    const resto = tmp.getElementById("r")!.innerHTML;
+    const nome = String(rodape.nome).replace(/"/g, "'");
+    d.open(); d.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${nomeArquivo}</title><style>@page{size:A4;margin:14mm 18mm 20mm;@bottom-left{content:counter(page);font:8pt Arial,sans-serif}@bottom-right{content:"${nome}\\A Juiz de Direito";white-space:pre;text-align:right;font:8pt Arial,sans-serif}}body{margin:0}table.pg{width:100%;border-collapse:collapse}table.pg>thead>tr>td,table.pg>tbody>tr>td{border:0;padding:0}${CSS_ATA}</style></head><body><div class="ata"><table class="pg"><thead><tr><td><div class="ata">${cabHtml}</div></td></tr></thead><tbody><tr><td>${resto}</td></tr></tbody></table></div></body></html>`); d.close();
+    setTimeout(() => { f.contentWindow?.focus(); f.contentWindow?.print(); setTimeout(() => f.remove(), 2000); }, 400);
   };
   const copiar = async () => { try { await navigator.clipboard.writeText(blocosParaTexto(htmlParaBlocos(htmlCorrente()))); msg("Texto da ata copiado"); } catch { msg("Não consegui copiar"); } };
   const word = async () => {
     try {
       const { blocosParaDocx } = await import("../templates/ataPreliminarDocx");
-      const blob = await blocosParaDocx(htmlParaBlocos(htmlCorrente()));
+      const blob = await blocosParaDocx(htmlParaBlocos(htmlCorrente()), { juiz: ctx.juiz });
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nomeArquivo + ".docx"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     } catch (e: any) { msg("Falha ao gerar o Word: " + (e?.message || e)); }
   };
@@ -176,6 +185,7 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, onClose, 
             <div ref={folha} className="bg-white shadow-2xl" style={{ width: A4_LARGURA, minHeight: A4_ALTURA, padding: "56px 64px", outline: editando ? "2px solid #60a5fa" : "none" }}>
               <style>{CSS_ATA}</style>
               <div ref={doc} data-testid="ata-documento" contentEditable={editando} suppressContentEditableWarning spellCheck={editando} onInput={() => setSujo(true)} style={{ outline: "none", cursor: editando ? "text" : "default" }} />
+              <div className="ata ata-rodape" data-testid="ata-rodape"><div>1 / {totalPaginas}</div><div>{rodape.nome}<br />{rodape.cargo}</div></div>
             </div>
           </div>
         </div>

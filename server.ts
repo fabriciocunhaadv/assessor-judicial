@@ -1767,8 +1767,8 @@ REGRAS INEGOCIÁVEIS:
 7. Linguagem objetiva e neutra, sem juízo de valor sobre o mérito.
 Responda ESTRITAMENTE em JSON:
 {
- "cabecalho": {"numeroProcesso":"","classe":"","assunto":"","vara":"","comarca":"","valorCausa":"","dataDistribuicao":"","tipoAudiencia":"","dataHoraAudiencia":""},
- "partes": [{"polo":"ativo|passivo|terceiro|ministerio_publico","nome":"","documento":"","qualificacao":"","advogados":[{"nome":"","oab":""}],"localizacao":""}],
+ "cabecalho": {"numeroProcesso":"","classe":"","assunto":"natureza da ação, ex.: Ação de Obrigação de Fazer c/c Indenização por Danos Morais","vara":"nome da vara/juízo, ex.: Vara da Fazenda Pública Estadual","comarca":"apenas o nome da comarca, ex.: Anápolis","valorCausa":"","dataDistribuicao":"","tipoAudiencia":"","dataHoraAudiencia":"ex.: 07/10/2026, às 15h00min"},
+ "partes": [{"polo":"ativo|passivo|terceiro|ministerio_publico (uma entrada por parte; Estado/Município/autarquia também entram, com seu procurador em advogados)","nome":"","documento":"","qualificacao":"","advogados":[{"nome":"","oab":""}],"localizacao":""}],
  "resumo": "5 a 8 linhas: do que se trata e em que fase está",
  "testemunhas": [{"nome":"","indicadaPor":"autor|reu|outro","qualificacao":"","localizacao":"","situacaoIntimacao":"intimada|nao_intimada|negativa|aguardando|nao_localizada","dataIntimacao":"","localizacaoIntimacao":""}],
  "citacoesIntimacoes": [{"destinatario":"","papel":"autor|reu|testemunha|outro","ato":"citacao|intimacao","resultado":"positiva|negativa|edital|hora_certa|aguardando|nao_localizada","data":"","localizacao":"","observacao":""}],
