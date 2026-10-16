@@ -2410,7 +2410,8 @@ async function generateWithFallbackAndRetry(options) {
     }
     // ROTA ALTERNATIVA: os módulos usam filas curtas (os modelos mais fortes primeiro). Quando o Google fica sobrecarregado (503 / fila retida) nesses modelos,
     // os demais modelos Flash vigentes entram ao FINAL da fila como rota de contingência (outros "pools" de capacidade do Google); modelo indisponível é pulado.
-    const rotaExtra = defaultFlashQueue.filter(m => !(options.customModelQueue || []).includes(m));
+    // (filas curtas de 2 a 3 modelos — como as primeiras tentativas dos autos grandes, que esperam a janela dos modelos profundos — não recebem a rota extra)
+    const rotaExtra = (options.customModelQueue || []).length >= 4 ? defaultFlashQueue.filter(m => !(options.customModelQueue || []).includes(m)) : [];
     const modelsToTry = (Array.isArray(options.customModelQueue) && options.customModelQueue.length > 0)
         ? [...options.customModelQueue, ...rotaExtra]
         : [
