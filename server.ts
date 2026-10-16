@@ -882,36 +882,7 @@ app.post("/api/generate-minute-turbo", async (req, res) => {
         // PRESERVAÇÃO INTEGRAL DOS AUTOS (SEM SUPRESSÃO DE DADOS, PROVAS OU ATOS):
         // Conforme diretriz soberana, a IA recebe o contexto integral de todas as peças,
         // decisões anteriores, certidões e provas para avaliar com precisão a marcha processual.
-        // Teto de envio do Turbo (economiza cota gratuita: o limite é de tokens por minuto). Acima dele, mantém o começo, o fim e os trechos mais relevantes.
-        const TETO_TURBO = 400000;
-        if (accumulatedText.length > TETO_TURBO) {
-            const antes = accumulatedText.length;
-            const partes: string[] = [];
-            const blocos = accumulatedText.split(/\n(?=\[Página \d+\])/);
-            const unidades = blocos.length > 20 ? blocos : (accumulatedText.match(/[\s\S]{1,4000}/g) || [accumulatedText]);
-            const peso = (t: string) => {
-                const n = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-                let sc = 0;
-                for (const [rx, v] of [[/sentenca|dispositivo|julgo (?:proced|improced)/g, 6], [/decisao|despacho|determino|defiro|indefiro/g, 4], [/peticao inicial|contestacao|replica|embargos/g, 4], [/audiencia|acordo|homolog/g, 3], [/intimacao|citacao|mandado|certidao de decurso|transito em julgado/g, 2], [/cumprimento|penhora|bloqueio|sisbajud|renajud/g, 2]] as [RegExp, number][]) sc += (n.match(rx) || []).length * v;
-                return sc;
-            };
-            const N = unidades.length, ini = Math.ceil(N * 0.12), fim = Math.ceil(N * 0.30);
-            const manter = new Set<number>();
-            for (let i = 0; i < ini; i++) manter.add(i);
-            for (let i = N - fim; i < N; i++) manter.add(i);
-            let tam = [...manter].reduce((t, i) => t + unidades[i].length, 0);
-            const meio = unidades.map((u, i) => ({ i, sc: peso(u), len: u.length })).filter((x) => !manter.has(x.i)).sort((a, b) => b.sc - a.sc);
-            for (const x of meio) { if (tam + x.len > TETO_TURBO) continue; manter.add(x.i); tam += x.len; }
-            let ultimo = -1;
-            for (let i = 0; i < N; i++) {
-                if (!manter.has(i)) continue;
-                if (ultimo >= 0 && i !== ultimo + 1) partes.push("\n[... TRECHO OMITIDO PARA CABER NO LIMITE DO MÓDULO TURBO ...]\n");
-                partes.push(unidades[i]); ultimo = i;
-            }
-            accumulatedText = partes.join("\n");
-            console.log(`[Turbo] autos reduzidos de ${antes} para ${accumulatedText.length} caracteres (teto ${TETO_TURBO}).`);
-            accumulatedText = "[AVISO AO REDATOR: os autos foram reduzidos por limite técnico; trechos do meio foram omitidos (marcados). Cite apenas o que está no texto e indique ao juiz, nas ressalvas, que parte dos autos não foi lida.]\n\n" + accumulatedText;
-        }
+        if (accumulatedText.length > 1500000) accumulatedText = accumulatedText.substring(0, 750000) + "\n\n... [AUTOS ABREVIADOS: trecho do meio omitido por limite técnico] ...\n\n" + accumulatedText.substring(accumulatedText.length - 750000);
         let alertaInjecaoT: any = null, defesaInjecaoT = "";
         try { const r = detectarInjecao(accumulatedText); if (r.verificado) alertaInjecaoT = r; if (r.total > 0) { defesaInjecaoT = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][turbo] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
@@ -1080,7 +1051,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
             }
         };
 
-        const response = await generateWithFallbackAndRetry(options);
+        const response = await gerarResfriando(options, { userPrompt: options.contents[0].parts[0].text, texto: accumulatedText });
         const elapsedMs = Date.now() - startTime;
         let parsed: any = {};
         try {
@@ -1660,13 +1631,17 @@ app.post("/api/hearing-copilot", async (req, res) => {
             }
         }
 
+        // Mesma dinâmica da análise principal: sem resumir os autos de antemão. Se a chave gratuita recusar por tamanho, gerarResfriando classifica as páginas e tira só o dispensável.
+        if (safeCaseText.length > 1500000) { const m = 750000; safeCaseText = safeCaseText.substring(0, m) + "\n\n... [AUTOS ABREVIADOS: trecho do meio omitido por limite técnico] ...\n\n" + safeCaseText.substring(safeCaseText.length - m); }
+        manterViva(res);
+        const gerarMesa = (opts: any) => { const t0 = opts?.contents?.[0]?.parts?.[0]?.text || ""; return gerarResfriando(opts, safeCaseText.length >= 60000 && typeof t0 === "string" && t0.includes(safeCaseText) ? { userPrompt: t0, texto: safeCaseText } : undefined); };
         let generatedHolisticSynopsis = "";
         // Ata preliminar: análise simples e direta (uma só chamada, sem sinopse, tese ou base de conhecimento). A sinopse resumiria os autos e perderia as localizações Mov./Arq./Pág.
         const analiseSimples = actionType === 'preliminary_minutes' || actionType === 'preliminary_minutes_edit';
-        if (analiseSimples) {
+        if (false && analiseSimples) {
             const LIM = 350000;
             if (safeCaseText.length > LIM) { const m = Math.floor(LIM / 2); safeCaseText = safeCaseText.substring(0, m) + "\n\n... [AUTOS ABREVIADOS: trecho do meio omitido por limite técnico] ...\n\n" + safeCaseText.substring(safeCaseText.length - m); }
-        } else if (safeCaseText.length > 90000) {
+        } else if (false && safeCaseText.length > 90000) {
             console.log(`[Mesa de Audiência] Autos volumosos detectados (${safeCaseText.length} caracteres). Consolidando Sinopse Holística dos Autos em 5 pilares para subsidiar a instrução sem perda de fatos nem provas...`);
             try {
                 generatedHolisticSynopsis = await generateHolisticSynopsis(safeCaseText, {
@@ -1679,7 +1654,7 @@ app.post("/api/hearing-copilot", async (req, res) => {
             } catch (synErr) {
                 console.warn("[Mesa de Audiência] Erro ao consolidar Sinopse Holística:", synErr);
             }
-        } else if (safeCaseText.length > 200000) {
+        } else if (false && safeCaseText.length > 200000) {
             const half = Math.floor(200000 / 2);
             safeCaseText = safeCaseText.substring(0, half) + "\n\n... [AVISO: AUTOS RESUMIDOS PARA LIMITAÇÃO TÉCNICA] ...\n\n" + safeCaseText.substring(safeCaseText.length - half);
         }
@@ -1754,7 +1729,7 @@ Você DEVE responder ESTRITAMENTE em formato JSON com o seguinte schema:
                 }
             };
 
-            const response = await generateWithFallbackAndRetry(options);
+            const response = await gerarMesa(options);
             const responseText = response.text || "{}";
             const parsed = safeParseJson(responseText) || {};
             const usage = response.usageMetadata ? {
@@ -1768,6 +1743,7 @@ Você DEVE responder ESTRITAMENTE em formato JSON com o seguinte schema:
                 actionType: 'briefing',
                 data: {
                     ...parsed,
+                    autosReduzidos: (response as any).autosReduzidos || undefined,
                     holisticSynopsis: generatedHolisticSynopsis || undefined,
                     deduplicationStats: {
                         duplicatesFound: totalDuplicatesFound,
@@ -1812,13 +1788,14 @@ Responda ESTRITAMENTE em JSON:
  "faltaProvar": "string"
 }`;
             const userPrompt = `DADOS JÁ CONHECIDOS (conferir com os autos): processo ${processNumber || "?"}; autor ${author || "?"}; réu ${defendant || "?"}.\nObservações do assessor: ${notes || "nenhuma"}\n\nAUTOS DO PROCESSO:\n\n${safeCaseText || 'Nenhum texto integral extraído.'}`;
-            const response = await generateWithFallbackAndRetry({
+            const response = await gerarMesa({
                 apiKey, keyPool: extractApiKeyPool(req), isNativeAllowed: isRequestNativeAllowed(req), res,
                 customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"], maxCycles: 3, cycleDelayMs: 8000,
                 contents: [{ role: "user", parts: [{ text: systemPrompt + defesa + "\n\n" + userPrompt }] }],
                 config: { systemInstruction: "Você é um assistente de audiências judiciais que responde apenas com JSON válido, sem inventar dados." + defesa, responseMimeType: "application/json", temperature: 0.1 }
             });
             const ata: any = safeParseJson(response.text || "{}") || {};
+            if ((response as any).autosReduzidos?.resumo) ata.pontosAtencao = [{ nivel: "medio", texto: "[SISTEMA] " + (response as any).autosReduzidos.resumo, localizacao: "autos reduzidos" }, ...(Array.isArray(ata.pontosAtencao) ? ata.pontosAtencao : [])];
             // conferência por regras fixas: toda localização "Mov. N" tem de existir nos autos; nomes de testemunhas e partes têm de aparecer no texto
             const norm = (x: string) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ");
             const nt = norm(safeCaseText);
@@ -1858,7 +1835,7 @@ OPERAÇÕES (JSON): {"op":"replace","id":N,"texto":"..."} (p/li) | {"op":"replac
 REGRAS: 1) mude só o que o pedido exige; 2) NÃO invente fatos, nomes, datas, movimentações ou documentos: dado novo só do pedido do usuário ou dos TRECHOS DOS AUTOS fornecidos, com localização "Mov. X, Arq. Y, Pág. Z"; se faltar, escreva "não consta nos autos" e explique no resumo; 3) texto simples, sem HTML; 4) linguagem objetiva e neutra.
 Responda ESTRITAMENTE em JSON: {"operacoes":[...],"resumo":"1 a 2 frases do que foi feito e do que não pôde ser confirmado"}`;
             const userPrompt = `PEDIDO DO USUÁRIO:\n${instruction}\n\nDOCUMENTO (blocos):\n${doc}` + (trechos ? `\n\nTRECHOS DOS AUTOS (relevantes ao pedido):\n${trechos}` : "");
-            const response = await generateWithFallbackAndRetry({
+            const response = await gerarMesa({
                 apiKey, keyPool: extractApiKeyPool(req), isNativeAllowed: isRequestNativeAllowed(req), res,
                 customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-flash-latest"], maxCycles: 1, timeoutMs: 60000,
                 contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
@@ -1890,7 +1867,7 @@ Retorne apenas o texto formatado das perguntas numeradas.`;
                 }
             };
 
-            const response = await generateWithFallbackAndRetry(options);
+            const response = await gerarMesa(options);
             const usage = response.usageMetadata ? {
                 promptTokenCount: response.usageMetadata.promptTokenCount || 0,
                 candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0,
@@ -1917,7 +1894,7 @@ Redija em linguagem jurídica formal, concisa e direta para ser ditada e constar
                 config: { systemInstruction: "Redija o texto de deliberação judicial para ata de audiência." }
             };
 
-            const response = await generateWithFallbackAndRetry(options);
+            const response = await gerarMesa(options);
             const usage = response.usageMetadata ? {
                 promptTokenCount: response.usageMetadata.promptTokenCount || 0,
                 candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0,
@@ -1945,7 +1922,7 @@ Redija a sentença em mesa (relatório sucinto/dispensado na forma da lei, funda
                 config: { systemInstruction: "Redija sentença em mesa para termo de audiência." }
             };
 
-            const response = await generateWithFallbackAndRetry(options);
+            const response = await gerarMesa(options);
             const usage = response.usageMetadata ? {
                 promptTokenCount: response.usageMetadata.promptTokenCount || 0,
                 candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0,
@@ -2006,7 +1983,7 @@ REGRAS:
                 config: { systemInstruction: "Redija o Termo de Audiência do TJGO em texto puro, no layout solicitado, sem inventar dados." }
             };
 
-            const response = await generateWithFallbackAndRetry(options);
+            const response = await gerarMesa(options);
             const usage = response.usageMetadata ? {
                 promptTokenCount: response.usageMetadata.promptTokenCount || 0,
                 candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0,
@@ -2355,6 +2332,39 @@ async function prepararChaves(pool: string[], modelo: string, est: number): Prom
         await new Promise(r => setTimeout(r, espera));
     }
     return ordenadas;
+}
+
+
+// Chamada de IA com RESFRIAMENTO da cota gratuita + CORTES CIRÚRGICOS (mesma dinâmica da análise principal e da Lupa):
+//  - a alternação de chaves/modelos já ocorre em generateWithFallbackAndRetry;
+//  - se TODAS as chaves ficarem sem cota (429) por causa da janela de 1 minuto, espera a janela renovar e tenta de novo (até 3 vezes);
+//  - se o pedido for maior que o limite de ENTRADA gratuito, gerarComAutosGrandes classifica as páginas e tira só o dispensável.
+async function gerarResfriando(opts: any, grande?: { userPrompt: string; texto: string }): Promise<any> {
+    const entradaGrande = (e: any) => e?.codigo === "ENTRADA_GRANDE_GRATUITA" || String(e?.message || "").includes("free_tier_input_token_count");
+    const semCota = (e: any) => !entradaGrande(e) && /\b429\b|RESOURCE_EXHAUSTED|Quota|chaves pessoais|limite de cota|Rate Limit/i.test(String(e?.message || ""));
+    const esfriando = async (o: any) => {
+        const pausa = Number(process.env.COTA_PAUSA_MS || 62000);
+        for (let i = 0; ; i++) {
+            try { return await generateWithFallbackAndRetry(o); }
+            catch (e: any) {
+                if (!semCota(e) || i >= 3) throw e;
+                console.log(`[Resfriamento de cota] todas as chaves sem cota; aguardando ${Math.round(pausa / 1000)}s para a janela renovar (tentativa ${i + 1}/3).`);
+                await new Promise((r) => setTimeout(r, pausa));
+            }
+        }
+    };
+    if (!grande || grande.texto.length < 60000 || !grande.userPrompt.includes(grande.texto)) return esfriando(opts);
+    return gerarComAutosGrandes(esfriando, { ...opts, autosGrandes: { userPrompt: grande.userPrompt, textos: [grande.texto] } });
+}
+
+// Mantém a resposta HTTP viva (pulso a cada 2,5 s) em chamadas longas: o proxy não corta por tempo; o resultado (ou o erro) segue no corpo JSON.
+function manterViva(res: any) {
+    if (res.headersSent) return;
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Transfer-Encoding": "chunked", "X-Accel-Buffering": "no", "Cache-Control": "no-cache, no-transform", "Connection": "keep-alive" });
+    const hb = setInterval(() => { try { res.write(" "); } catch { /* conexão fechada */ } }, 2500);
+    res.on("close", () => clearInterval(hb));
+    res.status = () => res;
+    res.json = (obj: any) => { clearInterval(hb); try { res.end(JSON.stringify(obj)); } catch { /* fechada */ } return res; };
 }
 
 async function generateWithFallbackAndRetry(options) {

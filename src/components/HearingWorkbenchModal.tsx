@@ -253,6 +253,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     let json: any = {};
     try { json = JSON.parse(texto); } catch { /* resposta fora do padrão */ }
     if (!response.ok) throw new Error(json?.error || 'Falha ao alterar a ata com a IA.');
+    if (json?.error) throw new Error(String(json.error));
     if (json?.usage?.totalTokenCount) {
       recordApiExecution({ label: 'Mesa de Audiência (copiloto da ata)', processNumber: activeHearing.processNumber || 'Audiência', model: json.modelUsed || 'Gemini Flash', promptTokens: json.usage.promptTokenCount, outputTokens: json.usage.candidatesTokenCount, totalTokens: json.usage.totalTokenCount, module: 'audiencia' }).catch(() => {});
     }
@@ -357,6 +358,8 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
       } catch (e) {
         throw new Error("Falha ao processar comando com IA: o servidor retornou um formato inválido.");
       }
+
+      if (resData?.error) throw new Error(String(resData.error));      // a resposta é mantida viva por pulsos: o erro vem no corpo JSON
 
       if (resData?.usage?.totalTokenCount) {
         recordApiExecution({
