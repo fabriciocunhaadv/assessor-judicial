@@ -2817,6 +2817,25 @@ function desembrulharObjeto(x: any): any {
 }
 function safeParseObj(str: any) { return desembrulharObjeto(safeParseJson(str)); }
 
+// JSON da IA com aspas não escapadas dentro dos textos (o JSON.parse falha e o "reparo" por contagem de aspas embaralha as seções): extrai cada campo de texto
+// pelo início da chave seguinte, sem depender de o JSON estar válido.
+const CAMPOS_TEXTO_MINUTA = ["processNumber", "author", "defendant", "judicialUnit", "pendingMatter", "actType", "proceduralPhase", "priorDecisionsSummary", "relatorio", "fundamentacao", "dispositivo", "title", "fullFormattedText"];
+function extrairCamposTolerante(t: string): any | null {
+    const rx = new RegExp(`"(${CAMPOS_TEXTO_MINUTA.join("|")})"\\s*:\\s*"`, "g");
+    const marcas: { k: string; ini: number; fim: number }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(t))) marcas.push({ k: m[1], ini: m.index, fim: m.index + m[0].length });
+    if (marcas.length < 2 || !marcas.some(x => ["relatorio", "fundamentacao", "dispositivo"].includes(x.k))) return null;
+    const out: any = {};
+    marcas.forEach((x, i) => {
+        let v = t.slice(x.fim, i + 1 < marcas.length ? marcas[i + 1].ini : t.length);
+        v = v.replace(/[\s,]*$/, "").replace(/"\s*[}\]\s]*$/, "");
+        v = v.replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+        if (!(x.k in out)) out[x.k] = v;
+    });
+    return (out.relatorio || out.fundamentacao || out.dispositivo) ? out : null;
+}
+
 function safeParseJson(str: any) {
     if (!str || typeof str !== 'string') return null;
     let clean = str.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -2833,6 +2852,9 @@ function safeParseJson(str: any) {
                 return JSON.parse(sub);
             }
         } catch (_) {}
+
+        // JSON inválido por aspas soltas dentro dos textos: recupera os campos pelas chaves (antes o reparo por contagem de aspas misturava relatório e fundamentação)
+        try { const tol = extrairCamposTolerante(clean); if (tol) return tol; } catch (_) {}
 
         // Recuperador de JSON truncado / não-fechado
         try {
