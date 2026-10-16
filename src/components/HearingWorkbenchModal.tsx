@@ -284,15 +284,21 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
 
     try {
       const storedKey = getCustomApiKey() || '';
+      // Ata preliminar: análise simples, sem teses do gabinete nem base de conhecimento (menos peso e menos envio)
+      const simples = actionType === 'preliminary_minutes' || actionType === 'preliminary_minutes_edit';
       let activeKnowledgeDocs: any[] = [];
-      try {
-        activeKnowledgeDocs = (await getKnowledgeDocs()).filter(d => d.isActive);
-      } catch {}
+      if (!simples) {
+        try {
+          activeKnowledgeDocs = (await getKnowledgeDocs()).filter(d => d.isActive);
+        } catch {}
+      }
       let activeTesesText = "";
-      try {
-        const teses = await getCabinetTeses();
-        if (teses.isEnabled) activeTesesText = teses.text || "";
-      } catch {}
+      if (!simples) {
+        try {
+          const teses = await getCabinetTeses();
+          if (teses.isEnabled) activeTesesText = teses.text || "";
+        } catch {}
+      }
 
       const response = await fetch('/api/hearing-copilot', {
         method: 'POST',

@@ -1634,7 +1634,12 @@ app.post("/api/hearing-copilot", async (req, res) => {
         }
 
         let generatedHolisticSynopsis = "";
-        if (safeCaseText.length > 90000) {
+        // Ata preliminar: análise simples e direta (uma só chamada, sem sinopse, tese ou base de conhecimento). A sinopse resumiria os autos e perderia as localizações Mov./Arq./Pág.
+        const analiseSimples = actionType === 'preliminary_minutes' || actionType === 'preliminary_minutes_edit';
+        if (analiseSimples) {
+            const LIM = 350000;
+            if (safeCaseText.length > LIM) { const m = Math.floor(LIM / 2); safeCaseText = safeCaseText.substring(0, m) + "\n\n... [AUTOS ABREVIADOS: trecho do meio omitido por limite técnico] ...\n\n" + safeCaseText.substring(safeCaseText.length - m); }
+        } else if (safeCaseText.length > 90000) {
             console.log(`[Mesa de Audiência] Autos volumosos detectados (${safeCaseText.length} caracteres). Consolidando Sinopse Holística dos Autos em 5 pilares para subsidiar a instrução sem perda de fatos nem provas...`);
             try {
                 generatedHolisticSynopsis = await generateHolisticSynopsis(safeCaseText, {
