@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Scale,
   Sparkles,
@@ -72,6 +72,12 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
     "triple"
   );
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const [judgeNotes, setJudgeNotes] = useState<string>(currentRecord?.judgeNotes || "");
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [feedbackText, setFeedbackText] = useState<string>(
@@ -112,23 +118,23 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
     <div className="flex flex-col h-full space-y-3">
       {/* BARRA SUPERIOR DE CONTROLES DA BANCADA DE CONFERÊNCIA */}
       <div className="p-3 bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950/40 border border-amber-500/40 rounded-2xl shadow-md flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0">
             <Scale className="w-5 h-5 text-slate-950" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-black uppercase tracking-wider text-amber-300">
                 Bancada de Tripla Conferência
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold">
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold">
                 Auditoria Ouro do Juiz
               </span>
               <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1">
                 🚧 Módulo em Construção
               </span>
             </div>
-            <p className="text-[11px] text-slate-300 mt-0.5">
+            <p className="hidden sm:block text-[11px] text-slate-300 mt-0.5">
               Confronto simultâneo: <strong>PDF dos Autos</strong> ⟷ <strong>Minuta Gabarito do Sistema</strong> ⟷ <strong>Minuta Pré-Analisada do Assessor</strong>
             </p>
           </div>
@@ -210,10 +216,12 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
       </div>
 
       {/* ÁREA CENTRAL DE CONFERÊNCIA COM 3 COLUNAS */}
-      <div className="flex-1 min-h-[580px] grid grid-cols-1 gap-3 overflow-hidden"
+      <div className={`flex-1 grid grid-cols-1 gap-3 ${isMobile ? "" : "min-h-[580px] overflow-hidden"}`}
         style={{
           gridTemplateColumns:
-            layoutMode === "triple"
+            isMobile
+              ? "minmax(0, 1fr)"
+              : layoutMode === "triple"
               ? "minmax(320px, 1fr) minmax(320px, 1fr) minmax(350px, 1.15fr)"
               : layoutMode === "gabaritoVsAssessor"
               ? "minmax(340px, 1fr) minmax(340px, 1fr)"

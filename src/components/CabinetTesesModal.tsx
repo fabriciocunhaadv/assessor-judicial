@@ -1965,11 +1965,11 @@ ${cleanText}
           {activeTab === "caderno" && (
             <div className="space-y-4 max-w-4xl mx-auto">
               {/* Informative Banner */}
-              <div className="p-3.5 bg-amber-50/90 border-2 border-amber-400/80 rounded-xl flex items-start justify-between gap-3 text-xs text-amber-950 shadow-sm relative overflow-hidden">
+              <div className="p-3.5 bg-amber-50/90 border-2 border-amber-400/80 rounded-xl flex flex-col sm:flex-row items-start justify-between gap-2 sm:gap-3 text-xs text-amber-950 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                   <BookOpen className="w-24 h-24 text-amber-900" />
                 </div>
-                <div className="flex items-start gap-2.5 relative z-10">
+                <div className="flex items-start gap-2.5 relative z-10 min-w-0">
                   <AlertCircle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
                   <div className="space-y-1.5">
                     <p className="font-bold text-[13px] text-amber-900">Como funciona o Teses Normativas (Regras Universais):</p>
