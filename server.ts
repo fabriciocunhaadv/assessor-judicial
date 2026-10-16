@@ -1021,7 +1021,8 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
             fallbackModel: "gemini-flash-latest",
             customModelQueue: ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"],
             timeoutMs: 35000,
-            maxCycles: 1,
+            maxCycles: 2,
+            cycleDelayMs: 8000,
             contents: [
                 { role: "user", parts: [{ text: userPrompt }] }
             ],
@@ -4861,7 +4862,8 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
         fallbackModel: "gemini-3.8-flash",
         customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
         timeoutMs: TIMEOUT_ETAPA,
-        maxCycles: 2,
+        maxCycles: 3,
+        cycleDelayMs: 8000,
         contents: [{ role: "user", parts: stage1ContentsParts }],
         config: {
             systemInstruction: stage1SystemInstruction + defesaInjecao,
@@ -5475,7 +5477,8 @@ try {
         fallbackModel: "gemini-3.8-flash",
         customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
         timeoutMs: TIMEOUT_ETAPA,
-        maxCycles: 2,
+        maxCycles: 3,
+        cycleDelayMs: 8000,
         contents: [{ role: "user", parts: [{ text: stage2Prompt }] }],
         config: {
             systemInstruction: stage2SystemInstruction + defesaInjecao,
