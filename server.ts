@@ -1764,7 +1764,8 @@ REGRAS INEGOCIÁVEIS:
 4. Citação e intimação: para cada PARTE e cada TESTEMUNHA, informe se foi citada/intimada, o resultado (positiva, negativa, por edital, por hora certa, aguardando, ou nao_localizada se os autos nada trazem), a data e a localização. Considere certidões de oficial de justiça, AR, mandados, publicações, juntada de comprovantes e intimações via sistema (prazo/decurso).
 5. Pedidos relacionados à audiência: adiamento/redesignação, intimação ou substituição de testemunha, videoconferência/telepresencial, dispensa de audiência, justificativa de ausência, pedido de provas, acordo/conciliação, preliminares pendentes. Informe quem pediu, quando, o que pediu, se há decisão (e onde).
 6. "pontosAtencao": o que o juiz deve saber ANTES da audiência (parte sem citação/intimação válida, prazo pendente, revelia, testemunha arrolada fora do prazo ou acima do limite do rito, tutela ou preliminar pendente, sinal de acordo, parte vulnerável, inconsistências). Cada um com nível (alto, medio, baixo) e localização.
-7. Linguagem objetiva e neutra, sem juízo de valor sobre o mérito.
+7. "questoesPrevias" (OBRIGATÓRIO, sempre as 6 entradas abaixo, na ordem): o juiz costuma abrir o processo só na audiência; por isso verifique e informe, para cada tipo, se existe pedido nos autos, quem pediu, se já foi analisado/decidido e onde (localização). Tipos: "depoimento_pessoal" (pedido de depoimento pessoal da parte contrária: autor pediu o do réu e/ou réu pediu o do autor), "pericia" (pedido de perícia/prova técnica), "tutela_urgencia" (pedido de tutela de urgência/evidência), "adiamento_redesignacao" (pedido de adiamento/redesignação feito depois da designação), "questao_nao_analisada" (qualquer outro pedido, preliminar ou petição posterior à designação que ainda NÃO foi apreciado), "prova_documental_pendente" (juntada de documento, impugnação ou manifestação pendente). Se não houver pedido, existe=false e resumo "Nenhum pedido localizado nos autos". "analisado": "sim", "nao" ou "parcial". Nunca invente.
+8. Linguagem objetiva e neutra, sem juízo de valor sobre o mérito.
 Responda ESTRITAMENTE em JSON:
 {
  "cabecalho": {"numeroProcesso":"","classe":"","assunto":"natureza da ação, ex.: Ação de Obrigação de Fazer c/c Indenização por Danos Morais","vara":"nome da vara/juízo, ex.: Vara da Fazenda Pública Estadual","comarca":"apenas o nome da comarca, ex.: Anápolis","valorCausa":"","dataDistribuicao":"","tipoAudiencia":"","dataHoraAudiencia":"ex.: 07/10/2026, às 15h00min","juizDesignouAudiencia":"nome do Juiz de Direito que DETERMINOU o agendamento ou, se houve, o REAGENDAMENTO mais recente da audiência (despacho/decisão/ato ordinatório assinado por ele); vazio se não constar"},
@@ -1774,6 +1775,7 @@ Responda ESTRITAMENTE em JSON:
  "citacoesIntimacoes": [{"destinatario":"","papel":"autor|reu|testemunha|outro","ato":"citacao|intimacao","resultado":"positiva|negativa|edital|hora_certa|aguardando|nao_localizada","data":"","localizacao":"","observacao":""}],
  "pedidosAudiencia": [{"tipo":"","requerente":"","resumo":"","data":"","decisao":"","localizacao":""}],
  "pontosAtencao": [{"nivel":"alto|medio|baixo","texto":"","localizacao":""}],
+ "questoesPrevias": [{"tipo":"depoimento_pessoal|pericia|tutela_urgencia|adiamento_redesignacao|questao_nao_analisada|prova_documental_pendente","existe":true,"requerente":"autor|reu|outro|(vazio)","resumo":"","analisado":"sim|nao|parcial","decisao":"","localizacao":""}],
  "pontosControvertidos": ["..."],
  "faltaProvar": "string"
 }`;
@@ -1797,6 +1799,7 @@ Responda ESTRITAMENTE em JSON:
             arr(ata.citacoesIntimacoes).forEach((x: any) => marca(x, x?.destinatario, x?.localizacao));
             arr(ata.pedidosAudiencia).forEach((x: any) => marca(x, undefined, x?.localizacao));
             arr(ata.pontosAtencao).forEach((x: any) => marca(x, undefined, x?.localizacao));
+            arr(ata.questoesPrevias).forEach((x: any) => { if (x?.existe) marca(x, undefined, x?.localizacao); });
             const usage = response.usageMetadata ? { promptTokenCount: response.usageMetadata.promptTokenCount || 0, candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0, totalTokenCount: response.usageMetadata.totalTokenCount || 0 } : undefined;
             return res.json({ success: true, actionType: 'preliminary_minutes', data: { ...ata, alertaInjecao: rInj && rInj.verificado ? rInj : undefined, geradaEm: new Date().toISOString() }, usage, modelUsed: response.modelVersion || "Gemini Flash" });
         }

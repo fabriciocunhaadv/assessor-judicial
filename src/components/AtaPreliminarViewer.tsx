@@ -20,6 +20,7 @@ const CSS_VISUALIZADOR = `
 .atav-amber{color:#fcd34d}.atav-green{color:#6ee7b7}.atav-muted{color:#9aa3b5}
 .atav-painel{background:#191c24;border-color:rgba(255,255,255,.1)}
 .atav-tab{color:#9aa3b5;border-bottom:2px solid transparent}.atav-tab:hover{color:#e8eaf0}
+.ata .quadro-x{position:absolute;top:6px;right:8px;border:1px solid #d6a45a;background:#fff;color:#92400e;border-radius:6px;width:26px;height:26px;font-size:14px;line-height:1;cursor:pointer}.ata .quadro-x:hover{background:#fee2e2;color:#991b1b;border-color:#f87171}
 .atav-tab-on{color:#fff;border-bottom:2px solid #6b93ff}
 .atav-tab-cop{color:#fff;font-weight:800;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-bottom:2px solid #c4b5fd;box-shadow:0 0 0 1px rgba(196,181,253,.35),0 4px 14px rgba(99,102,241,.45)}.atav-tab-cop:hover{filter:brightness(1.12);color:#fff}
 .atav-card{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);border-radius:10px;padding:8px}
@@ -80,6 +81,27 @@ export function AtaPreliminarViewer({ ata, modo = "preliminar", htmlInicial, htm
   useEffect(() => { setHtmlBase(htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado); setSujo(false); }, [htmlGerado, htmlEditado]);
   // o conteúdo do documento só é reescrito quando muda a base (não a cada tecla: preserva o cursor)
   useEffect(() => { if (doc.current && doc.current.innerHTML !== htmlBase) doc.current.innerHTML = htmlBase; }, [htmlBase]);
+
+  // botão "excluir" dentro do quadro de destaque (só na tela: o sanitizador o remove ao salvar, imprimir e exportar)
+  useEffect(() => {
+    const el = doc.current; if (!el) return;
+    el.querySelectorAll(".quadro").forEach((q) => {
+      if (q.querySelector(".quadro-x")) return;
+      const b = document.createElement("button");
+      b.className = "quadro-x"; b.type = "button"; b.setAttribute("contenteditable", "false"); b.setAttribute("data-testid", "ata-quadro-excluir"); b.title = "Excluir este quadro da ata";
+      b.innerHTML = "&#128465;"; b.setAttribute("aria-label", "Excluir quadro da ata");
+      q.prepend(b);
+    });
+  }, [htmlBase, editando]);
+  const aoClicarDoc = (e: React.MouseEvent) => {
+    const x = (e.target as HTMLElement).closest?.(".quadro-x");
+    if (!x) return;
+    e.preventDefault();
+    const q = x.closest(".quadro"); if (!q) return;
+    const antes = htmlCorrente();
+    setHistorico((h) => [...h.slice(-19), antes]);
+    q.remove(); setSujo(true); msg("Quadro excluído da ata (use Desfazer para voltar)");
+  };
 
   const htmlCorrente = useCallback(() => sanitizarHtmlAta(doc.current?.innerHTML ?? htmlBase), [htmlBase]);
   const numero = ata.cabecalho?.numeroProcesso || processNumber || "processo";
@@ -189,7 +211,7 @@ export function AtaPreliminarViewer({ ata, modo = "preliminar", htmlInicial, htm
           <div style={{ width: A4_LARGURA, margin: "0 auto", zoom }}>
             <div ref={folha} className="bg-white shadow-2xl" style={{ width: A4_LARGURA, minHeight: A4_ALTURA, padding: "56px 64px", outline: editando ? "2px solid #60a5fa" : "none" }}>
               <style>{CSS_ATA}</style>
-              <div ref={doc} data-testid="ata-documento" contentEditable={editando} suppressContentEditableWarning spellCheck={editando} onInput={() => setSujo(true)} style={{ outline: "none", cursor: editando ? "text" : "default" }} />
+              <div ref={doc} onClick={aoClicarDoc} data-testid="ata-documento" contentEditable={editando} suppressContentEditableWarning spellCheck={editando} onInput={() => setSujo(true)} style={{ outline: "none", cursor: editando ? "text" : "default" }} />
               <div className="ata ata-rodape" data-testid="ata-rodape"><div>1 / {totalPaginas}</div><div>{rodape.nome}<br />{rodape.cargo}</div></div>
             </div>
           </div>

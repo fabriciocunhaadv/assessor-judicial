@@ -6,7 +6,7 @@ import { BRASAO_GOIAS_BASE64 } from "./brasaoGoias";
 const base64ParaBytes = (b64: string) => { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
 
 export async function blocosParaDocx(bl: Bloco[], opts: { juiz?: string } = {}): Promise<Blob> {
-  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, ShadingType, Header, Footer, ImageRun, PageNumber, TabStopType } = await import("docx");
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, ShadingType, Header, Footer, ImageRun, PageNumber, TabStopType, BorderStyle } = await import("docx");
   const FONTE = "Candara";
   const run = (text: string, o: any = {}) => new TextRun({ text, font: FONTE, size: 23, ...o });
   // trechos entre [colchetes] (campos a completar) ficam destacados em amarelo
@@ -24,6 +24,10 @@ export async function blocosParaDocx(bl: Bloco[], opts: { juiz?: string } = {}):
       children: x.destaque === "corpo" ? runsCampos(x.texto) : [run(x.texto, { size: x.destaque === "aviso" ? 18 : 23, italics: x.destaque === "vazio", bold: x.destaque === "conferir" })],
     }));
     else if (x.tipo === "lista") x.itens.forEach((i) => corpo.push(new Paragraph({ bullet: { level: 0 }, shading: i.conferir ? { type: ShadingType.CLEAR, fill: "FFF6D6" } : undefined, children: [run(i.texto, { size: 21, bold: i.nivel === "alto" })] })));
+    else if (x.tipo === "quadro") {
+      corpo.push(new Paragraph({ spacing: { before: 160, after: 40 }, shading: { type: ShadingType.CLEAR, fill: "FFF1D6" }, border: { top: { style: BorderStyle.SINGLE, size: 8, color: "B45309", space: 4 }, left: { style: BorderStyle.SINGLE, size: 8, color: "B45309", space: 4 }, right: { style: BorderStyle.SINGLE, size: 8, color: "B45309", space: 4 } }, children: [run(x.titulo, { bold: true, size: 22 })] }));
+      x.itens.forEach((i, k) => corpo.push(new Paragraph({ bullet: { level: 0 }, shading: { type: ShadingType.CLEAR, fill: "FFF1D6" }, border: k === x.itens.length - 1 ? { bottom: { style: BorderStyle.SINGLE, size: 8, color: "B45309", space: 4 } } : undefined, children: [run(i.texto, { size: 21, bold: !!i.alerta })] })));
+    }
     else if (x.tipo === "assinatura") x.linhas.forEach((l, i) => corpo.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: i === 0 ? 700 : 0 }, children: [run(l, { bold: i === 0 })] })));
     else {
       const cel = (t: string, cab = false, conf = false) => new TableCell({ shading: cab ? { type: ShadingType.CLEAR, fill: "ECECEC" } : conf ? { type: ShadingType.CLEAR, fill: "FFF6D6" } : undefined, children: [new Paragraph({ children: [run(t, { bold: cab, size: 19 })] })] });

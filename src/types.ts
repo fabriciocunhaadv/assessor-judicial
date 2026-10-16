@@ -1162,6 +1162,7 @@ export interface AtaPreliminarDados {
   citacoesIntimacoes?: { destinatario?: string; papel?: string; ato?: string; resultado?: string; data?: string; localizacao?: string; observacao?: string; conferir?: boolean; motivoConferir?: string }[];
   pedidosAudiencia?: { tipo?: string; requerente?: string; resumo?: string; data?: string; decisao?: string; localizacao?: string; conferir?: boolean; motivoConferir?: string }[];
   pontosAtencao?: { nivel?: string; texto?: string; localizacao?: string; conferir?: boolean; motivoConferir?: string }[];
+  questoesPrevias?: { tipo?: string; existe?: boolean; requerente?: string; resumo?: string; analisado?: string; decisao?: string; localizacao?: string; conferir?: boolean; motivoConferir?: string }[];
   pontosControvertidos?: string[];
   faltaProvar?: string;
   alertaInjecao?: AssessorDraftAuditResult["alertaInjecao"];

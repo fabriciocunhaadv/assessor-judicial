@@ -38,6 +38,7 @@ export type Bloco =
   | { tipo: "paragrafo"; texto: string; destaque?: "aviso" | "conferir" | "vazio" | "corpo" }
   | { tipo: "lista"; itens: { texto: string; conferir?: boolean; nivel?: string }[] }
   | { tipo: "tabela"; colunas: string[]; linhas: { celulas: string[]; conferir?: boolean }[] }
+  | { tipo: "quadro"; titulo: string; itens: { texto: string; conferir?: boolean; alerta?: boolean }[] }
   | { tipo: "assinatura"; linhas: string[] };
 
 const NC = "não consta nos autos";
@@ -54,6 +55,23 @@ const horaBr = (h?: string) => { const m = String(h || "").match(/^(\d{1,2}):(\d
 const dr = (nome?: string) => { const n = String(nome || "").trim(); return !n ? "" : /^(dr|dra|des)\.?\s/i.test(n) ? n : n; };
 const advTxt = (p: { advogados?: { nome?: string; oab?: string }[] }) => (p.advogados || []).filter((a) => a?.nome).map((a) => `${a.nome}${a.oab ? ` – OAB/${/^[A-Z]{2}\b/.test(String(a.oab).trim()) ? String(a.oab).trim().replace(/^([A-Z]{2})\s*/, "$1 n. ") : "GO n. " + a.oab}` : ""}`).join(" e ");
 const lista = (xs: string[]) => (xs.length <= 1 ? xs.join("") : xs.slice(0, -1).join(", ") + " e " + xs[xs.length - 1]);
+
+const ROT_QUESTAO: Record<string, string> = { depoimento_pessoal: "Depoimento pessoal da parte contrária", pericia: "Perícia / prova técnica", tutela_urgencia: "Tutela de urgência / evidência", adiamento_redesignacao: "Adiamento / redesignação", questao_nao_analisada: "Outras questões ainda não analisadas", prova_documental_pendente: "Documentos / manifestações pendentes" };
+const ORDEM_QUESTAO = Object.keys(ROT_QUESTAO);
+const ANALISE: Record<string, string> = { sim: "já analisado", nao: "NÃO analisado", parcial: "analisado em parte" };
+// Quadro de destaque: o que o juiz precisa saber antes de abrir o processo na audiência
+export function quadroQuestoes(d: AtaPreliminarDados): Bloco | null {
+  const q = d.questoesPrevias;
+  if (!Array.isArray(q) || !q.length) return null;
+  const itens = ORDEM_QUESTAO.map((t) => {
+    const x = q.find((y) => y?.tipo === t);
+    const rot = ROT_QUESTAO[t];
+    if (!x || !x.existe) return { texto: `${rot}: nenhum pedido localizado nos autos.`, alerta: false };
+    const an = ANALISE[String(x.analisado || "").toLowerCase()] || "";
+    return { texto: `${rot}: ${[`${x.resumo && x.resumo.trim() ? x.resumo.trim() : "pedido localizado"}${x.requerente === "autor" ? " (autor)" : x.requerente === "reu" ? " (réu)" : ""}`, an && `— ${an}`, x.decisao && x.decisao.trim() ? `Decisão: ${x.decisao.trim()}` : "", `(${loc(x.localizacao)})`, x.conferir ? "[conferir]" : ""].filter(Boolean).join(" ")}`, conferir: x.conferir, alerta: String(x.analisado || "").toLowerCase() !== "sim" };
+  });
+  return { tipo: "quadro", titulo: "ATENÇÃO ANTES DA AUDIÊNCIA — pedidos e questões a verificar", itens };
+}
 
 export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA, ctx: ContextoAta = {}): Bloco[] {
   const b: Bloco[] = [];
@@ -84,6 +102,8 @@ export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA, c
     b.push({ tipo: "secao", texto: s.titulo });
     if (s.id === "resumo") {
       b.push({ tipo: "paragrafo", texto: v(d.resumo), destaque: "corpo" });
+      const q = quadroQuestoes(d);
+      if (q) b.push(q);
     } else if (s.id === "testemunhas") {
       const l = d.testemunhas || [];
       if (!l.length) b.push({ tipo: "paragrafo", texto: "Nenhuma testemunha arrolada nos autos.", destaque: "vazio" });
@@ -164,6 +184,10 @@ export const CSS_ATA = `
 .ata li.conf{background:#fff6d6}
 .ata li.alto{color:#8a1c1c;font-weight:bold}
 .ata tr{break-inside:avoid}
+.ata .quadro{border:2px solid #b45309;background:#fff7e6;border-radius:6px;padding:8px 12px;margin:12px 0;break-inside:avoid;position:relative}
+.ata .quadro .qt{font-weight:bold;color:#92400e;font-size:11pt;margin:0 0 4px;padding-right:28px}
+.ata .quadro ul{margin:2px 0 2px 18px}
+.ata .quadro li{font-size:10.5pt;margin:2px 0}
 .ata .assin{text-align:center;margin:34px 0 0;break-inside:avoid}
 .ata .assin p{margin:0;font-weight:bold}
 .ata .assin p+p{font-weight:normal}
@@ -179,6 +203,7 @@ export function blocosParaHtml(bl: Bloco[]): string {
     if (x.tipo === "secao") return `<p class="secao">${esc(x.texto)}</p>`;
     if (x.tipo === "paragrafo") return `<p class="${x.destaque || ""}">${x.destaque === "corpo" ? comCampos(x.texto) : esc(x.texto)}</p>`;
     if (x.tipo === "lista") return `<ul>` + x.itens.map((i) => `<li class="${i.conferir ? "conf " : ""}${i.nivel === "alto" ? "alto" : ""}">${esc(i.texto)}</li>`).join("") + `</ul>`;
+    if (x.tipo === "quadro") return `<div class="quadro"><p class="qt">${esc(x.titulo)}</p><ul>` + x.itens.map((i) => `<li class="${i.conferir ? "conf " : ""}${i.alerta ? "alto" : ""}">${esc(i.texto)}</li>`).join("") + `</ul></div>`;
     if (x.tipo === "assinatura") return `<div class="assin">` + x.linhas.map((l) => `<p>${esc(l)}</p>`).join("") + `</div>`;
     return `<table><thead><tr>${x.colunas.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>` + x.linhas.map((l) => `<tr class="${l.conferir ? "conf" : ""}">${l.celulas.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("") + `</tbody></table>`;
   }).join("") + `</div>`;
@@ -192,6 +217,7 @@ export function blocosParaTexto(bl: Bloco[]): string {
     if (x.tipo === "secao") return "\n" + x.texto.toUpperCase();
     if (x.tipo === "paragrafo") return x.texto;
     if (x.tipo === "lista") return x.itens.map((i) => "• " + i.texto).join("\n");
+    if (x.tipo === "quadro") return "\n" + x.titulo + "\n" + x.itens.map((i) => "• " + i.texto).join("\n");
     if (x.tipo === "assinatura") return "\n" + x.linhas.join("\n");
     return x.linhas.map((l) => "• " + l.celulas.map((c, i) => (x.colunas[i] ? x.colunas[i] + ": " : "") + c).join(" | ")).join("\n");
   }).join("\n");
@@ -202,7 +228,7 @@ export const rodapeJuiz = (ctx: ContextoAta) => ({ nome: String(ctx.juiz || "").
 
 // ===== Edição: o documento editado é guardado como HTML; estas funções limpam o HTML e o convertem de volta em blocos (Word) =====
 const TAGS_OK = new Set(["DIV", "P", "SPAN", "B", "STRONG", "I", "EM", "U", "BR", "UL", "OL", "LI", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD", "IMG"]);
-const CLASSES_OK = new Set(["ata", "brasao", "titulo", "sub", "aviso", "conferir", "vazio", "conf", "alto", "cab", "meta", "rot", "secao", "corpo", "preencher", "assin"]);
+const CLASSES_OK = new Set(["ata", "brasao", "titulo", "sub", "aviso", "conferir", "vazio", "conf", "alto", "cab", "meta", "rot", "secao", "corpo", "preencher", "assin", "quadro", "qt"]);
 
 export function sanitizarHtmlAta(html: string): string {
   const doc = new DOMParser().parseFromString(`<div id="raiz">${html || ""}</div>`, "text/html");
@@ -243,6 +269,8 @@ export function htmlParaBlocos(html: string): Bloco[] {
       bl.push({ tipo: "tabela", colunas: cab.length ? cab : (linhas[0]?.celulas.map(() => "") || []), linhas });
     } else if (f.tagName === "UL" || f.tagName === "OL") {
       bl.push({ tipo: "lista", itens: Array.from(f.querySelectorAll("li")).map((li) => ({ texto: txt(li), conferir: /conf/.test(li.className), nivel: /alto/.test(li.className) ? "alto" : undefined })) });
+    } else if (/\bquadro\b/.test(cl)) {
+      bl.push({ tipo: "quadro", titulo: txt(f.querySelector(".qt") || f), itens: Array.from(f.querySelectorAll("li")).map((li) => ({ texto: txt(li), conferir: /conf/.test(li.className), alerta: /alto/.test(li.className) })) });
     } else if (/\bcab\b/.test(cl)) {
       bl.push({ tipo: "cabecalho", linhas: Array.from(f.querySelectorAll("p")).map(txt).filter(Boolean) });
     } else if (/\bassin\b/.test(cl)) {
