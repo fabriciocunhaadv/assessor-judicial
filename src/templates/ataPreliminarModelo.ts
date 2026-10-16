@@ -88,7 +88,7 @@ export function montarBlocos(d: AtaPreliminarDados, m: ModeloAta = MODELO_ATA): 
 const esc = (s: string) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 
 export const CSS_ATA = `
-.ata{font-family:"Times New Roman",serif;color:#111;font-size:12pt;line-height:1.45}
+.ata{background:#fff;font-family:"Times New Roman",serif;color:#111;font-size:12pt;line-height:1.45}
 .ata .brasao{text-align:center;font-weight:bold;letter-spacing:.5px;margin:0}
 .ata .titulo{text-align:center;font-weight:bold;font-size:14pt;margin:10px 0 8px}
 .ata .sub{font-weight:bold;margin:16px 0 6px;border-bottom:1px solid #999;padding-bottom:2px;break-after:avoid}
@@ -176,4 +176,58 @@ export function htmlParaBlocos(html: string): Bloco[] {
     }
   }
   return bl;
+}
+
+// ===== Copiloto rápido: em vez de pedir à IA o documento inteiro de volta, numeramos os blocos e ela devolve só as OPERAÇÕES (poucas linhas) =====
+export interface BlocoNumerado { id: number; tipo: "p" | "li" | "tr"; classe?: string; texto?: string; celulas?: string[] }
+export interface OperacaoAta {
+  op: "replace" | "insert_after" | "delete";
+  id: number;
+  texto?: string;            // novo texto (p, li)
+  celulas?: string[];        // novas células (tr)
+  tipo?: "p" | "li" | "tr";  // insert_after: tipo do novo bloco
+  classe?: string;           // insert_after: sub | conferir | vazio ...
+}
+
+const SELETOR_BLOCOS = "p, li, tr";
+const txtc = (e: Element) => (e.textContent || "").replace(/\s+/g, " ").trim();
+
+export function numerarBlocos(html: string): BlocoNumerado[] {
+  const doc = new DOMParser().parseFromString(`<div id="raiz">${html || ""}</div>`, "text/html");
+  return Array.from(doc.getElementById("raiz")!.querySelectorAll(SELETOR_BLOCOS)).map((e, i) => {
+    const tipo = e.tagName.toLowerCase() as "p" | "li" | "tr";
+    const classe = (e.getAttribute("class") || "").trim() || undefined;
+    return tipo === "tr" ? { id: i + 1, tipo, classe, celulas: Array.from(e.children).map(txtc) } : { id: i + 1, tipo, classe, texto: txtc(e) };
+  });
+}
+
+// Aplica as operações sobre o HTML (a numeração é a de numerarBlocos sobre o MESMO html). Operações com id inexistente são ignoradas e contadas.
+export function aplicarOperacoes(html: string, ops: OperacaoAta[]): { html: string; aplicadas: number; ignoradas: number } {
+  const doc = new DOMParser().parseFromString(`<div id="raiz">${html || ""}</div>`, "text/html");
+  const raiz = doc.getElementById("raiz")!;
+  const alvos = Array.from(raiz.querySelectorAll(SELETOR_BLOCOS));
+  let aplicadas = 0, ignoradas = 0;
+  const limpo = (t: string) => String(t ?? "").replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "").replace(/<[^>]*>/g, "").trim();
+  for (const o of ops || []) {
+    const alvo = alvos[Number(o?.id) - 1];
+    if (!alvo) { ignoradas++; continue; }
+    try {
+      if (o.op === "delete") { alvo.remove(); aplicadas++; }
+      else if (o.op === "replace") {
+        if (alvo.tagName === "TR" && Array.isArray(o.celulas)) { Array.from(alvo.children).forEach((c, i) => { if (o.celulas![i] != null) c.textContent = limpo(o.celulas![i]); }); aplicadas++; }
+        else if (o.texto != null && alvo.tagName !== "TR") { alvo.textContent = limpo(o.texto); aplicadas++; }
+        else ignoradas++;
+      } else if (o.op === "insert_after") {
+        const tipo = o.tipo || (alvo.tagName.toLowerCase() as "p" | "li" | "tr");
+        let novo: Element;
+        if (tipo === "tr") {
+          novo = doc.createElement("tr"); const n = alvo.tagName === "TR" ? alvo.children.length : (o.celulas || []).length;
+          for (let i = 0; i < n; i++) { const td = doc.createElement("td"); td.textContent = limpo(o.celulas?.[i] ?? ""); novo.appendChild(td); }
+        } else { novo = doc.createElement(tipo === "li" ? "li" : "p"); novo.textContent = limpo(o.texto || ""); }
+        const cl = (o.classe || "").split(/\s+/).filter((c) => CLASSES_OK.has(c)).join(" "); if (cl) novo.setAttribute("class", cl);
+        alvo.after(novo); aplicadas++;
+      } else ignoradas++;
+    } catch { ignoradas++; }
+  }
+  return { html: sanitizarHtmlAta(raiz.innerHTML), aplicadas, ignoradas };
 }

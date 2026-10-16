@@ -51,7 +51,9 @@ import { Zap,
   ArrowDownToLine,
   Target,
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { AtaPreliminarViewer } from './AtaPreliminarViewer';
+import { numerarBlocos, aplicarOperacoes } from '../templates/ataPreliminarModelo';
 import {
   HearingRecord,
   HearingWitness,
@@ -227,10 +229,11 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     if (!activeHearing) throw new Error('Nenhuma audiência aberta.');
     const access = checkUserAiAccess(userProfile, user?.email);
     if (!access.canExecute) { requestOpenApiKeyModal(access.message); throw new Error(access.message || 'Sem acesso à IA.'); }
+    const blocks = numerarBlocos(currentHtml);
     const response = await fetch('/api/hearing-copilot', {
       method: 'POST',
       headers: getApiHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ actionType: 'preliminary_minutes_edit', instruction, currentHtml, caseText: activeHearing.rawSourceText || caseInputText || '', processNumber: activeHearing.processNumber }),
+      body: JSON.stringify({ actionType: 'preliminary_minutes_edit', instruction, blocks, caseText: activeHearing.rawSourceText || caseInputText || '', processNumber: activeHearing.processNumber }),
     });
     const texto = await response.text();
     let json: any = {};
@@ -239,7 +242,11 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     if (json?.usage?.totalTokenCount) {
       recordApiExecution({ label: 'Mesa de Audiência (copiloto da ata)', processNumber: activeHearing.processNumber || 'Audiência', model: json.modelUsed || 'Gemini Flash', promptTokens: json.usage.promptTokenCount, outputTokens: json.usage.candidatesTokenCount, totalTokens: json.usage.totalTokenCount, module: 'audiencia' }).catch(() => {});
     }
-    return { html: json?.data?.html || '', resumo: json?.data?.resumo };
+    const ops = Array.isArray(json?.data?.operacoes) ? json.data.operacoes : [];
+    if (!ops.length) throw new Error(json?.data?.resumo || 'O copiloto não encontrou o que alterar. Reformule o pedido indicando a seção.');
+    const r = aplicarOperacoes(currentHtml, ops);
+    if (!r.aplicadas) throw new Error('Não consegui aplicar a alteração no documento. Reformule o pedido.');
+    return { html: r.html, resumo: (json?.data?.resumo || 'Alteração feita.') + (r.ignoradas ? ` (${r.ignoradas} operação(ões) ignorada(s))` : '') };
   };
 
   // AI Action Runner
@@ -2977,7 +2984,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
           </>
         )}
       </div>
-      {showAtaPreliminar && activeHearing?.ataPreliminar && (
+      {showAtaPreliminar && activeHearing?.ataPreliminar && createPortal(
         <AtaPreliminarViewer
           ata={activeHearing.ataPreliminar}
           htmlEditado={activeHearing.ataPreliminarHtml}
@@ -2988,7 +2995,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
           onClose={() => setShowAtaPreliminar(false)}
           onRegenerate={() => runAiHearingCopilot('preliminary_minutes')}
         />
-      )}
+      , document.body)}
     </div>
   );
 };

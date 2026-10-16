@@ -7,6 +7,33 @@ import { AvisoPromptInjection } from "./AvisoPromptInjection";
 const A4_ALTURA = 1123;      // px de uma folha A4 a 96 dpi
 const A4_LARGURA = 794;
 
+const CSS_VISUALIZADOR = `
+.atav{background:#12141a;color:#e8eaf0}
+.atav *{box-sizing:border-box}
+.atav-bar{background:#12141a;border-color:rgba(255,255,255,.1)}
+.atav-sub{background:#191c24;border-color:rgba(255,255,255,.1)}
+.atav-btn{color:#dfe3ee}.atav-btn:hover{background:rgba(255,255,255,.1)}
+.atav-btn-on{background:rgba(255,255,255,.16)}
+.atav-pdf{background:#dc2626;color:#fff}
+.atav-primary{background:#3b6cf6;color:#fff}.atav-primary:hover{background:#5380f8}
+.atav-save{background:#10a56f;color:#fff}.atav-save:hover{background:#17bb82}
+.atav-amber{color:#fcd34d}.atav-green{color:#6ee7b7}.atav-muted{color:#9aa3b5}
+.atav-painel{background:#191c24;border-color:rgba(255,255,255,.1)}
+.atav-tab{color:#9aa3b5;border-bottom:2px solid transparent}.atav-tab:hover{color:#e8eaf0}
+.atav-tab-on{color:#fff;border-bottom:2px solid #6b93ff}
+.atav-card{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);border-radius:10px;padding:8px}
+.atav-card-alto{border-color:rgba(248,113,113,.5);background:rgba(239,68,68,.12)}
+.atav-card-medio{border-color:rgba(251,191,36,.45);background:rgba(245,158,11,.12)}
+.atav-aviso{border:1px solid rgba(251,191,36,.45);background:rgba(245,158,11,.14);color:#fde68a;border-radius:10px;padding:8px}
+.atav-eu{background:rgba(59,108,246,.28);border:1px solid rgba(107,147,255,.4);border-radius:10px}
+.atav-ia{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px}
+.atav-input{background:#0e1015;border:1px solid rgba(255,255,255,.16);color:#f1f3f9;border-radius:10px}
+.atav-input:focus{outline:none;border-color:#6b93ff}
+.atav-chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#dfe3ee}.atav-chip:hover{background:rgba(255,255,255,.12)}
+.atav-mesa{background:#2a2e3a}
+.atav-claro{background:#fff;border-radius:10px;padding:4px}
+`;
+
 export interface RespostaCopilotoAta { html: string; resumo?: string }
 interface Props {
   ata: AtaPreliminarDados;
@@ -107,43 +134,44 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, onClose, 
     finally { setPensando(false); }
   };
 
-  const botao = "h-8 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1.5 text-neutral-200 hover:bg-white/10 disabled:opacity-40";
+  const botao = "atav-btn h-8 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1.5 disabled:opacity-40";
   const SUGESTOES = ["Deixe o resumo mais curto e objetivo", "Acrescente um ponto de atenção sobre …", "Reescreva a seção de testemunhas em lista simples", "Marque como pendente a intimação de …"];
   return (
-    <div className="fixed inset-0 z-[120] bg-neutral-900 text-neutral-100 flex flex-col font-sans" data-testid="ata-preliminar-viewer" role="dialog" aria-label="Ata preliminar">
-      <div className="h-12 shrink-0 flex items-center gap-3 px-3 border-b border-white/10">
-        <button onClick={tentarFechar} className="p-1.5 rounded-full hover:bg-white/10" title="Fechar (Esc)"><X className="w-5 h-5" /></button>
-        <span className="px-1.5 py-0.5 rounded bg-red-600 text-white text-[10px] font-black">PDF</span>
+    <div className="atav fixed inset-0 z-[120] flex flex-col font-sans" data-testid="ata-preliminar-viewer" role="dialog" aria-label="Ata preliminar">
+      <style>{CSS_VISUALIZADOR}</style>
+      <div className="atav-bar h-12 shrink-0 flex items-center gap-3 px-3 border-b">
+        <button onClick={tentarFechar} className="atav-btn p-1.5 rounded-full" title="Fechar (Esc)"><X className="w-5 h-5" /></button>
+        <span className="atav-pdf px-1.5 py-0.5 rounded text-[10px] font-black">PDF</span>
         <span className="text-sm font-semibold truncate">{nomeArquivo}.pdf</span>
-        {sujo ? <span className="text-xs text-amber-300">• alterações não salvas</span> : (htmlEditado && htmlEditado.trim() ? <span className="text-xs text-emerald-300">• versão editada salva</span> : <span className="hidden md:inline text-xs text-neutral-400 truncate">{MODELO_ATA.nome}</span>)}
+        {sujo ? <span className="atav-amber text-xs">• alterações não salvas</span> : (htmlEditado && htmlEditado.trim() ? <span className="atav-green text-xs">• versão editada salva</span> : <span className="atav-muted hidden md:inline text-xs truncate">{MODELO_ATA.nome}</span>)}
         <div className="ml-auto flex items-center gap-1">
-          {aviso && <span className="text-xs text-emerald-300 mr-2">{aviso}</span>}
+          {aviso && <span className="atav-green text-xs mr-2">{aviso}</span>}
           {onSalvar && <>
-            <button onClick={() => setEditando((e) => !e)} className={botao + (editando ? " bg-white/15" : "")} title="Editar o texto direto no documento" data-testid="ata-editar"><Pencil className="w-4 h-4" /><span className="hidden sm:inline">{editando ? "Editando" : "Editar"}</span></button>
+            <button onClick={() => setEditando((e) => !e)} className={botao + (editando ? " atav-btn-on" : "")} title="Editar o texto direto no documento" data-testid="ata-editar"><Pencil className="w-4 h-4" /><span className="hidden sm:inline">{editando ? "Editando" : "Editar"}</span></button>
             <button onClick={desfazer} disabled={!historico.length} className={botao} title="Desfazer a última alteração do copiloto" data-testid="ata-desfazer"><Undo2 className="w-4 h-4" /></button>
-            <button onClick={salvar} disabled={!sujo || salvando} className="h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40" title="Salvar a edição (Ctrl+S)" data-testid="ata-salvar">{salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>Salvar</span></button>
+            <button onClick={salvar} disabled={!sujo || salvando} className="atav-save h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-40" title="Salvar a edição (Ctrl+S)" data-testid="ata-salvar">{salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>Salvar</span></button>
             {sujo && <button onClick={descartar} className={botao} title="Descartar alterações não salvas">Descartar</button>}
-            <span className="w-px h-5 bg-white/15 mx-1" />
+            <span className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,.18)" }} />
           </>}
           {onRegenerate && <button onClick={refazer} disabled={carregando} className={botao} title="Ler os autos de novo e refazer a ata">{carregando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}<span className="hidden lg:inline">Gerar de novo</span></button>}
           <button onClick={copiar} className={botao} title="Copiar o texto"><Copy className="w-4 h-4" /><span className="hidden lg:inline">Copiar</span></button>
           <button onClick={word} className={botao} title="Baixar em Word (.docx)"><FileText className="w-4 h-4" /><span className="hidden lg:inline">Word</span></button>
-          <button onClick={imprimir} className="h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white" title="Imprimir ou salvar como PDF"><Printer className="w-4 h-4" /><span>PDF / Imprimir</span></button>
+          <button onClick={imprimir} className="atav-primary h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5" title="Imprimir ou salvar como PDF"><Printer className="w-4 h-4" /><span>PDF / Imprimir</span></button>
           <button onClick={() => setPainel((p) => !p)} className={botao + " ml-1"} title="Painel lateral">{painel ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}</button>
         </div>
       </div>
-      <div className="h-10 shrink-0 flex items-center justify-center gap-3 px-3 border-b border-white/10 bg-neutral-800/60 text-xs">
-        <button onClick={() => irPara(pagina - 1)} className="p-1 rounded hover:bg-white/10" title="Página anterior"><ChevronLeft className="w-4 h-4" /></button>
+      <div className="atav-sub h-10 shrink-0 flex items-center justify-center gap-3 px-3 border-b text-xs">
+        <button onClick={() => irPara(pagina - 1)} className="atav-btn p-1 rounded" title="Página anterior"><ChevronLeft className="w-4 h-4" /></button>
         <span>Página <b>{pagina}</b> / {totalPaginas}</span>
-        <button onClick={() => irPara(pagina + 1)} className="p-1 rounded hover:bg-white/10" title="Próxima página"><ChevronRight className="w-4 h-4" /></button>
-        <span className="w-px h-4 bg-white/20" />
-        <button onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))} className="p-1 rounded hover:bg-white/10" title="Diminuir"><ZoomOut className="w-4 h-4" /></button>
+        <button onClick={() => irPara(pagina + 1)} className="atav-btn p-1 rounded" title="Próxima página"><ChevronRight className="w-4 h-4" /></button>
+        <span className="w-px h-4" style={{ background: "rgba(255,255,255,.2)" }} />
+        <button onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))} className="atav-btn p-1 rounded" title="Diminuir"><ZoomOut className="w-4 h-4" /></button>
         <span className="w-12 text-center">{Math.round(zoom * 100)}%</span>
-        <button onClick={() => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)))} className="p-1 rounded hover:bg-white/10" title="Aumentar"><ZoomIn className="w-4 h-4" /></button>
-        {editando && <span className="ml-3 text-amber-300">Modo edição: clique no texto para alterar; Ctrl+S salva.</span>}
+        <button onClick={() => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)))} className="atav-btn p-1 rounded" title="Aumentar"><ZoomIn className="w-4 h-4" /></button>
+        {editando && <span className="atav-amber ml-3">Modo edição: clique no texto para alterar; Ctrl+S salva.</span>}
       </div>
       <div className="flex-1 min-h-0 flex">
-        <div ref={rolagem} onScroll={aoRolar} className="flex-1 overflow-auto bg-neutral-700/40 py-6 px-3">
+        <div ref={rolagem} onScroll={aoRolar} className="atav-mesa flex-1 overflow-auto py-6 px-3">
           <div style={{ width: A4_LARGURA, margin: "0 auto", zoom }}>
             <div ref={folha} className="bg-white shadow-2xl" style={{ width: A4_LARGURA, minHeight: A4_ALTURA, padding: "56px 64px", outline: editando ? "2px solid #60a5fa" : "none" }}>
               <style>{CSS_ATA}</style>
@@ -152,45 +180,45 @@ export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, onClose, 
           </div>
         </div>
         {painel && (
-          <aside className="w-96 shrink-0 border-l border-white/10 bg-neutral-800 flex-col hidden md:flex" data-testid="ata-painel">
-            <div className="flex border-b border-white/10 text-xs font-semibold">
-              <button onClick={() => setAba("resumo")} className={`flex-1 py-2.5 ${aba === "resumo" ? "border-b-2 border-blue-400 text-white" : "text-neutral-400 hover:text-neutral-200"}`}>Resumo</button>
-              {onCopilot && <button onClick={() => setAba("copiloto")} data-testid="ata-aba-copiloto" className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 ${aba === "copiloto" ? "border-b-2 border-blue-400 text-white" : "text-neutral-400 hover:text-neutral-200"}`}><Sparkles className="w-3.5 h-3.5" />Copiloto</button>}
+          <aside className="atav-painel w-96 shrink-0 border-l flex-col hidden md:flex" data-testid="ata-painel">
+            <div className="flex border-b text-xs font-semibold" style={{ borderColor: "rgba(255,255,255,.1)" }}>
+              <button onClick={() => setAba("resumo")} className={`atav-tab flex-1 py-2.5 ${aba === "resumo" ? "atav-tab-on" : ""}`}>Resumo</button>
+              {onCopilot && <button onClick={() => setAba("copiloto")} data-testid="ata-aba-copiloto" className={`atav-tab flex-1 py-2.5 flex items-center justify-center gap-1.5 ${aba === "copiloto" ? "atav-tab-on" : ""}`}><Sparkles className="w-3.5 h-3.5" />Copiloto</button>}
             </div>
             {aba === "resumo" && (
               <div className="flex-1 overflow-auto p-3 space-y-3">
-                {ata.alertaInjecao && <div className="bg-white rounded-lg p-1"><AvisoPromptInjection info={ata.alertaInjecao as any} /></div>}
-                <p className="text-xs leading-relaxed text-neutral-200 whitespace-pre-wrap">{ata.resumo || "Resumo não disponível."}</p>
-                {aConferir > 0 && <div className="text-xs rounded-lg bg-amber-500/15 border border-amber-400/40 text-amber-200 p-2">{aConferir} item(ns) marcado(s) “conferir”: a localização ou o nome citado não foi encontrado no texto dos autos.</div>}
+                {ata.alertaInjecao && <div className="atav-claro"><AvisoPromptInjection info={ata.alertaInjecao as any} /></div>}
+                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "#dfe3ee" }}>{ata.resumo || "Resumo não disponível."}</p>
+                {aConferir > 0 && <div className="atav-aviso text-xs">{aConferir} item(ns) marcado(s) “conferir”: a localização ou o nome citado não foi encontrado no texto dos autos.</div>}
                 <div className="space-y-1.5">
                   {(ata.pontosAtencao || []).map((p, i) => (
-                    <div key={i} className={`text-xs rounded-lg p-2 border ${p.nivel === "alto" ? "border-red-400/50 bg-red-500/10" : p.nivel === "medio" ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
+                    <div key={i} className={`atav-card text-xs ${p.nivel === "alto" ? "atav-card-alto" : p.nivel === "medio" ? "atav-card-medio" : ""}`}>
                       <div className="font-bold uppercase text-[10px] opacity-80">{p.nivel || "info"}</div>
                       <div>{p.texto}</div>
                       <div className="opacity-70 mt-0.5">{p.localizacao || "localização não identificada"}</div>
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-neutral-400">Gerado a partir dos autos pela IA. Confira os itens antes de usar.</p>
+                <p className="atav-muted text-[10px]">Gerado a partir dos autos pela IA. Confira os itens antes de usar.</p>
               </div>
             )}
             {aba === "copiloto" && onCopilot && (
               <div className="flex-1 min-h-0 flex flex-col">
                 <div className="flex-1 overflow-auto p-3 space-y-2" data-testid="ata-conversa">
                   {conversa.length === 0 && (
-                    <div className="text-xs text-neutral-300 space-y-2">
+                    <div className="text-xs space-y-2" style={{ color: "#c9cfdd" }}>
                       <p>Peça alterações ou acréscimos à ata em linguagem natural. O copiloto altera só o que você pedir, sem inventar fatos: dados novos precisam vir do seu pedido ou dos autos.</p>
-                      <div className="space-y-1">{SUGESTOES.map((s) => <button key={s} onClick={() => setInstrucao(s)} className="block w-full text-left px-2 py-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10">{s}</button>)}</div>
+                      <div className="space-y-1">{SUGESTOES.map((s) => <button key={s} onClick={() => setInstrucao(s)} className="atav-chip block w-full text-left px-2 py-1.5">{s}</button>)}</div>
                     </div>
                   )}
-                  {conversa.map((c, i) => <div key={i} className={`text-xs rounded-lg px-2.5 py-2 whitespace-pre-wrap ${c.de === "eu" ? "bg-blue-600/30 border border-blue-400/30 ml-6" : "bg-white/5 border border-white/10 mr-6"}`}>{c.texto}</div>)}
-                  {pensando && <div className="text-xs text-neutral-300 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" />Alterando o documento…</div>}
+                  {conversa.map((c, i) => <div key={i} className={`text-xs px-2.5 py-2 whitespace-pre-wrap ${c.de === "eu" ? "atav-eu ml-6" : "atav-ia mr-6"}`}>{c.texto}</div>)}
+                  {pensando && <div className="text-xs flex items-center gap-2" style={{ color: "#c9cfdd" }}><Loader2 className="w-3.5 h-3.5 animate-spin" />Alterando o documento…</div>}
                 </div>
-                <div className="p-3 border-t border-white/10 space-y-1.5">
-                  <textarea value={instrucao} onChange={(e) => setInstrucao(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); pedirAoCopiloto(); } }} rows={3} placeholder="Ex.: acrescente que a testemunha Ana foi intimada por mandado em 10/03 (Mov. 25)…" className="w-full rounded-lg bg-neutral-900 border border-white/15 p-2 text-xs text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-blue-400" data-testid="ata-instrucao" />
+                <div className="p-3 border-t space-y-1.5" style={{ borderColor: "rgba(255,255,255,.1)" }}>
+                  <textarea value={instrucao} onChange={(e) => setInstrucao(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); pedirAoCopiloto(); } }} rows={3} placeholder="Ex.: acrescente que a testemunha Ana foi intimada por mandado em 10/03 (Mov. 25)…" className="atav-input w-full p-2 text-xs" data-testid="ata-instrucao" />
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-neutral-400">Enter envia · Shift+Enter quebra linha</span>
-                    <button onClick={() => pedirAoCopiloto()} disabled={!instrucao.trim() || pensando} className="h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40" data-testid="ata-enviar"><Send className="w-3.5 h-3.5" />Enviar</button>
+                    <span className="atav-muted text-[10px]">Enter envia · Shift+Enter quebra linha</span>
+                    <button onClick={() => pedirAoCopiloto()} disabled={!instrucao.trim() || pensando} className="atav-primary h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-40" data-testid="ata-enviar"><Send className="w-3.5 h-3.5" />Enviar</button>
                   </div>
                 </div>
               </div>

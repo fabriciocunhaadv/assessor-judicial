@@ -1802,31 +1802,37 @@ Responda ESTRITAMENTE em JSON:
         }
 
         if (actionType === 'preliminary_minutes_edit') {
-            // COPILOTO DA ATA PRELIMINAR: altera/acrescenta texto no documento (HTML) conforme o pedido do usuário, sem inventar fatos.
-            const instruction = String(req.body.instruction || "").trim();
-            const currentHtml = String(req.body.currentHtml || "").slice(0, 200000);
-            if (!instruction || !currentHtml) return res.status(400).json({ error: "Informe o pedido e o documento." });
-            const systemPrompt = `Você é o copiloto de edição da ATA PRELIMINAR de audiência de um gabinete judicial. Recebe o documento atual em HTML e um pedido do usuário (assessor ou juiz).
-REGRAS:
-1. Faça SOMENTE o que o pedido determina; o restante do documento deve permanecer IGUAL, palavra por palavra.
-2. NÃO invente fatos, nomes, datas, movimentações ou documentos. Informação nova só pode vir (a) do próprio pedido do usuário ou (b) dos autos fornecidos, e neste caso com a localização no formato "Mov. X, Arq. Y, Pág. Z". Se o pedido exigir um dado que não está nem no pedido nem nos autos, NÃO escreva o dado: insira "não consta nos autos" (ou deixe um aviso curto) e explique no campo "resumo".
-3. Mantenha a estrutura e as classes do HTML (p.brasao, p.titulo, p.sub, p.aviso, p.conferir, p.vazio, table, ul/li, tr.conf). Use apenas as tags p, div, span, b, strong, i, em, u, br, ul, ol, li, table, thead, tbody, tr, th, td. Sem scripts, estilos ou atributos além de class, colspan e rowspan.
-4. Itens marcados "[conferir]" só podem ser alterados se o pedido tratar deles ou se os autos resolverem a dúvida.
-5. Linguagem objetiva e neutra, sem juízo de valor sobre o mérito.
-Responda ESTRITAMENTE em JSON: {"html":"<documento completo atualizado>","resumo":"1 a 2 frases dizendo o que foi alterado e qualquer dado que não foi possível confirmar"}`;
-            const userPrompt = `PEDIDO DO USUÁRIO:\n${instruction}\n\nDOCUMENTO ATUAL (HTML):\n${currentHtml}\n\nAUTOS (para conferência, se necessário):\n${safeCaseText || "(autos não carregados)"}`;
+            // COPILOTO RÁPIDO DA ATA: recebe os blocos numerados do documento e devolve só as OPERAÇÕES (substituir, inserir depois, apagar).
+            // Resposta curta = rápida. Os autos só vão (e só os trechos relevantes) quando o pedido manda procurar/conferir algo neles.
+            const instruction = String(req.body.instruction || "").trim().slice(0, 4000);
+            const blocos: any[] = Array.isArray(req.body.blocks) ? req.body.blocks.slice(0, 600) : [];
+            if (!instruction || !blocos.length) return res.status(400).json({ error: "Informe o pedido e o documento." });
+            const precisaAutos = /\b(autos|consta\w*|verific\w*|confir\w*|localiz\w*|busc\w*|procur\w*|pesquis\w*|encontr\w*|ach[ae]r?|mov\.?|movimenta\w*|p[aá]g\.?)\b/i.test(instruction);
+            const stop = new Set(["para","como","sobre","esta","esse","essa","isso","onde","qual","quais","pelo","pela","pelos","pelas","uma","uns","dos","das","com","sem","por","que","nos","nas","foi","ser","ter","tem"]);
+            const termos = Array.from(new Set((instruction.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[a-z0-9]{4,}/g) || []).filter((t) => !stop.has(t))));
+            let trechos = "";
+            if (precisaAutos && safeCaseText) {
+                const pedacos = safeCaseText.split(/\n{2,}|(?=\[Página \d+ de \d+\])/).filter((x: string) => x.trim().length > 40);
+                const pont = pedacos.map((x: string, idx: number) => { const n = x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); let sc = 0; for (const t of termos) if (n.includes(t)) sc += 1; return { idx, sc, x }; }).filter((o: any) => o.sc > 0).sort((a: any, b: any) => b.sc - a.sc).slice(0, 30);
+                let total = 0; const esc: any[] = []; for (const o of pont) { if (total + o.x.length > 20000) continue; esc.push(o); total += o.x.length; }
+                trechos = esc.sort((a: any, b: any) => a.idx - b.idx).map((o: any) => o.x.trim().slice(0, 2500)).join("\n---\n");
+            }
+            const doc = blocos.map((b: any) => `[${b.id}] <${b.tipo}${b.classe ? " class=" + b.classe : ""}> ` + (b.tipo === "tr" ? (b.celulas || []).join(" | ") : String(b.texto || ""))).join("\n");
+            const systemPrompt = `Você edita a ATA PRELIMINAR de audiência de um gabinete judicial. O documento chega como blocos numerados ([n] <tipo> texto). Devolva SOMENTE as operações necessárias para cumprir o pedido do usuário.
+OPERAÇÕES (JSON): {"op":"replace","id":N,"texto":"..."} (p/li) | {"op":"replace","id":N,"celulas":["..","..",".."]} (tr, mesmo número de células) | {"op":"insert_after","id":N,"tipo":"p|li|tr","classe":"sub|conferir|vazio|","texto":"..." ou "celulas":[...]} | {"op":"delete","id":N}.
+REGRAS: 1) mude só o que o pedido exige; 2) NÃO invente fatos, nomes, datas, movimentações ou documentos: dado novo só do pedido do usuário ou dos TRECHOS DOS AUTOS fornecidos, com localização "Mov. X, Arq. Y, Pág. Z"; se faltar, escreva "não consta nos autos" e explique no resumo; 3) texto simples, sem HTML; 4) linguagem objetiva e neutra.
+Responda ESTRITAMENTE em JSON: {"operacoes":[...],"resumo":"1 a 2 frases do que foi feito e do que não pôde ser confirmado"}`;
+            const userPrompt = `PEDIDO DO USUÁRIO:\n${instruction}\n\nDOCUMENTO (blocos):\n${doc}` + (trechos ? `\n\nTRECHOS DOS AUTOS (relevantes ao pedido):\n${trechos}` : "");
             const response = await generateWithFallbackAndRetry({
                 apiKey, keyPool: extractApiKeyPool(req), isNativeAllowed: isRequestNativeAllowed(req), res,
-                customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"], maxCycles: 2,
+                customModelQueue: ["gemini-3.1-flash-lite", "gemini-3.6-flash", "gemini-3.8-flash", "gemini-flash-latest"], maxCycles: 1, timeoutMs: 60000,
                 contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
-                config: { systemInstruction: "Você edita documentos judiciais em HTML e responde apenas com JSON válido, sem inventar dados.", responseMimeType: "application/json", temperature: 0.1 }
+                config: { systemInstruction: "Você edita documentos judiciais por operações e responde apenas com JSON válido, sem inventar dados.", responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 4096 }
             });
             const out: any = safeParseJson(response.text || "{}") || {};
-            let html = String(out.html || "");
-            html = html.replace(/<(script|style|iframe|object)\b[^>]*>[\s\S]*?<\/\1>/gi, "").replace(/<\/?(script|style|iframe|object|embed|link|meta|form|input|button)[^>]*>/gi, "").replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-            if (!html.trim() || html.length < currentHtml.length * 0.3) return res.status(502).json({ error: "O copiloto não devolveu o documento completo. Tente reformular o pedido." });
+            const ops = (Array.isArray(out.operacoes) ? out.operacoes : []).filter((o: any) => o && ["replace", "insert_after", "delete"].includes(o.op) && Number.isInteger(Number(o.id))).slice(0, 80);
             const usage = response.usageMetadata ? { promptTokenCount: response.usageMetadata.promptTokenCount || 0, candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0, totalTokenCount: response.usageMetadata.totalTokenCount || 0 } : undefined;
-            return res.json({ success: true, actionType: 'preliminary_minutes_edit', data: { html, resumo: String(out.resumo || "") }, usage, modelUsed: response.modelVersion || "Gemini Flash" });
+            return res.json({ success: true, actionType: 'preliminary_minutes_edit', data: { operacoes: ops, resumo: String(out.resumo || ""), usouAutos: !!trechos }, usage, modelUsed: response.modelVersion || "Gemini Flash" });
         }
 
         if (actionType === 'questions') {
