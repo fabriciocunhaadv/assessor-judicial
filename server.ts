@@ -882,8 +882,35 @@ app.post("/api/generate-minute-turbo", async (req, res) => {
         // PRESERVAÇÃO INTEGRAL DOS AUTOS (SEM SUPRESSÃO DE DADOS, PROVAS OU ATOS):
         // Conforme diretriz soberana, a IA recebe o contexto integral de todas as peças,
         // decisões anteriores, certidões e provas para avaliar com precisão a marcha processual.
-        if (accumulatedText.length > 1500000) {
-            accumulatedText = accumulatedText.substring(0, 1500000);
+        // Teto de envio do Turbo (economiza cota gratuita: o limite é de tokens por minuto). Acima dele, mantém o começo, o fim e os trechos mais relevantes.
+        const TETO_TURBO = 400000;
+        if (accumulatedText.length > TETO_TURBO) {
+            const antes = accumulatedText.length;
+            const partes: string[] = [];
+            const blocos = accumulatedText.split(/\n(?=\[Página \d+\])/);
+            const unidades = blocos.length > 20 ? blocos : (accumulatedText.match(/[\s\S]{1,4000}/g) || [accumulatedText]);
+            const peso = (t: string) => {
+                const n = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                let sc = 0;
+                for (const [rx, v] of [[/sentenca|dispositivo|julgo (?:proced|improced)/g, 6], [/decisao|despacho|determino|defiro|indefiro/g, 4], [/peticao inicial|contestacao|replica|embargos/g, 4], [/audiencia|acordo|homolog/g, 3], [/intimacao|citacao|mandado|certidao de decurso|transito em julgado/g, 2], [/cumprimento|penhora|bloqueio|sisbajud|renajud/g, 2]] as [RegExp, number][]) sc += (n.match(rx) || []).length * v;
+                return sc;
+            };
+            const N = unidades.length, ini = Math.ceil(N * 0.12), fim = Math.ceil(N * 0.30);
+            const manter = new Set<number>();
+            for (let i = 0; i < ini; i++) manter.add(i);
+            for (let i = N - fim; i < N; i++) manter.add(i);
+            let tam = [...manter].reduce((t, i) => t + unidades[i].length, 0);
+            const meio = unidades.map((u, i) => ({ i, sc: peso(u), len: u.length })).filter((x) => !manter.has(x.i)).sort((a, b) => b.sc - a.sc);
+            for (const x of meio) { if (tam + x.len > TETO_TURBO) continue; manter.add(x.i); tam += x.len; }
+            let ultimo = -1;
+            for (let i = 0; i < N; i++) {
+                if (!manter.has(i)) continue;
+                if (ultimo >= 0 && i !== ultimo + 1) partes.push("\n[... TRECHO OMITIDO PARA CABER NO LIMITE DO MÓDULO TURBO ...]\n");
+                partes.push(unidades[i]); ultimo = i;
+            }
+            accumulatedText = partes.join("\n");
+            console.log(`[Turbo] autos reduzidos de ${antes} para ${accumulatedText.length} caracteres (teto ${TETO_TURBO}).`);
+            accumulatedText = "[AVISO AO REDATOR: os autos foram reduzidos por limite técnico; trechos do meio foram omitidos (marcados). Cite apenas o que está no texto e indique ao juiz, nas ressalvas, que parte dos autos não foi lida.]\n\n" + accumulatedText;
         }
         let alertaInjecaoT: any = null, defesaInjecaoT = "";
         try { const r = detectarInjecao(accumulatedText); if (r.verificado) alertaInjecaoT = r; if (r.total > 0) { defesaInjecaoT = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][turbo] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
