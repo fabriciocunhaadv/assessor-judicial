@@ -325,11 +325,22 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
 
       if (!response.ok) {
         let errStr = 'Falha ao processar comando com IA.';
+        let corpo = '';
         try {
-          const errText = await response.text();
-          const errJson = JSON.parse(errText);
+          corpo = await response.text();
+          const errJson = JSON.parse(corpo);
           if (errJson?.error) errStr = errJson.error;
         } catch {}
+        // resposta que não é JSON do sistema (proxy/hospedagem): explica a causa provável em vez da mensagem genérica
+        if (errStr === 'Falha ao processar comando com IA.') {
+          const st = response.status;
+          const dica = st === 504 || st === 502 || st === 524 || st === 408 ? 'o servidor demorou demais para responder (autos muito grandes ou modelo lento). Tente de novo; se repetir, carregue menos peças por vez.'
+            : st === 413 ? 'o envio ficou grande demais (autos + base de conhecimento). Desative documentos da base de conhecimento ou carregue menos peças.'
+            : st === 429 ? 'limite de uso da IA atingido. Aguarde um minuto e tente de novo.'
+            : st >= 500 ? 'erro no servidor.' : 'resposta inesperada do servidor.';
+          errStr = `Falha ao processar comando com IA (HTTP ${st}): ${dica}`;
+          console.warn('hearing-copilot falhou', st, corpo.slice(0, 300));
+        }
         throw new Error(errStr);
       }
 
