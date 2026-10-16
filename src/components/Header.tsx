@@ -40,6 +40,7 @@ import { DEFAULT_UNITS, SupportTicket } from "../types";
 import { getLocalUsageStats, ApiUsageStats } from "../utils/apiUsageTracker";
 import { hasCustomApiKey, getMaskedApiKey } from "../utils/apiKeyManager";
 import { NotificationBell } from "./NotificationBell";
+import { BotaoTema } from "./BotaoTema";
 import { isTicketModuleEnabled } from "../utils/ticketsDb";
 
 interface HeaderProps {
@@ -217,6 +218,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* BOTÃO COMPACTO DEDICADO: Menu para Mobile, Tablets e Notebooks Menores (< 1280px) */}
         <div className="flex xl:hidden items-center gap-1.5 sm:gap-2 shrink-0">
+          <BotaoTema />
           {onOpenTicketsModal && (
             <NotificationBell
               tickets={tickets}
@@ -516,6 +518,8 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
           </div>
+
+          <BotaoTema />
 
           {/* Sininho de Notificações & Recados no Desktop */}
           {onOpenTicketsModal && (

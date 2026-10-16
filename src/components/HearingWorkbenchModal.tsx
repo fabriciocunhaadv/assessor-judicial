@@ -216,9 +216,35 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     }
   };
 
+  // Ata preliminar: salvar a versão editada e pedir alterações ao copiloto
+  const salvarAtaHtml = async (html: string) => {
+    if (!activeHearing) return;
+    const updated: HearingRecord = { ...activeHearing, ataPreliminarHtml: html };
+    setActiveHearing(updated);
+    await handleSaveActiveHearing(updated);
+  };
+  const copilotoAta = async (instruction: string, currentHtml: string): Promise<{ html: string; resumo?: string }> => {
+    if (!activeHearing) throw new Error('Nenhuma audiência aberta.');
+    const access = checkUserAiAccess(userProfile, user?.email);
+    if (!access.canExecute) { requestOpenApiKeyModal(access.message); throw new Error(access.message || 'Sem acesso à IA.'); }
+    const response = await fetch('/api/hearing-copilot', {
+      method: 'POST',
+      headers: getApiHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ actionType: 'preliminary_minutes_edit', instruction, currentHtml, caseText: activeHearing.rawSourceText || caseInputText || '', processNumber: activeHearing.processNumber }),
+    });
+    const texto = await response.text();
+    let json: any = {};
+    try { json = JSON.parse(texto); } catch { /* resposta fora do padrão */ }
+    if (!response.ok) throw new Error(json?.error || 'Falha ao alterar a ata com a IA.');
+    if (json?.usage?.totalTokenCount) {
+      recordApiExecution({ label: 'Mesa de Audiência (copiloto da ata)', processNumber: activeHearing.processNumber || 'Audiência', model: json.modelUsed || 'Gemini Flash', promptTokens: json.usage.promptTokenCount, outputTokens: json.usage.candidatesTokenCount, totalTokens: json.usage.totalTokenCount, module: 'audiencia' }).catch(() => {});
+    }
+    return { html: json?.data?.html || '', resumo: json?.data?.resumo };
+  };
+
   // AI Action Runner
   const runAiHearingCopilot = async (
-    actionType: 'briefing' | 'questions' | 'deliberation' | 'instant_sentence' | 'minutes' | 'preliminary_minutes',
+    actionType: 'briefing' | 'questions' | 'deliberation' | 'instant_sentence' | 'minutes' | 'preliminary_minutes' | 'preliminary_minutes_edit',
     extraPayload: any = {},
     baseHearing?: HearingRecord
   ) => {
@@ -337,7 +363,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
         setActiveHearing(updated);
         await handleSaveActiveHearing(updated);
       } else if (actionType === 'preliminary_minutes') {
-        const updated: HearingRecord = { ...currentHearing, ataPreliminar: resData.data || {} };
+        const updated: HearingRecord = { ...currentHearing, ataPreliminar: resData.data || {}, ataPreliminarHtml: '' };
         setActiveHearing(updated);
         await handleSaveActiveHearing(updated);
         setShowAtaPreliminar(true);
@@ -813,7 +839,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-3 md:p-4 animate-in fade-in duration-200">
+    <div className="mesa-clara fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-3 md:p-4 animate-in fade-in duration-200">
       <div
         className={`bg-slate-900 border-0 sm:border border-slate-700/80 rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100 transition-all duration-300 w-full ${
           isFullScreen ? 'h-full rounded-none' : 'max-w-7xl h-full sm:h-[94vh]'
@@ -832,16 +858,14 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                 <h2 className="text-sm sm:text-base font-black text-white tracking-tight truncate">
                   Mesa de Audiências
                 </h2>
-                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 items-center gap-1">
-                  <Hammer className="w-2.5 h-2.5 text-amber-400" />
-                  Em Construção
-                </span>
-                <span className="hidden md:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
-                  Homologação Super Admin
-                </span>
+                {isSuperAdmin && (
+                  <span className="hidden md:inline text-[10px] text-slate-400" title="Módulo em homologação (visível só para o super administrador)">
+                    homologação
+                  </span>
+                )}
               </div>
               <p className="text-[10px] sm:text-xs text-slate-400 truncate hidden md:block">
-                Copiloto de Pauta, Briefing Probatório, Inquirição em Tempo Real, Acordos e Sentenças em Mesa
+                Pauta, briefing dos autos, inquirição, acordos e sentenças
               </p>
             </div>
 
@@ -1213,7 +1237,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                       }`}
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      <span>1. Briefing & Fatos</span>
+                      <span>1. Briefing</span>
                     </button>
 
                     <button
@@ -1225,7 +1249,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                       }`}
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
-                      <span>2. Roteiro & Oitiva ({activeHearing.witnesses?.length || 0})</span>
+                      <span>2. Roteiro ({activeHearing.witnesses?.length || 0})</span>
                     </button>
 
                     <button
@@ -1237,7 +1261,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                       }`}
                     >
                       <Gavel className="w-3.5 h-3.5" />
-                      <span>3. Deliberações Rápidas</span>
+                      <span>3. Deliberações</span>
                     </button>
 
                     <button
@@ -1249,7 +1273,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                       }`}
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>4. Sentença em Mesa (Oral/Ata)</span>
+                      <span>4. Sentença</span>
                     </button>
 
                     <button
@@ -1261,7 +1285,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                       }`}
                     >
                       <FileSignature className="w-3.5 h-3.5 text-amber-400" />
-                      <span>5. Ata da Audiência</span>
+                      <span>5. Ata</span>
                       {Boolean(minutesDraft || activeHearing.hearingMinutesDraft) && (
                         <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Ata redigida" />
                       )}
@@ -1318,15 +1342,12 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h3 className="text-xs sm:text-sm font-black text-white tracking-wide flex items-center gap-1.5">
-                                  <span>Carregar PDF dos Autos (Mágica da Instrução)</span>
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                                    Extração Automática com IA
-                                  </span>
+                                  <span>Carregar PDF dos autos</span>
+                                  
                                 </h3>
                               </div>
                               <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-2xl">
-                                Solte aqui os PDFs dos autos (Petição Inicial, Contestação, Decisões e Provas). O sistema extrai automaticamente: <strong>número do processo, autor, réu, classe, assunto, resumo, fatos e provas do autor, contraprovas do réu, pedido contraposto, distribuição do ônus (art. 373 CPC/CDC), o que já consta provado vs o que ainda tem que provar</strong> e o roteiro de testemunhas.
-                              </p>
+                                Solte os PDFs dos autos. O sistema preenche partes, resumo, fatos e provas de cada lado, pontos controvertidos e roteiro de testemunhas.</p>
                             </div>
                           </div>
 
@@ -1348,7 +1369,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                               type="button"
                               onClick={() => fileInputRef.current?.click()}
                               disabled={isExtractingPdf || isLoadingAi}
-                              className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs transition cursor-pointer shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                              className={`w-full sm:w-auto px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 ${activeHearing.rawSourceText ? 'bg-slate-900 border border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-amber-600 hover:bg-amber-500 text-white'}`}
                             >
                               <FileUp className="w-4 h-4" />
                               <span>{isExtractingPdf ? 'Lendo Arquivos...' : 'Selecionar PDF(s) dos Autos'}</span>
@@ -1560,7 +1581,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                               setActiveHearing({ ...activeHearing, defendantClaims: e.target.value })
                             }
                             placeholder="A ré contesta sustentando que... e apresentou como contraprova..."
-                            className="w-full p-3.5 rounded-xl bg-slate-900/50 border border-slate-800/80 text-sm text-slate-300 focus:bg-slate-900 focus:outline-none focus:border-rose-500/50 transition-colors shadow-inner leading-relaxed"
+                            className="w-full p-3.5 rounded-xl bg-slate-900/50 border border-slate-800/80 text-sm text-slate-300 focus:bg-slate-900 focus:outline-none focus:border-slate-500 transition-colors shadow-inner leading-relaxed"
                           />
                         </div>
                       </div>
@@ -2959,6 +2980,9 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
       {showAtaPreliminar && activeHearing?.ataPreliminar && (
         <AtaPreliminarViewer
           ata={activeHearing.ataPreliminar}
+          htmlEditado={activeHearing.ataPreliminarHtml}
+          onSalvar={salvarAtaHtml}
+          onCopilot={copilotoAta}
           processNumber={activeHearing.processNumber}
           carregando={isLoadingAi}
           onClose={() => setShowAtaPreliminar(false)}

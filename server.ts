@@ -1713,6 +1713,8 @@ Você DEVE responder ESTRITAMENTE em formato JSON com o seguinte schema:
                 apiKey,
                 keyPool: extractApiKeyPool(req),
                 res,
+                customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
+                maxCycles: 2,
                 contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
                 config: {
                     systemInstruction: "Você é um assistente de audiências judiciais que responde apenas com objetos JSON estritos e válidos.",
@@ -1778,6 +1780,7 @@ Responda ESTRITAMENTE em JSON:
             const userPrompt = `DADOS JÁ CONHECIDOS (conferir com os autos): processo ${processNumber || "?"}; autor ${author || "?"}; réu ${defendant || "?"}.\nObservações do assessor: ${notes || "nenhuma"}\n\nAUTOS DO PROCESSO:\n\n${safeCaseText || 'Nenhum texto integral extraído.'}`;
             const response = await generateWithFallbackAndRetry({
                 apiKey, keyPool: extractApiKeyPool(req), isNativeAllowed: isRequestNativeAllowed(req), res,
+                customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"], maxCycles: 2,
                 contents: [{ role: "user", parts: [{ text: systemPrompt + defesa + "\n\n" + userPrompt }] }],
                 config: { systemInstruction: "Você é um assistente de audiências judiciais que responde apenas com JSON válido, sem inventar dados." + defesa, responseMimeType: "application/json", temperature: 0.1 }
             });
@@ -1796,6 +1799,34 @@ Responda ESTRITAMENTE em JSON:
             arr(ata.pontosAtencao).forEach((x: any) => marca(x, undefined, x?.localizacao));
             const usage = response.usageMetadata ? { promptTokenCount: response.usageMetadata.promptTokenCount || 0, candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0, totalTokenCount: response.usageMetadata.totalTokenCount || 0 } : undefined;
             return res.json({ success: true, actionType: 'preliminary_minutes', data: { ...ata, alertaInjecao: rInj && rInj.verificado ? rInj : undefined, geradaEm: new Date().toISOString() }, usage, modelUsed: response.modelVersion || "Gemini Flash" });
+        }
+
+        if (actionType === 'preliminary_minutes_edit') {
+            // COPILOTO DA ATA PRELIMINAR: altera/acrescenta texto no documento (HTML) conforme o pedido do usuário, sem inventar fatos.
+            const instruction = String(req.body.instruction || "").trim();
+            const currentHtml = String(req.body.currentHtml || "").slice(0, 200000);
+            if (!instruction || !currentHtml) return res.status(400).json({ error: "Informe o pedido e o documento." });
+            const systemPrompt = `Você é o copiloto de edição da ATA PRELIMINAR de audiência de um gabinete judicial. Recebe o documento atual em HTML e um pedido do usuário (assessor ou juiz).
+REGRAS:
+1. Faça SOMENTE o que o pedido determina; o restante do documento deve permanecer IGUAL, palavra por palavra.
+2. NÃO invente fatos, nomes, datas, movimentações ou documentos. Informação nova só pode vir (a) do próprio pedido do usuário ou (b) dos autos fornecidos, e neste caso com a localização no formato "Mov. X, Arq. Y, Pág. Z". Se o pedido exigir um dado que não está nem no pedido nem nos autos, NÃO escreva o dado: insira "não consta nos autos" (ou deixe um aviso curto) e explique no campo "resumo".
+3. Mantenha a estrutura e as classes do HTML (p.brasao, p.titulo, p.sub, p.aviso, p.conferir, p.vazio, table, ul/li, tr.conf). Use apenas as tags p, div, span, b, strong, i, em, u, br, ul, ol, li, table, thead, tbody, tr, th, td. Sem scripts, estilos ou atributos além de class, colspan e rowspan.
+4. Itens marcados "[conferir]" só podem ser alterados se o pedido tratar deles ou se os autos resolverem a dúvida.
+5. Linguagem objetiva e neutra, sem juízo de valor sobre o mérito.
+Responda ESTRITAMENTE em JSON: {"html":"<documento completo atualizado>","resumo":"1 a 2 frases dizendo o que foi alterado e qualquer dado que não foi possível confirmar"}`;
+            const userPrompt = `PEDIDO DO USUÁRIO:\n${instruction}\n\nDOCUMENTO ATUAL (HTML):\n${currentHtml}\n\nAUTOS (para conferência, se necessário):\n${safeCaseText || "(autos não carregados)"}`;
+            const response = await generateWithFallbackAndRetry({
+                apiKey, keyPool: extractApiKeyPool(req), isNativeAllowed: isRequestNativeAllowed(req), res,
+                customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"], maxCycles: 2,
+                contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
+                config: { systemInstruction: "Você edita documentos judiciais em HTML e responde apenas com JSON válido, sem inventar dados.", responseMimeType: "application/json", temperature: 0.1 }
+            });
+            const out: any = safeParseJson(response.text || "{}") || {};
+            let html = String(out.html || "");
+            html = html.replace(/<(script|style|iframe|object)\b[^>]*>[\s\S]*?<\/\1>/gi, "").replace(/<\/?(script|style|iframe|object|embed|link|meta|form|input|button)[^>]*>/gi, "").replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+            if (!html.trim() || html.length < currentHtml.length * 0.3) return res.status(502).json({ error: "O copiloto não devolveu o documento completo. Tente reformular o pedido." });
+            const usage = response.usageMetadata ? { promptTokenCount: response.usageMetadata.promptTokenCount || 0, candidatesTokenCount: response.usageMetadata.candidatesTokenCount || 0, totalTokenCount: response.usageMetadata.totalTokenCount || 0 } : undefined;
+            return res.json({ success: true, actionType: 'preliminary_minutes_edit', data: { html, resumo: String(out.resumo || "") }, usage, modelUsed: response.modelVersion || "Gemini Flash" });
         }
 
         if (actionType === 'questions') {

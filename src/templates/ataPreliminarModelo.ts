@@ -126,3 +126,54 @@ export function blocosParaTexto(bl: Bloco[]): string {
     return x.linhas.map((l) => "• " + l.celulas.map((c, i) => (x.colunas[i] ? x.colunas[i] + ": " : "") + c).join(" | ")).join("\n");
   }).join("\n");
 }
+
+
+// ===== Edição: o documento editado é guardado como HTML; estas funções limpam o HTML e o convertem de volta em blocos (Word) =====
+const TAGS_OK = new Set(["DIV", "P", "SPAN", "B", "STRONG", "I", "EM", "U", "BR", "UL", "OL", "LI", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD"]);
+const CLASSES_OK = new Set(["ata", "brasao", "titulo", "sub", "aviso", "conferir", "vazio", "conf", "alto"]);
+
+export function sanitizarHtmlAta(html: string): string {
+  const doc = new DOMParser().parseFromString(`<div id="raiz">${html || ""}</div>`, "text/html");
+  const raiz = doc.getElementById("raiz")!;
+  const limpar = (no: Element) => {
+    for (const f of Array.from(no.children)) {
+      if (!TAGS_OK.has(f.tagName)) {
+        if (["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "LINK", "META", "FORM", "INPUT", "BUTTON", "SVG"].includes(f.tagName.toUpperCase())) { f.remove(); continue; }
+        // tag desconhecida (ex.: font, h1): troca pelo conteúdo
+        const frag = doc.createDocumentFragment(); while (f.firstChild) frag.appendChild(f.firstChild); f.replaceWith(frag); continue;
+      }
+      for (const a of Array.from(f.attributes)) {
+        if (a.name === "class") { const ok = a.value.split(/\s+/).filter((c) => CLASSES_OK.has(c)); if (ok.length) f.setAttribute("class", ok.join(" ")); else f.removeAttribute("class"); }
+        else if (!(["colspan", "rowspan"].includes(a.name))) f.removeAttribute(a.name);
+      }
+      limpar(f);
+    }
+  };
+  // repete: ao trocar tags desconhecidas pelo conteúdo, filhos novos precisam ser revistos
+  for (let i = 0; i < 3; i++) limpar(raiz);
+  return raiz.innerHTML;
+}
+
+export function htmlParaBlocos(html: string): Bloco[] {
+  const doc = new DOMParser().parseFromString(`<div id="raiz">${html || ""}</div>`, "text/html");
+  const raiz = doc.getElementById("raiz")!;
+  const topo = (raiz.querySelector(".ata") as Element) || raiz;
+  const txt = (e: Element) => (e.textContent || "").replace(/\s+/g, " ").trim();
+  const bl: Bloco[] = [];
+  for (const f of Array.from(topo.children)) {
+    const cl = f.className || "";
+    if (f.tagName === "TABLE") {
+      const cab = Array.from(f.querySelectorAll("thead th")).map(txt);
+      const linhas = Array.from(f.querySelectorAll("tbody tr")).map((tr) => ({ celulas: Array.from(tr.children).map(txt), conferir: /conf/.test(tr.className) }));
+      bl.push({ tipo: "tabela", colunas: cab.length ? cab : (linhas[0]?.celulas.map(() => "") || []), linhas });
+    } else if (f.tagName === "UL" || f.tagName === "OL") {
+      bl.push({ tipo: "lista", itens: Array.from(f.querySelectorAll("li")).map((li) => ({ texto: txt(li), conferir: /conf/.test(li.className), nivel: /alto/.test(li.className) ? "alto" : undefined })) });
+    } else if (txt(f) || f.tagName === "P") {
+      if (/brasao/.test(cl)) bl.push({ tipo: "brasao", texto: txt(f) });
+      else if (/titulo/.test(cl)) bl.push({ tipo: "titulo", texto: txt(f) });
+      else if (/\bsub\b/.test(cl)) bl.push({ tipo: "subtitulo", texto: txt(f) });
+      else if (txt(f)) bl.push({ tipo: "paragrafo", texto: txt(f), destaque: /conferir/.test(cl) ? "conferir" : /aviso/.test(cl) ? "aviso" : /vazio/.test(cl) ? "vazio" : undefined });
+    }
+  }
+  return bl;
+}

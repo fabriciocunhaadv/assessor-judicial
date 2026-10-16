@@ -941,6 +941,7 @@ export interface HearingRecord {
   uploadedPdfNames?: string[];
   rawSourceText?: string;
   ataPreliminar?: AtaPreliminarDados;
+  ataPreliminarHtml?: string; // versão EDITADA da ata (HTML limpo), salva pelo usuário/copiloto
 
   // Briefing, Resumo e Matriz Probatória Completa
   caseFactsSummary?: string;

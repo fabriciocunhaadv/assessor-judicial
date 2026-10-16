@@ -1,23 +1,51 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { X, Printer, Copy, FileText, ZoomIn, ZoomOut, RefreshCw, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen, Loader2 } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X, Printer, Copy, FileText, ZoomIn, ZoomOut, RefreshCw, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen, Loader2, Pencil, Save, Undo2, Send, Sparkles } from "lucide-react";
 import type { AtaPreliminarDados } from "../types";
-import { MODELO_ATA, montarBlocos, blocosParaHtml, blocosParaTexto, CSS_ATA } from "../templates/ataPreliminarModelo";
+import { MODELO_ATA, montarBlocos, blocosParaHtml, blocosParaTexto, htmlParaBlocos, sanitizarHtmlAta, CSS_ATA } from "../templates/ataPreliminarModelo";
 import { AvisoPromptInjection } from "./AvisoPromptInjection";
 
 const A4_ALTURA = 1123;      // px de uma folha A4 a 96 dpi
 const A4_LARGURA = 794;
 
-// Visualizador da ata preliminar, no estilo de um leitor de documento: barra superior, folha A4 ao centro com zoom e painel de resumo à direita.
-export function AtaPreliminarViewer({ ata, processNumber, onClose, onRegenerate, carregando }: { ata: AtaPreliminarDados; processNumber?: string; onClose: () => void; onRegenerate?: () => void; carregando?: boolean }) {
+export interface RespostaCopilotoAta { html: string; resumo?: string }
+interface Props {
+  ata: AtaPreliminarDados;
+  htmlEditado?: string;                                   // versão salva depois de editar (substitui a gerada)
+  processNumber?: string;
+  onClose: () => void;
+  onRegenerate?: () => void;
+  carregando?: boolean;
+  onSalvar?: (html: string) => Promise<void> | void;      // grava a edição (HTML limpo)
+  onCopilot?: (instrucao: string, htmlAtual: string) => Promise<RespostaCopilotoAta>;
+}
+
+// Visualizador da ata preliminar: folha A4 com zoom, edição direta no documento, copiloto para pedir alterações em linguagem natural e exportação.
+export function AtaPreliminarViewer({ ata, htmlEditado, processNumber, onClose, onRegenerate, carregando, onSalvar, onCopilot }: Props) {
   const [zoom, setZoom] = useState(1);
   const [painel, setPainel] = useState(true);
+  const [aba, setAba] = useState<"resumo" | "copiloto">("resumo");
   const [pagina, setPagina] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [aviso, setAviso] = useState("");
+  const [editando, setEditando] = useState(false);
+  const [sujo, setSujo] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [historico, setHistorico] = useState<string[]>([]);
+  const [conversa, setConversa] = useState<{ de: "eu" | "ia"; texto: string }[]>([]);
+  const [instrucao, setInstrucao] = useState("");
+  const [pensando, setPensando] = useState(false);
   const rolagem = useRef<HTMLDivElement>(null);
   const folha = useRef<HTMLDivElement>(null);
-  const blocos = useMemo(() => montarBlocos(ata, MODELO_ATA), [ata]);
-  const html = useMemo(() => blocosParaHtml(blocos), [blocos]);
+  const doc = useRef<HTMLDivElement>(null);
+
+  const blocosGerados = useMemo(() => montarBlocos(ata, MODELO_ATA), [ata]);
+  const htmlGerado = useMemo(() => blocosParaHtml(blocosGerados), [blocosGerados]);
+  const [htmlBase, setHtmlBase] = useState<string>(htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado);
+  useEffect(() => { setHtmlBase(htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado); setSujo(false); }, [htmlGerado, htmlEditado]);
+  // o conteúdo do documento só é reescrito quando muda a base (não a cada tecla: preserva o cursor)
+  useEffect(() => { if (doc.current && doc.current.innerHTML !== htmlBase) doc.current.innerHTML = htmlBase; }, [htmlBase]);
+
+  const htmlCorrente = useCallback(() => sanitizarHtmlAta(doc.current?.innerHTML ?? htmlBase), [htmlBase]);
   const numero = ata.cabecalho?.numeroProcesso || processNumber || "processo";
   const nomeArquivo = `ATA-PRELIMINAR-${String(numero).replace(/[^\d.-]/g, "") || "processo"}`;
   const aConferir = useMemo(() => [...(ata.partes || []), ...(ata.testemunhas || []), ...(ata.citacoesIntimacoes || []), ...(ata.pedidosAudiencia || []), ...(ata.pontosAtencao || [])].filter((x: any) => x.conferir).length, [ata]);
@@ -28,45 +56,80 @@ export function AtaPreliminarViewer({ ata, processNumber, onClose, onRegenerate,
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(medir) : null;
     if (ro && folha.current) ro.observe(folha.current);
     return () => ro?.disconnect();
-  }, [html, zoom]);
-  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
+  }, [htmlBase, zoom]);
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape") tentarFechar(); if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && editando) { e.preventDefault(); salvar(); } }; window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); });
 
+  const tentarFechar = () => { if (sujo && !window.confirm("Há alterações não salvas na ata. Fechar mesmo assim?")) return; onClose(); };
   const aoRolar = () => { const el = rolagem.current; if (!el) return; setPagina(Math.min(totalPaginas, Math.max(1, Math.floor(el.scrollTop / (A4_ALTURA * zoom)) + 1))); };
   const irPara = (n: number) => { const el = rolagem.current; if (el) el.scrollTo({ top: (Math.min(totalPaginas, Math.max(1, n)) - 1) * A4_ALTURA * zoom, behavior: "smooth" }); };
-  const msg = (t: string) => { setAviso(t); setTimeout(() => setAviso(""), 2500); };
+  const msg = (t: string) => { setAviso(t); setTimeout(() => setAviso(""), 2800); };
+
+  const salvar = async () => {
+    if (!onSalvar) return;
+    setSalvando(true);
+    try { const h = htmlCorrente(); await onSalvar(h); setHtmlBase(h); setSujo(false); msg("Edição salva"); } catch (e: any) { msg("Não consegui salvar: " + (e?.message || e)); } finally { setSalvando(false); }
+  };
+  const desfazer = () => { const h = historico[historico.length - 1]; if (h == null) return; setHistorico((x) => x.slice(0, -1)); setHtmlBase(h); setSujo(true); };
+  const descartar = () => { if (!window.confirm("Descartar as alterações não salvas?")) return; setHtmlBase(htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado); if (doc.current) doc.current.innerHTML = htmlEditado && htmlEditado.trim() ? htmlEditado : htmlGerado; setSujo(false); setEditando(false); };
+  const refazer = () => { if ((sujo || (htmlEditado && htmlEditado.trim())) && !window.confirm("Gerar de novo apaga a versão editada desta ata. Continuar?")) return; onRegenerate?.(); };
 
   const imprimir = () => {
     const f = document.createElement("iframe");
     f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
     document.body.appendChild(f);
     const d = f.contentDocument!;
-    d.open(); d.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${nomeArquivo}</title><style>@page{size:A4;margin:18mm}body{margin:0}${CSS_ATA}</style></head><body>${html}</body></html>`); d.close();
+    d.open(); d.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${nomeArquivo}</title><style>@page{size:A4;margin:18mm}body{margin:0}${CSS_ATA}</style></head><body>${htmlCorrente()}</body></html>`); d.close();
     setTimeout(() => { f.contentWindow?.focus(); f.contentWindow?.print(); setTimeout(() => f.remove(), 2000); }, 300);
   };
-  const copiar = async () => { try { await navigator.clipboard.writeText(blocosParaTexto(blocos)); msg("Texto da ata copiado"); } catch { msg("Não consegui copiar"); } };
+  const copiar = async () => { try { await navigator.clipboard.writeText(blocosParaTexto(htmlParaBlocos(htmlCorrente()))); msg("Texto da ata copiado"); } catch { msg("Não consegui copiar"); } };
   const word = async () => {
     try {
       const { blocosParaDocx } = await import("../templates/ataPreliminarDocx");
-      const blob = await blocosParaDocx(blocos);
+      const blob = await blocosParaDocx(htmlParaBlocos(htmlCorrente()));
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nomeArquivo + ".docx"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     } catch (e: any) { msg("Falha ao gerar o Word: " + (e?.message || e)); }
   };
 
+  const pedirAoCopiloto = async (texto?: string) => {
+    const pedido = (texto ?? instrucao).trim();
+    if (!pedido || !onCopilot || pensando) return;
+    setInstrucao(""); setPensando(true); setAba("copiloto"); setPainel(true);
+    setConversa((c) => [...c, { de: "eu", texto: pedido }]);
+    try {
+      const antes = htmlCorrente();
+      const r = await onCopilot(pedido, antes);
+      const novo = sanitizarHtmlAta(r.html || "");
+      if (!novo.trim()) throw new Error("O copiloto não devolveu o documento.");
+      setHistorico((h) => [...h.slice(-19), antes]);
+      setHtmlBase(novo); if (doc.current) doc.current.innerHTML = novo; setSujo(true);
+      setConversa((c) => [...c, { de: "ia", texto: (r.resumo || "Alteração feita no documento.") + " (ainda não salva)" }]);
+    } catch (e: any) { setConversa((c) => [...c, { de: "ia", texto: "Não consegui alterar: " + (e?.message || e) }]); }
+    finally { setPensando(false); }
+  };
+
   const botao = "h-8 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1.5 text-neutral-200 hover:bg-white/10 disabled:opacity-40";
+  const SUGESTOES = ["Deixe o resumo mais curto e objetivo", "Acrescente um ponto de atenção sobre …", "Reescreva a seção de testemunhas em lista simples", "Marque como pendente a intimação de …"];
   return (
     <div className="fixed inset-0 z-[120] bg-neutral-900 text-neutral-100 flex flex-col font-sans" data-testid="ata-preliminar-viewer" role="dialog" aria-label="Ata preliminar">
       <div className="h-12 shrink-0 flex items-center gap-3 px-3 border-b border-white/10">
-        <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10" title="Fechar (Esc)"><X className="w-5 h-5" /></button>
+        <button onClick={tentarFechar} className="p-1.5 rounded-full hover:bg-white/10" title="Fechar (Esc)"><X className="w-5 h-5" /></button>
         <span className="px-1.5 py-0.5 rounded bg-red-600 text-white text-[10px] font-black">PDF</span>
         <span className="text-sm font-semibold truncate">{nomeArquivo}.pdf</span>
-        <span className="hidden md:inline text-xs text-neutral-400 truncate">{MODELO_ATA.nome}</span>
+        {sujo ? <span className="text-xs text-amber-300">• alterações não salvas</span> : (htmlEditado && htmlEditado.trim() ? <span className="text-xs text-emerald-300">• versão editada salva</span> : <span className="hidden md:inline text-xs text-neutral-400 truncate">{MODELO_ATA.nome}</span>)}
         <div className="ml-auto flex items-center gap-1">
           {aviso && <span className="text-xs text-emerald-300 mr-2">{aviso}</span>}
-          {onRegenerate && <button onClick={onRegenerate} disabled={carregando} className={botao} title="Ler os autos de novo e refazer a ata">{carregando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}<span className="hidden sm:inline">Gerar de novo</span></button>}
-          <button onClick={copiar} className={botao} title="Copiar o texto"><Copy className="w-4 h-4" /><span className="hidden sm:inline">Copiar</span></button>
-          <button onClick={word} className={botao} title="Baixar em Word (.docx)"><FileText className="w-4 h-4" /><span className="hidden sm:inline">Word</span></button>
+          {onSalvar && <>
+            <button onClick={() => setEditando((e) => !e)} className={botao + (editando ? " bg-white/15" : "")} title="Editar o texto direto no documento" data-testid="ata-editar"><Pencil className="w-4 h-4" /><span className="hidden sm:inline">{editando ? "Editando" : "Editar"}</span></button>
+            <button onClick={desfazer} disabled={!historico.length} className={botao} title="Desfazer a última alteração do copiloto" data-testid="ata-desfazer"><Undo2 className="w-4 h-4" /></button>
+            <button onClick={salvar} disabled={!sujo || salvando} className="h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40" title="Salvar a edição (Ctrl+S)" data-testid="ata-salvar">{salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>Salvar</span></button>
+            {sujo && <button onClick={descartar} className={botao} title="Descartar alterações não salvas">Descartar</button>}
+            <span className="w-px h-5 bg-white/15 mx-1" />
+          </>}
+          {onRegenerate && <button onClick={refazer} disabled={carregando} className={botao} title="Ler os autos de novo e refazer a ata">{carregando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}<span className="hidden lg:inline">Gerar de novo</span></button>}
+          <button onClick={copiar} className={botao} title="Copiar o texto"><Copy className="w-4 h-4" /><span className="hidden lg:inline">Copiar</span></button>
+          <button onClick={word} className={botao} title="Baixar em Word (.docx)"><FileText className="w-4 h-4" /><span className="hidden lg:inline">Word</span></button>
           <button onClick={imprimir} className="h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white" title="Imprimir ou salvar como PDF"><Printer className="w-4 h-4" /><span>PDF / Imprimir</span></button>
-          <button onClick={() => setPainel((p) => !p)} className={botao + " ml-1"} title="Painel de resumo">{painel ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}</button>
+          <button onClick={() => setPainel((p) => !p)} className={botao + " ml-1"} title="Painel lateral">{painel ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}</button>
         </div>
       </div>
       <div className="h-10 shrink-0 flex items-center justify-center gap-3 px-3 border-b border-white/10 bg-neutral-800/60 text-xs">
@@ -77,32 +140,61 @@ export function AtaPreliminarViewer({ ata, processNumber, onClose, onRegenerate,
         <button onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))} className="p-1 rounded hover:bg-white/10" title="Diminuir"><ZoomOut className="w-4 h-4" /></button>
         <span className="w-12 text-center">{Math.round(zoom * 100)}%</span>
         <button onClick={() => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)))} className="p-1 rounded hover:bg-white/10" title="Aumentar"><ZoomIn className="w-4 h-4" /></button>
+        {editando && <span className="ml-3 text-amber-300">Modo edição: clique no texto para alterar; Ctrl+S salva.</span>}
       </div>
       <div className="flex-1 min-h-0 flex">
         <div ref={rolagem} onScroll={aoRolar} className="flex-1 overflow-auto bg-neutral-700/40 py-6 px-3">
           <div style={{ width: A4_LARGURA, margin: "0 auto", zoom }}>
-            <div ref={folha} className="bg-white shadow-2xl" style={{ width: A4_LARGURA, minHeight: A4_ALTURA, padding: "56px 64px" }}>
+            <div ref={folha} className="bg-white shadow-2xl" style={{ width: A4_LARGURA, minHeight: A4_ALTURA, padding: "56px 64px", outline: editando ? "2px solid #60a5fa" : "none" }}>
               <style>{CSS_ATA}</style>
-              <div dangerouslySetInnerHTML={{ __html: html }} />
+              <div ref={doc} data-testid="ata-documento" contentEditable={editando} suppressContentEditableWarning spellCheck={editando} onInput={() => setSujo(true)} style={{ outline: "none", cursor: editando ? "text" : "default" }} />
             </div>
           </div>
         </div>
         {painel && (
-          <aside className="w-80 shrink-0 border-l border-white/10 bg-neutral-800 overflow-auto p-3 space-y-3 hidden md:block" data-testid="ata-painel">
-            <div className="text-sm font-bold">Resumo e pontos de atenção</div>
-            {ata.alertaInjecao && <div className="bg-white rounded-lg p-1"><AvisoPromptInjection info={ata.alertaInjecao as any} /></div>}
-            <p className="text-xs leading-relaxed text-neutral-200 whitespace-pre-wrap">{ata.resumo || "Resumo não disponível."}</p>
-            {aConferir > 0 && <div className="text-xs rounded-lg bg-amber-500/15 border border-amber-400/40 text-amber-200 p-2">{aConferir} item(ns) marcado(s) “conferir”: a localização ou o nome citado não foi encontrado no texto dos autos.</div>}
-            <div className="space-y-1.5">
-              {(ata.pontosAtencao || []).map((p, i) => (
-                <div key={i} className={`text-xs rounded-lg p-2 border ${p.nivel === "alto" ? "border-red-400/50 bg-red-500/10" : p.nivel === "medio" ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
-                  <div className="font-bold uppercase text-[10px] opacity-80">{p.nivel || "info"}</div>
-                  <div>{p.texto}</div>
-                  <div className="opacity-70 mt-0.5">{p.localizacao || "localização não identificada"}</div>
-                </div>
-              ))}
+          <aside className="w-96 shrink-0 border-l border-white/10 bg-neutral-800 flex-col hidden md:flex" data-testid="ata-painel">
+            <div className="flex border-b border-white/10 text-xs font-semibold">
+              <button onClick={() => setAba("resumo")} className={`flex-1 py-2.5 ${aba === "resumo" ? "border-b-2 border-blue-400 text-white" : "text-neutral-400 hover:text-neutral-200"}`}>Resumo</button>
+              {onCopilot && <button onClick={() => setAba("copiloto")} data-testid="ata-aba-copiloto" className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 ${aba === "copiloto" ? "border-b-2 border-blue-400 text-white" : "text-neutral-400 hover:text-neutral-200"}`}><Sparkles className="w-3.5 h-3.5" />Copiloto</button>}
             </div>
-            <p className="text-[10px] text-neutral-400">Gerado a partir dos autos pela IA. Confira os itens antes de usar.</p>
+            {aba === "resumo" && (
+              <div className="flex-1 overflow-auto p-3 space-y-3">
+                {ata.alertaInjecao && <div className="bg-white rounded-lg p-1"><AvisoPromptInjection info={ata.alertaInjecao as any} /></div>}
+                <p className="text-xs leading-relaxed text-neutral-200 whitespace-pre-wrap">{ata.resumo || "Resumo não disponível."}</p>
+                {aConferir > 0 && <div className="text-xs rounded-lg bg-amber-500/15 border border-amber-400/40 text-amber-200 p-2">{aConferir} item(ns) marcado(s) “conferir”: a localização ou o nome citado não foi encontrado no texto dos autos.</div>}
+                <div className="space-y-1.5">
+                  {(ata.pontosAtencao || []).map((p, i) => (
+                    <div key={i} className={`text-xs rounded-lg p-2 border ${p.nivel === "alto" ? "border-red-400/50 bg-red-500/10" : p.nivel === "medio" ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
+                      <div className="font-bold uppercase text-[10px] opacity-80">{p.nivel || "info"}</div>
+                      <div>{p.texto}</div>
+                      <div className="opacity-70 mt-0.5">{p.localizacao || "localização não identificada"}</div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-neutral-400">Gerado a partir dos autos pela IA. Confira os itens antes de usar.</p>
+              </div>
+            )}
+            {aba === "copiloto" && onCopilot && (
+              <div className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 overflow-auto p-3 space-y-2" data-testid="ata-conversa">
+                  {conversa.length === 0 && (
+                    <div className="text-xs text-neutral-300 space-y-2">
+                      <p>Peça alterações ou acréscimos à ata em linguagem natural. O copiloto altera só o que você pedir, sem inventar fatos: dados novos precisam vir do seu pedido ou dos autos.</p>
+                      <div className="space-y-1">{SUGESTOES.map((s) => <button key={s} onClick={() => setInstrucao(s)} className="block w-full text-left px-2 py-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10">{s}</button>)}</div>
+                    </div>
+                  )}
+                  {conversa.map((c, i) => <div key={i} className={`text-xs rounded-lg px-2.5 py-2 whitespace-pre-wrap ${c.de === "eu" ? "bg-blue-600/30 border border-blue-400/30 ml-6" : "bg-white/5 border border-white/10 mr-6"}`}>{c.texto}</div>)}
+                  {pensando && <div className="text-xs text-neutral-300 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" />Alterando o documento…</div>}
+                </div>
+                <div className="p-3 border-t border-white/10 space-y-1.5">
+                  <textarea value={instrucao} onChange={(e) => setInstrucao(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); pedirAoCopiloto(); } }} rows={3} placeholder="Ex.: acrescente que a testemunha Ana foi intimada por mandado em 10/03 (Mov. 25)…" className="w-full rounded-lg bg-neutral-900 border border-white/15 p-2 text-xs text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-blue-400" data-testid="ata-instrucao" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-neutral-400">Enter envia · Shift+Enter quebra linha</span>
+                    <button onClick={() => pedirAoCopiloto()} disabled={!instrucao.trim() || pensando} className="h-8 px-3 rounded-md text-xs font-bold flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40" data-testid="ata-enviar"><Send className="w-3.5 h-3.5" />Enviar</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </aside>
         )}
       </div>
