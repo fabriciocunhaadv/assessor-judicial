@@ -217,6 +217,15 @@ export interface GenerationResult {
     abreviadas: { de: number; ate: number; motivo: string }[];
     resumo: string;
   };
+  coberturaLeitura?: {
+    totalPaginas: number;
+    lacunas: { arquivo: string; paginas: string; qtd: number }[];
+    escolha: string;
+    paginasOcr: number;
+    paginasImagem: number;
+    textoCortado: boolean;
+    completa: boolean;
+  };
   deduplicationStats?: {
     duplicatesFound: number;
     charsSaved: number;
@@ -527,6 +536,11 @@ export interface UploadedPdf {
   extractedText?: string;
   pageCount?: number;
   isExtracting?: boolean;
+  /** páginas sem texto lido (imagem/escaneado); some da lista quando o OCR resolve */
+  paginasSemTexto?: number[];
+  paginasNaoLidas?: number[];
+  /** páginas cujo texto veio do OCR por IA */
+  paginasOcr?: number[];
 }
 
 export interface SampleCase {

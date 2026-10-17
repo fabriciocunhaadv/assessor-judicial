@@ -88,6 +88,8 @@ export const PdfUploadZone: React.FC<PdfUploadZoneProps> = ({
         previewUrl: blobUrl,
         extractedText: extraction.text,
         pageCount: extraction.pageCount,
+        paginasSemTexto: extraction.paginasSemTexto,
+        paginasNaoLidas: extraction.paginasNaoLidas,
         isExtracting: false,
       };
 
@@ -305,6 +307,8 @@ export const PdfUploadZone: React.FC<PdfUploadZoneProps> = ({
                                         ...pdf,
                                         extractedText: ext.text,
                                         pageCount: ext.pageCount,
+                                        paginasSemTexto: ext.paginasSemTexto,
+                                        paginasNaoLidas: ext.paginasNaoLidas,
                                       };
                                       if (onUpdatePdf) {
                                         onUpdatePdf(updatedPdf);

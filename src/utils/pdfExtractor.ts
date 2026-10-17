@@ -26,6 +26,10 @@ export interface ExtractedPdfResult {
   text: string;
   pageCount: number;
   hasText: boolean;
+  /** páginas (1 a N) sem texto utilizável: imagem escaneada, foto ou página em branco */
+  paginasSemTexto?: number[];
+  /** páginas que não puderam ser lidas (erro do leitor) */
+  paginasNaoLidas?: number[];
 }
 
 interface TextItemInfo {
@@ -155,24 +159,11 @@ export async function extractTextFromPdf(
     // 1. Initial 70 pages (Petição inicial, emendas, procuração, primeiras decisões/liminares, citação)
     // 2. Final 70 pages (Contestação, réplica, laudos periciais, manifestações finais, saneador)
     // 3. Any intermediate page that contains legal markers (Petição, Contestação, Laudo, Decisão, etc.)
+    // lê TODAS as páginas: pular páginas do meio dos autos pode esconder a contestação ou uma prova decisiva
     const pagesToRead: number[] = [];
-    if (options?.fullSequential || numPages <= 500) {
-      for (let i = 1; i <= numPages; i++) pagesToRead.push(i);
-    } else {
-      // Mammoth dossier (e.g. 484 pages):
-      // Read first 70 pages (Initial & first events)
-      for (let i = 1; i <= Math.min(70, numPages); i++) pagesToRead.push(i);
-      // Sample middle pages every 2 pages to capture any intermediate motions
-      const middleStart = 71;
-      const middleEnd = Math.max(71, numPages - 70);
-      for (let i = middleStart; i <= middleEnd; i += 2) pagesToRead.push(i);
-      // Read all last 70 pages (Contestation, Reply, Saneador, Expert reports)
-      const lastStart = Math.max(middleEnd + 1, numPages - 70 + 1);
-      for (let i = lastStart; i <= numPages; i++) {
-        if (!pagesToRead.includes(i)) pagesToRead.push(i);
-      }
-      pagesToRead.sort((a, b) => a - b);
-    }
+    for (let i = 1; i <= numPages; i++) pagesToRead.push(i);
+    const paginasSemTexto: number[] = [];
+    const paginasNaoLidas: number[] = [];
 
     for (let idx = 0; idx < pagesToRead.length; idx++) {
       const i = pagesToRead[idx];
@@ -275,7 +266,10 @@ export async function extractTextFromPdf(
           });
         }
 
-        if (items.length === 0) continue;
+        if (items.length === 0) {
+          paginasSemTexto.push(i);
+          continue;
+        }
 
         // Calculate average / base left margin of the page to detect indented quotes (recuo de 4cm / citações / ementas)
         const leftPositions = items
@@ -388,10 +382,14 @@ export async function extractTextFromPdf(
 
           if (pageTextBlocks.length > 0) {
             pageParagraphs.push(`[Página ${i} de ${numPages}]\n` + pageTextBlocks.join("\n\n"));
+            if (pageTextBlocks.join("").replace(/\s+/g, "").length < 15) paginasSemTexto.push(i);
+          } else {
+            paginasSemTexto.push(i);
           }
         }
       } catch (pageErr) {
         console.warn(`Erro ao ler página ${i}:`, pageErr);
+        paginasNaoLidas.push(i);
       } finally {
         if (page && typeof page.cleanup === "function") {
           try {
@@ -419,6 +417,8 @@ export async function extractTextFromPdf(
       text: cleanedText,
       pageCount: numPages,
       hasText: cleanedText.length > 30,
+      paginasSemTexto,
+      paginasNaoLidas,
     };
   } catch (error) {
     console.error("PDF Extraction failed:", error);

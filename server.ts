@@ -262,6 +262,44 @@ app.post("/api/extract-pdf-text", async (req, res) => {
     }
 });
 
+app.post("/api/ocr-paginas", async (req, res) => {
+    try {
+        const imagens: any[] = Array.isArray(req.body?.images) ? req.body.images.slice(0, 8) : [];
+        if (imagens.length === 0) return res.status(400).json({ error: "Nenhuma página recebida para leitura." });
+        const parts: any[] = [{ text: `Você é um leitor de documentos judiciais (OCR). Abaixo seguem ${imagens.length} página(s) de autos de processo, cada uma identificada pelo número da página. Transcreva FIELMENTE todo o texto legível de cada página (nomes, números, valores, datas, assinaturas, carimbos, tabelas, texto manuscrito legível), sem resumir, sem interpretar e sem inventar. Se a página estiver em branco ou ilegível, marque emBranco=true e deixe texto vazio. Se for foto ou documento sem texto (ex.: foto de objeto), descreva em uma linha entre colchetes, ex.: "[foto: veículo com avaria na porta]". Responda SOMENTE com JSON: {"paginas":[{"pagina":<número>,"texto":"...","emBranco":false}]}` }];
+        for (const im of imagens) {
+            const data = String(im?.data || "").replace(/^data:[^;]+;base64,/, "");
+            if (!data) continue;
+            parts.push({ text: `PÁGINA ${Number(im.pagina) || 0}:` });
+            parts.push({ inlineData: { mimeType: "image/jpeg", data } });
+        }
+        const response = await generateWithFallbackAndRetry({
+            apiKey: extractApiKey(req),
+            keyPool: extractApiKeyPool(req),
+            isNativeAllowed: isRequestNativeAllowed(req),
+            res,
+            primaryModel: "gemini-3.1-flash-lite",
+            fallbackModel: "gemini-flash-latest",
+            customModelQueue: ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"],
+            timeoutMs: 90000,
+            maxCycles: 2,
+            cycleDelayMs: 8000,
+            contents: [{ role: "user", parts }],
+            config: { temperature: 0, maxOutputTokens: 16384, responseMimeType: "application/json" },
+        } as any);
+        const parsed: any = safeParseObj(response.text || "{}") || {};
+        const lista = Array.isArray(parsed.paginas) ? parsed.paginas : (Array.isArray(parsed) ? parsed : []);
+        return res.json({
+            paginas: lista
+                .map((x: any) => ({ pagina: Number(x?.pagina) || 0, texto: String(x?.texto || "").trim(), emBranco: Boolean(x?.emBranco) }))
+                .filter((x: any) => x.pagina > 0),
+        });
+    } catch (err: any) {
+        console.error("Erro no ocr-paginas:", err);
+        return res.status(500).json({ error: formatGeminiError(err) || "Falha ao ler as páginas." });
+    }
+});
+
 app.post("/api/generate-synopsis", async (req, res) => {
     try {
         const userApiKey = extractApiKey(req);
@@ -3967,7 +4005,7 @@ const hasText=Boolean(safeProcessText&&typeof safeProcessText==="string"&&safePr
 let accumulatedPdfText="";
 let knowledgeBaseText="";
 let generatedHolisticSynopsis = "";
-const contentsParts=[];
+const contentsParts=[];let textoCortadoNoLimite=false;
 let totalDuplicatesFound = 0;
 let totalCharsSaved = 0;
 
@@ -4034,6 +4072,7 @@ if (textDedup.duplicatesFound > 0) {
 if (accumulatedPdfText.length > 1500000) {
     console.log(`[Assessor Judicial] Processo excepcionalmente grande (${accumulatedPdfText.length} caracteres). Preservando os primeiros 1.500.000 caracteres integrais.`);
     accumulatedPdfText = accumulatedPdfText.substring(0, 1500000);
+    textoCortadoNoLimite = true;
 }
 // ALERTA DE PROMPT INJECTION: trechos dos autos que tentam dar ordens à IA (regras determinísticas; ver src/utils/promptInjection.ts)
 let alertaInjecao: any = null; let defesaInjecao = "";
@@ -4043,6 +4082,44 @@ try {
     if (rInj.total > 0) { defesaInjecao = instrucaoDefesaInjecao(rInj); console.log(`[Prompt Injection] ${rInj.total} indício(s) nos autos (${rInj.alto} alto, ${rInj.medio} médio): ${rInj.achados.slice(0, 3).map(x => x.categoria).join(" | ")}`); }
 } catch (eInj) { console.log("[Prompt Injection] falha na verificação (ignorada):", (eInj as any)?.message); }
 const hasPdfs=Boolean(pdfFiles&&Array.isArray(pdfFiles)&&pdfFiles.length>0);const hasPrompt=Boolean(customPromptText&&typeof customPromptText==="string"&&customPromptText.trim().length>0);const hasProcessNumber=Boolean(processInfo?.processNumber&&processInfo.processNumber.trim().length>3&&processInfo.processNumber!=="Extrair automaticamente dos autos");const hasAnyContent=hasText||accumulatedPdfText.length>0||contentsParts.length>0||hasPdfs||hasPrompt||hasProcessNumber;if(!hasAnyContent){return res.status(400).json({error:"É obrigatório fornecer o PDF dos autos, o texto processual ou as diretrizes do prompt."})}
+
+// Cobertura da leitura: páginas que o sistema não conseguiu ler não podem virar "ausência de prova" na minuta
+let coberturaLeitura: any = null; let regraCobertura = "";
+try {
+    const cob = (req.body as any).coberturaLeitura;
+    const faixa = (nums: any): string => {
+        const v: number[] = (Array.isArray(nums) ? nums : []).map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0).sort((a: number, b: number) => a - b);
+        const out: string[] = []; let i = 0;
+        while (i < v.length) { let j = i; while (j + 1 < v.length && v[j + 1] === v[j] + 1) j++; out.push(j > i ? `${v[i]}-${v[j]}` : `${v[i]}`); i = j + 1; }
+        return out.join(", ");
+    };
+    const arquivos: any[] = Array.isArray(cob?.arquivos) ? cob.arquivos : [];
+    const lacunas = arquivos.map((a: any) => ({ arquivo: String(a?.nome || "arquivo"), total: Number(a?.totalPaginas) || 0, paginas: faixa([...(a?.semTexto || []), ...(a?.naoLidas || [])]), qtd: (Array.isArray(a?.semTexto) ? a.semTexto.length : 0) + (Array.isArray(a?.naoLidas) ? a.naoLidas.length : 0) })).filter((l: any) => l.qtd > 0);
+    const imagens: any[] = Array.isArray((req.body as any).paginasImagens) ? (req.body as any).paginasImagens.slice(0, 40) : [];
+    for (const im of imagens) {
+        const d = String(im?.data || "").replace(/^data:[^;]+;base64,/, "");
+        if (d) { contentsParts.push({ text: `[IMAGEM DA PÁGINA ${Number(im.pagina) || "?"} DOS AUTOS (${String(im.arquivo || "")}) - sem camada de texto; leia visualmente como parte dos autos]` }); contentsParts.push({ inlineData: { mimeType: "image/jpeg", data: d } }); }
+    }
+    if (cob || textoCortadoNoLimite) {
+        coberturaLeitura = {
+            totalPaginas: arquivos.reduce((n: number, a: any) => n + (Number(a?.totalPaginas) || 0), 0),
+            lacunas: lacunas.map((l: any) => ({ arquivo: l.arquivo, paginas: l.paginas, qtd: l.qtd })),
+            escolha: String(cob?.escolha || ""),
+            paginasOcr: Number(cob?.paginasOcr) || 0,
+            paginasImagem: imagens.length,
+            textoCortado: textoCortadoNoLimite,
+            completa: lacunas.length === 0 && !textoCortadoNoLimite,
+        };
+    }
+    if (lacunas.length > 0 || textoCortadoNoLimite) {
+        regraCobertura = `\n\n[COBERTURA DA LEITURA - REGRA MANDATÓRIA ANTI-FALSA-AUSÊNCIA-DE-PROVA]:\n`
+            + (lacunas.length > 0 ? `O sistema NÃO conseguiu ler o texto destas páginas dos autos (imagem/escaneado sem texto): ${lacunas.map((l: any) => `${l.arquivo}: págs. ${l.paginas}`).join("; ")}. Essas páginas PODEM conter provas, documentos, contestação ou decisões.\n` : "")
+            + (textoCortadoNoLimite ? `Os autos excederam o limite técnico e o FINAL do texto foi cortado: documentos posteriores podem não ter sido lidos.\n` : "")
+            + `1. É PROIBIDO afirmar na minuta que "não há prova", "não foi juntado documento", "não consta dos autos", "a parte não comprovou" ou fundamentar procedência/improcedência por ausência probatória quando a prova poderia estar nas páginas não lidas.\n`
+            + `2. Quando faltar prova nos trechos lidos, use a redação: "não localizei, nos trechos lidos pelo sistema, ..." e inclua obrigatoriamente no início do Relatório a nota: "[CONFERIR PÁGINAS NÃO LIDAS PELO SISTEMA: ${lacunas.map((l: any) => `${l.arquivo} págs. ${l.paginas}`).join("; ") || "final dos autos"} - verificar antes de assinar]".\n`
+            + `3. Se a conclusão do mérito depender dessas lacunas, aponte a dependência e recomende a conferência humana em vez de decidir por ausência de prova.\n`;
+    }
+} catch (eCob) { console.log("[Cobertura da leitura] falha (ignorada):", (eCob as any)?.message); }
 
 // Safeguard anti-alucinação: se o usuário anexou PDFs, mas nenhum texto foi extraído e não há texto digitado
 const rawPdfTextLength = accumulatedPdfText.replace(/\[===.*?===\]/g, "").replace(/\(.*?\)/g, "").trim().length;
@@ -4869,7 +4946,7 @@ Retorne EXCLUSIVAMENTE o objeto JSON com os campos: processNumber, author, defen
 
 const stage1ContentsParts: any[] = [{ text: userPrompt }];
 for (const p of contentsParts) {
-    if (p.inlineData) {
+    if (p.inlineData || p.text) {
         stage1ContentsParts.push(p);
     }
 }
@@ -4896,7 +4973,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
     };
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
-    stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO;
+    stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + regraCobertura;
     const stage1StartTimer = Date.now();
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 3000);      // maior para autos grandes
     stage1Response = await gerarComAutosGrandes(generateWithFallbackAndRetry, {
@@ -5263,6 +5340,7 @@ if (executionStage === 1) {
     }
     if ((stage1Response as any)?.autosReduzidos) parsedStage1.autosReduzidos = (stage1Response as any).autosReduzidos;
     if (alertaInjecao) parsedStage1.alertaInjecao = alertaInjecao;
+    if (coberturaLeitura) parsedStage1.coberturaLeitura = coberturaLeitura;
     if (!res.headersSent) {
         return res.json(parsedStage1);
     } else {
@@ -5514,7 +5592,7 @@ let stage2ErrorMsg = "";
 
 try {
     const stage2StartTimer = Date.now();
-    stage2SystemInstruction += REGRA_DISPOSITIVO_CARTORIO;
+    stage2SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + regraCobertura;
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage2Prompt, stage2SystemInstruction) / 10000) * 3000);
     response = await generateWithFallbackAndRetry({
         apiKey: stage2KeyPool[0] || userApiKey,
@@ -6020,6 +6098,7 @@ if (wasRotated && rotatedKey) {
     }
     if ((stage1Response as any)?.autosReduzidos) parsed.autosReduzidos = (stage1Response as any).autosReduzidos;
     if (alertaInjecao) parsed.alertaInjecao = alertaInjecao;
+    if (coberturaLeitura) parsed.coberturaLeitura = coberturaLeitura;
     if (keepAliveInterval) {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;

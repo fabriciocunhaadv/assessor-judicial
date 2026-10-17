@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { AvisoAutosReduzidos } from "./AvisoAutosReduzidos";
+import { AvisoCoberturaLeitura } from "./AvisoCoberturaLeitura";
 import { AvisoPromptInjection } from "./AvisoPromptInjection";
 import ReactMarkdown from "react-markdown";
 import {
@@ -1598,6 +1599,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           <div className="space-y-4">
             {result?.alertaInjecao && <AvisoPromptInjection info={result.alertaInjecao} />}
             {result?.autosReduzidos && <AvisoAutosReduzidos info={result.autosReduzidos} />}
+            {result?.coberturaLeitura && <AvisoCoberturaLeitura info={result.coberturaLeitura} />}
 
             {/* Automatic Pre-Audit Security Seal & Certificate */}
             {result?.auditAnalysis && (
