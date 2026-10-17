@@ -12,6 +12,9 @@ export function AvisoGigante({ info }: { info: NonNullable<GenerationResult["gig
         Os autos têm <strong>{info.paginas} páginas</strong>. A IA leu todos os trechos em <strong>{info.lotes} lote(s)</strong>{info.niveis > 0 ? `, fundidos em ${info.niveis} nível(is)` : ""}, e a minuta foi redigida a partir do dossiê resultante
         mais <strong>{info.essenciaisIntegra} página(s) essenciais na íntegra</strong> (petições, contestação, decisões, laudos). Cada item do dossiê cita a página de origem.
       </p>
+      {info.parte && (
+        <p className="mt-1.5 leading-relaxed font-bold text-red-800" data-testid="aviso-parte">⚠️ Esta minuta cobre só a PARTE {info.parte.indice} de {info.parte.total} dos autos (páginas {info.parte.de.toLocaleString("pt-BR")} a {info.parte.ate.toLocaleString("pt-BR")} de {info.parte.totalPaginas.toLocaleString("pt-BR")}). As outras partes não foram consideradas aqui: confira também a minuta das demais partes antes de assinar.</p>
+      )}
       {info.dossieAbreviado && (
         <p className="mt-1.5 leading-relaxed font-bold text-red-800">⚠️ O dossiê passou do limite de entrada da IA e parte dele foi omitida: confira os pontos decisivos diretamente nos autos.</p>
       )}

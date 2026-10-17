@@ -65,13 +65,37 @@ def main():
             print("C) gigante concluído em segundo plano; resumo para a extensão:", pg.evaluate("document.documentElement.dataset.gigantes")[:160])
             L = log_(); fichas = [x for x in L if x.get("p") == "ficha"]; print("   fichas:", len(fichas))
             assert len(fichas) >= 2
-            # D) processo acima do limite da leitura em lotes: o que ele vê e o que fazer
+            # D) processo acima do limite da leitura em lotes: botões claros (dividir, remover/anexar reduzido, normal)
             open("/tmp/claude-0/work/mob/app_enorme.pdf", "wb").write(processo(3100, injecao=False, vazias=()))
             pg2, e2 = abrir(ctx, "/tmp/claude-0/work/mob/app_enorme.pdf", 3100)
             pg2.locator("#tour-execute-btn").click(); pg2.wait_for_selector("[data-testid=dialogo-gigante]", timeout=60000)
-            t = pg2.locator("[data-testid=gigante-acima-limite]").inner_text(); print("D) acima do limite:", t.replace("\n", " | ")[:260])
-            assert "3.000" in t and "O que fazer" in t and pg2.locator("[data-testid=gigante-lotes]").count() == 0 and pg2.locator("[data-testid=gigante-normal]").count() == 1
+            t = pg2.locator("[data-testid=gigante-acima-limite]").inner_text(); print("D) acima do limite:", t.replace("\n", " | ")[:200])
+            assert "3.000" in t and pg2.locator("[data-testid=gigante-lotes]").count() == 0
+            assert pg2.locator("[data-testid=gigante-partes]").count() == 1 and pg2.locator("[data-testid=gigante-limpar]").count() == 1 and pg2.locator("[data-testid=gigante-normal]").count() == 1
             pg2.screenshot(path="/tmp/claude-0/work/mob/gig_acima.png")
+            # D1) "Remover os PDFs": apaga os anexos
+            pg2.locator("[data-testid=gigante-limpar]").click(); pg2.wait_for_timeout(1200)
+            assert pg2.locator("[data-testid=dialogo-gigante]").count() == 0 and "3100 págs" not in pg2.locator("#tour-input-panel").inner_text(), "os anexos devem ser removidos"
+            print("D1) anexos removidos pelo botão")
+            # D2) "Dividir automaticamente": 2 partes, lidas em sequência, cada uma com a sua minuta
+            pg3, e3 = abrir(ctx, "/tmp/claude-0/work/mob/app_enorme.pdf", 3100)
+            pg3.locator("#tour-execute-btn").click(); pg3.wait_for_selector("[data-testid=gigante-partes]", timeout=60000)
+            pg3.locator("[data-testid=gigante-partes]").click()
+            pg3.wait_for_selector("[data-testid=gigantes-painel]", timeout=30000)
+            pg3.wait_for_function("[...document.querySelectorAll('[data-testid=gigante-job]')].filter(j => /Parte \\d de 2/.test(j.innerText)).length === 2", timeout=60000)
+            nomes = [x for x in pg3.locator("[data-testid=gigante-job]").all_inner_texts() if "Parte" in x]; print("D2) trabalhos:", [x.split("\n")[0][:70] for x in nomes])
+            assert any("Parte 1 de 2" in x for x in nomes) and any("Parte 2 de 2" in x for x in nomes)
+            t0 = time.time(); ult = ""
+            while time.time() - t0 < 900:
+                st = pg3.evaluate("window.__estadoPartes = [...document.querySelectorAll('[data-testid=gigante-job]')].filter(j => /Parte \\d de 2/.test(j.innerText)).map(j => j.innerText.replace(/\\n+/g, ' | ').slice(0, 330))")
+                linha = " || ".join(x[:150] for x in st)
+                if linha != ult: print(f"[{int(time.time()-t0)}s]", linha); ult = linha
+                if any("Erro" in x[:200] and "Concluído" not in x[:200] for x in st): print("ERRO NA PARTE:", st); break
+                if len(st) == 2 and all("Concluído" in x for x in st): break
+                time.sleep(5)
+            assert len(st) == 2 and all("Concluído" in x for x in st), st
+            L = log_(); fichas = len([x for x in L if x.get("p") == "ficha"]); print("   fichas das duas partes:", fichas)
+            print("D2) as duas partes concluídas, uma de cada vez")
             print("OK" if not erros else "erros de página: " + str(erros[:3]))
             b.close()
     finally:

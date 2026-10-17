@@ -30,7 +30,8 @@ export interface JobGig {
   status: "preparando" | "na_fila" | "lendo" | "fundindo" | "redigindo" | "concluido" | "erro" | "pausado" | "cancelado";
   etapa: string;
   progresso: { feitas: number; total: number };
-  arquivos: { nome: string; paginas: number; semTexto: number[]; naoLidas: number[] }[];
+  arquivos: { nome: string; paginas: number; semTexto: number[]; naoLidas: number[]; totalOriginal?: number }[];
+  antecessorId?: string;
   totalPaginas: number;
   totalTokensEstimados: number;
   lotes: LoteGig[];

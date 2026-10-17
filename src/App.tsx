@@ -8,7 +8,7 @@ import { PdfUploadZone } from "./components/PdfUploadZone";
 import { useCoberturaLeitura } from "./components/useCoberturaLeitura";
 import { GigantesPanel } from "./components/GigantesPanel";
 import { PainelProgresso } from "./components/PainelProgresso";
-import { GiganteDialog } from "./components/GiganteDialog";
+import { GiganteDialog, EscolhaGigante } from "./components/GiganteDialog";
 import { gerenteGigantes, ConfigGigante } from "./utils/gigantes/gerente";
 import { descreverCorte, juntarComoServidor, CorteInfo } from "./utils/corteAutos";
 import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
@@ -232,7 +232,7 @@ export default function App() {
   const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
   const coberturaEnvioRef = useRef<any>(null);
   const [progId, setProgId] = useState<string | null>(null);
-  const [dlgGigante, setDlgGigante] = useState<{ paginas: number; tokens: number; corte: CorteInfo | null; resolver: (e: "lotes" | "normal" | "cancelar") => void } | null>(null);
+  const [dlgGigante, setDlgGigante] = useState<{ paginas: number; tokens: number; corte: CorteInfo | null; resolver: (e: EscolhaGigante) => void } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
   const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
@@ -853,9 +853,21 @@ export default function App() {
       if (chars > 1_400_000) {
         const paginas = effectivePdfFiles.reduce((n, p) => n + (p.pageCount || 0), 0);
         const automatico = document.documentElement.dataset.assessorAuto === "1";
-        const escolhaG = automatico ? "lotes" : await new Promise<"lotes" | "normal" | "cancelar">((resolver) => setDlgGigante({ paginas, tokens: Math.round(chars / 3.2), corte: (() => { try { return descreverCorte(juntarComoServidor(effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", paginas: p.pageCount }))), 1_500_000); } catch { return null; } })(), resolver }));
+        const escolhaG = automatico ? "lotes" : await new Promise<EscolhaGigante>((resolver) => setDlgGigante({ paginas, tokens: Math.round(chars / 3.2), corte: (() => { try { return descreverCorte(juntarComoServidor(effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", paginas: p.pageCount }))), 1_500_000); } catch { return null; } })(), resolver }));
         setDlgGigante(null);
         if (escolhaG === "cancelar") return;
+        if (escolhaG === "limpar") {
+          handleClearPdfs();
+          toast("Anexos removidos. Anexe o PDF reduzido (até 3.000 páginas) e gere de novo.", { duration: 8000, icon: "🗑️" });
+          return;
+        }
+        if (escolhaG === "partes") {
+          const dados = effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas }));
+          const ids = await gerenteGigantes.iniciarPartes(dados, montarConfigGigante());
+          window.dispatchEvent(new CustomEvent("gigantes:abrir"));
+          toast(`Processo dividido em ${ids.length} partes, lidas uma de cada vez em segundo plano. Cada parte gera uma minuta no Histórico.`, { duration: 10000, icon: "✂️" });
+          return;
+        }
         if (escolhaG === "lotes") {
           const idJob = await gerenteGigantes.iniciarComTextos(effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas })), montarConfigGigante());
           window.dispatchEvent(new CustomEvent("gigantes:abrir"));

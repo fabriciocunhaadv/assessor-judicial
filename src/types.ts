@@ -223,6 +223,7 @@ export interface GenerationResult {
     niveis: number;
     essenciaisIntegra: number;
     dossieAbreviado?: boolean;
+    parte?: { indice: number; total: number; de: number; ate: number; totalPaginas: number };
     omitidas: { de: number; ate: number; motivo: string }[];
     abreviadas: { de: number; ate: number; motivo: string }[];
   };

@@ -15,3 +15,5 @@ Fase 1: até 3.000 páginas, com a aba do app aberta.
 - `python3 teste_gigante.py` — 700 páginas de ponta a ponta (4 fatos plantados em páginas distantes têm de chegar à minuta; injeção agregada; páginas sem texto).
 - `python3 teste_gigante_extra.py` — prioridade da análise normal, pausar, recarregar a página e retomar.
 - `python3 teste_gigante_app.py` — o app completo: PDF pequeno segue a análise normal; PDF enorme abre a pergunta e processa em lotes.
+
+**Acima de 3.000 páginas** a janela oferece: dividir automaticamente em partes (lidas uma de cada vez, cada uma gera a sua minuta com aviso de quais páginas cobre), remover os PDFs para anexar uma versão reduzida, ou tentar a análise normal (a janela estima o que será cortado e a minuta informa exatamente o que ficou de fora). Testes: `teste_gigante_app.py` (D1/D2), `teste_corte_servidor.py`.

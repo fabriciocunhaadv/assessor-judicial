@@ -6,6 +6,7 @@ import type { SavedAnalysis } from "../historyDb";
 import { apagarJob, chavePagina, JobGig, lerJob, lerPaginas, listarJobs, PaginaGig, salvarJob, salvarPaginas } from "./db";
 import { classificarTodas } from "./triagem";
 import { agruparFichas, ALVO_LOTE_CHARS, fichaParaTexto, LIMIAR_FINAL_CHARS, montarLotes, tamanhoFicha, textoDoLote, CPT } from "./lotes";
+import { dividirEmPartes, ParteDosAutos } from "./partes";
 import { instalarObservadorPistaNormal, pistaNormalOcupada, ultimaAtividadePistaNormal } from "./pistaNormal";
 
 export interface ConfigGigante {
@@ -13,6 +14,8 @@ export interface ConfigGigante {
   actType: string; unitId?: string; unitName?: string;
   paradigmText?: string; paradigmTitle?: string; instrucao?: string; processNumber?: string;
   userUid?: string; userName?: string; userEmail?: string;
+  /** quando os autos foram divididos automaticamente: esta minuta cobre só uma parte */
+  parte?: { indice: number; total: number; de: number; ate: number; totalPaginas: number };
 }
 
 const FOLGA_APOS_PISTA_NORMAL_MS = Number((globalThis as any).__GIGANTE_FOLGA_MS ?? 25000);
@@ -61,11 +64,30 @@ class Gerente {
     return this.criar(pdfs.map((p) => ({ nome: p.nome, ler: async () => ({ text: p.texto, pageCount: p.pageCount, semTexto: p.semTexto || [], naoLidas: p.naoLidas || [] }) })), config);
   }
 
-  private async criar(fontes: { nome: string; ler: (onProg: (c: number, t: number) => void) => Promise<{ text: string; pageCount: number; semTexto: number[]; naoLidas: number[] }> }[], config: ConfigGigante): Promise<string> {
+  /** Autos acima do limite: divide em partes de até LIMITE_PAGINAS_GIGANTE páginas e lê uma parte por vez, em sequência. Devolve os ids dos trabalhos. */
+  async iniciarPartes(pdfs: { nome: string; texto: string; pageCount: number; semTexto?: number[]; naoLidas?: number[] }[], config: ConfigGigante): Promise<string[]> {
+    await this.carregar();
+    const partes: ParteDosAutos[] = dividirEmPartes(pdfs, LIMITE_PAGINAS_GIGANTE);
+    const ids: string[] = [];
+    const base = Date.now();
+    for (const parte of partes) {
+      const id = await this.criar(
+        parte.fontes.map((f) => ({ nome: f.nome, totalOriginal: f.totalOriginal, ler: async () => ({ text: f.texto, pageCount: f.pageCount, semTexto: f.semTexto, naoLidas: f.naoLidas }) })),
+        { ...config, parte: { indice: parte.indice, total: parte.total, de: parte.de, ate: parte.ate, totalPaginas: parte.totalPaginas } },
+        ids[ids.length - 1],
+        `Parte ${parte.indice} de ${parte.total} — págs. ${parte.de.toLocaleString("pt-BR")} a ${parte.ate.toLocaleString("pt-BR")} de ${parte.totalPaginas.toLocaleString("pt-BR")}`,
+        base + (partes.length - parte.indice),      // a Parte 1 aparece no alto da lista
+      );
+      ids.push(id);
+    }
+    return ids;
+  }
+
+  private async criar(fontes: { nome: string; totalOriginal?: number; ler: (onProg: (c: number, t: number) => void) => Promise<{ text: string; pageCount: number; semTexto: number[]; naoLidas: number[] }> }[], config: ConfigGigante, antecessorId?: string, rotulo?: string, criadoEm?: number): Promise<string> {
     await this.carregar();
     const id = `gig-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const job: JobGig = {
-      id, nome: fontes.map((f) => f.nome).join(" + ").slice(0, 160), numeroProcesso: config.processNumber && !/extrair/i.test(config.processNumber) ? config.processNumber : undefined, criadoEm: Date.now(), atualizadoEm: Date.now(),
+      id, nome: rotulo || fontes.map((f) => f.nome).join(" + ").slice(0, 160), antecessorId, numeroProcesso: config.processNumber && !/extrair/i.test(config.processNumber) ? config.processNumber : undefined, criadoEm: criadoEm ?? Date.now(), atualizadoEm: Date.now(),
       status: "preparando", etapa: "Lendo os PDFs e montando o índice das páginas…", progresso: { feitas: 0, total: fontes.length },
       arquivos: [], totalPaginas: 0, totalTokensEstimados: 0, lotes: [], fichas: {}, nivelAtual: 0,
       injecao: { verificado: false, caracteres: 0, total: 0, alto: 0, medio: 0, achados: [] },
@@ -76,7 +98,7 @@ class Gerente {
     return id;
   }
 
-  private async preparar(job: JobGig, fontes: { nome: string; ler: (onProg: (c: number, t: number) => void) => Promise<{ text: string; pageCount: number; semTexto: number[]; naoLidas: number[] }> }[]) {
+  private async preparar(job: JobGig, fontes: { nome: string; totalOriginal?: number; ler: (onProg: (c: number, t: number) => void) => Promise<{ text: string; pageCount: number; semTexto: number[]; naoLidas: number[] }> }[]) {
     const id = job.id;
     try {
       let n = 0; const todas: PaginaGig[] = [];
@@ -84,7 +106,7 @@ class Gerente {
         job.etapa = `Lendo ${fontes[a].nome} (${a + 1}/${fontes.length})…`; this.avisar();
         const ex = await fontes[a].ler((c, t) => { job.progresso = { feitas: c, total: t }; this.avisar(); });
         const pags = dividirPaginas(ex.text, ex.pageCount);
-        job.arquivos.push({ nome: fontes[a].nome, paginas: ex.pageCount || pags.length, semTexto: ex.semTexto, naoLidas: ex.naoLidas });
+        job.arquivos.push({ nome: fontes[a].nome, paginas: ex.pageCount || pags.length, semTexto: ex.semTexto, naoLidas: ex.naoLidas, totalOriginal: fontes[a].totalOriginal });
         const cls = classificarTodas(pags);
         pags.forEach((p, i) => { n++; todas.push({ chave: chavePagina(id, n), jobId: id, n, arquivo: a, pagina: p.pagina, texto: p.texto, tipo: cls[i].tipo, rotuloTipo: cls[i].rotuloTipo }); });
         if (!job.numeroProcesso) { const m = ex.text.slice(0, 20000).match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/); if (m) job.numeroProcesso = m[0]; }
@@ -99,13 +121,25 @@ class Gerente {
       job.triagem.omitidas = faixasDe(todas, (p) => (p.tipo === "repetida" ? p.rotuloTipo || "página repetida" : ""));
       job.triagem.abreviadas = faixasDe(todas, (p) => (p.tipo === "dispensavel" ? p.rotuloTipo || "documento sem relevância" : ""));
       job.totalTokensEstimados = Math.round(todas.reduce((s, p) => s + p.texto.length, 0) / CPT);
-      const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.paginas);
+      const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.totalOriginal || x.paginas);
       job.lotes = montarLotes(todas, nomes, totais);
       job.status = "na_fila"; job.etapa = `Pronto: ${job.totalPaginas} páginas em ${job.lotes.length} lote(s).`; job.progresso = { feitas: 0, total: job.lotes.length };
       await this.gravar(job);
-      void this.executar(id);
+      void this.depoisDe(job.antecessorId).then(() => this.executar(id));
     } catch (e: any) {
       job.status = "erro"; job.erro = e?.message || String(e); job.etapa = "Falha ao preparar os autos."; await this.gravar(job);
+    }
+  }
+
+  // as partes de um mesmo processo são lidas uma de cada vez: esta espera a anterior terminar (ou parar)
+  private async depoisDe(antecessorId?: string) {
+    if (!antecessorId) return;
+    for (;;) {
+      const a = this.jobs.get(antecessorId);
+      if (!a || ["concluido", "erro", "cancelado", "pausado"].includes(a.status)) return;
+      const j = Array.from(this.jobs.values()).find((x) => x.antecessorId === antecessorId && x.status === "na_fila");
+      if (j) { j.etapa = "Aguardando a parte anterior terminar…"; this.avisar(); }
+      await dorme(3000);
     }
   }
 
@@ -161,7 +195,7 @@ class Gerente {
     if (!job) { this.rodando.delete(id); return; }
     this.jobs.set(id, job);
     try {
-      const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.paginas);
+      const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.totalOriginal || x.paginas);
       const contexto = `${job.config.promptTitle || "minuta"} (${job.config.actType || "ato"})${job.numeroProcesso ? ` — processo ${job.numeroProcesso}` : ""}`;
       // 1) lotes: uma ficha por trecho dos autos
       job.status = "lendo"; job.progresso = { feitas: job.lotes.filter((l) => job.fichas[`n0:${l.i}`]).length, total: job.lotes.length };
@@ -225,7 +259,7 @@ class Gerente {
 
   private async redigir(job: JobGig, fichas: any[]) {
     const cfg = job.config as ConfigGigante;
-    const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.paginas);
+    const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.totalOriginal || x.paginas);
     // peças essenciais na íntegra (até um orçamento de caracteres), na ordem do processo
     const todas = await lerPaginas(job.id, 1, job.totalPaginas);
     const ess = todas.filter((p) => p.tipo === "essencial");
@@ -238,7 +272,8 @@ class Gerente {
       `[DOSSIÊ DO PROCESSO — os autos têm ${job.totalPaginas} páginas e foram lidos em ${job.lotes.length} lote(s); abaixo estão as fichas estruturadas (cada item cita o arquivo/página) e, em seguida, as peças essenciais na íntegra]\n\n${dossie}` +
       (escolhidas.length ? `\n\n[PEÇAS ESSENCIAIS NA ÍNTEGRA — ${escolhidas.length} página(s)]\n\n` + escolhidas.map((p) => `[Arquivo ${p.arquivo + 1}: ${nomes[p.arquivo] || ""}]\n[Página ${p.pagina} de ${totais[p.arquivo] || p.pagina}]\n${p.texto.slice(0, 6000)}`).join("\n\n") : "");
     let tesesTxt = ""; try { const t: any = await getCabinetTeses(); if (t && t.isEnabled !== false && typeof t.text === "string") tesesTxt = t.text.trim(); } catch { /* sem teses */ }
-    const regra = `[PROCESSO GIGANTE LIDO EM LOTES]: o texto fornecido é um DOSSIÊ estruturado (fichas por trecho, com a página de cada item) mais as peças essenciais na íntegra. Redija a minuta com base nele e cite páginas quando útil. NÃO afirme "não há prova", "não foi juntado" ou "a parte não comprovou" só por não constar do dossiê: só registre ausência quando a ficha disser expressamente; no mais, use "não localizei no dossiê dos autos" e indique conferência humana.`;
+    const parteTxt = cfg.parte ? ` ATENÇÃO: estes autos foram divididos automaticamente e este é o trecho ${cfg.parte.indice} de ${cfg.parte.total} (páginas ${cfg.parte.de.toLocaleString("pt-BR")} a ${cfg.parte.ate.toLocaleString("pt-BR")} de ${cfg.parte.totalPaginas.toLocaleString("pt-BR")}). As demais partes NÃO foram consideradas nesta minuta: não conclua o mérito do processo como um todo, não afirme ausência de prova que possa estar nas outras partes e registre no Relatório que a minuta cobre apenas as páginas ${cfg.parte.de} a ${cfg.parte.ate}.` : "";
+    const regra = `[PROCESSO GIGANTE LIDO EM LOTES]:${parteTxt} o texto fornecido é um DOSSIÊ estruturado (fichas por trecho, com a página de cada item) mais as peças essenciais na íntegra. Redija a minuta com base nele e cite páginas quando útil. NÃO afirme "não há prova", "não foi juntado" ou "a parte não comprovou" só por não constar do dossiê: só registre ausência quando a ficha disser expressamente; no mais, use "não localizei no dossiê dos autos" e indique conferência humana.`;
     const corpo = {
       processText, pdfFiles: [], knowledgePdfs: [], customPromptText: cfg.promptText || "", activePromptTitle: cfg.promptTitle || "",
       cabinetTesesText: tesesTxt, isTesesEnabled: Boolean(tesesTxt),
@@ -249,7 +284,7 @@ class Gerente {
     };
     const data = await this.chamar(job.id, "/api/generate-minute", corpo);
     if (!data?.minute) throw new Error("A IA não devolveu uma minuta válida a partir do dossiê.");
-    const info = { paginas: job.totalPaginas, lotes: job.lotes.length, niveis: job.nivelAtual, essenciaisIntegra: escolhidas.length, omitidas: job.triagem.omitidas, abreviadas: job.triagem.abreviadas, dossieAbreviado };
+    const info = { paginas: job.totalPaginas, lotes: job.lotes.length, niveis: job.nivelAtual, essenciaisIntegra: escolhidas.length, omitidas: job.triagem.omitidas, abreviadas: job.triagem.abreviadas, dossieAbreviado, parte: cfg.parte };
     const alertaInjecao = job.injecao.verificado ? job.injecao : data.alertaInjecao;
     const analysisId = data.analysisId || (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `gig-${Date.now()}`);
     const numero = (data.minute?.processNumber && !/extrair|n[ãa]o informado/i.test(data.minute.processNumber)) ? data.minute.processNumber : (job.numeroProcesso || cfg.processNumber || "Sem Número");
