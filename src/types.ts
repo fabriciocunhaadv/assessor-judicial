@@ -217,6 +217,15 @@ export interface GenerationResult {
     abreviadas: { de: number; ate: number; motivo: string }[];
     resumo: string;
   };
+  gigante?: {
+    paginas: number;
+    lotes: number;
+    niveis: number;
+    essenciaisIntegra: number;
+    dossieAbreviado?: boolean;
+    omitidas: { de: number; ate: number; motivo: string }[];
+    abreviadas: { de: number; ate: number; motivo: string }[];
+  };
   coberturaLeitura?: {
     totalPaginas: number;
     lacunas: { arquivo: string; paginas: string; qtd: number }[];

@@ -1,0 +1,72 @@
+"""O app completo: análise normal intacta para PDF pequeno; pergunta de processo gigante para PDF enorme."""
+import glob, json, os, subprocess, sys, time, urllib.request
+AQUI = os.path.dirname(os.path.abspath(__file__)); RAIZ = os.path.abspath(os.path.join(AQUI, "../.."))
+PM, PS, PV = 8897, 3000, 5198
+sys.path.insert(0, AQUI)
+from gerar_pdf import processo
+from playwright.sync_api import sync_playwright
+
+def esperar_http(url, n=120):
+    for _ in range(n):
+        try: urllib.request.urlopen(url, timeout=2); return
+        except Exception: time.sleep(1)
+    raise SystemExit("não subiu: " + url)
+def log_(): return json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PM}/__log").read())
+
+def abrir(ctx, pdf, paginas):
+    pg = ctx.new_page(); pg.set_default_timeout(30000); erros = []; pg.on("pageerror", lambda e: erros.append(str(e)[:200]))
+    pg.add_init_script("localStorage.setItem('assessor_tour_done','1'); localStorage.setItem('agaia_native_key_allowed_teste-uid','true'); window.__GIGANTE_INTERVALO_MS=1500; window.__GIGANTE_FOLGA_MS=1500;")
+    pg.goto(f"http://127.0.0.1:{PV}/"); pg.wait_for_timeout(4000)
+    pg.add_style_tag(content="#react-joyride-portal{display:none!important}")
+    pg.locator("#tour-input-panel input[type=file]").first.set_input_files(pdf)
+    pg.wait_for_function("(n) => document.querySelector('#tour-input-panel')?.innerText.includes(n + ' págs') && document.querySelector('#tour-input-panel').innerText.includes('lidos')", arg=str(paginas), timeout=120000)
+    return pg, erros
+
+def main():
+    pequeno = "/tmp/claude-0/work/mob/app_pequeno.pdf"; grande = "/tmp/claude-0/work/mob/app_grande.pdf"
+    open(pequeno, "wb").write(processo(30, injecao=False, vazias=())); open(grande, "wb").write(processo(700))
+    procs = []
+    try:
+        procs.append(subprocess.Popen([sys.executable, os.path.join(AQUI, "mock_gemini.py"), str(PM), "250000", "3000"], start_new_session=True))
+        env = {**os.environ, "GOOGLE_GEMINI_BASE_URL": f"http://127.0.0.1:{PM}", "NODE_ENV": "production", "NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost", "COTA_PAUSA_MS": "1500"}
+        procs.append(subprocess.Popen(["npx", "tsx", "server.ts"], cwd=RAIZ, env=env, stdout=open("/tmp/claude-0/work/teste/server_gig3.log", "w"), stderr=subprocess.STDOUT, start_new_session=True))
+        procs.append(subprocess.Popen(["npx", "vite", "--config", "testes/gigantes/vite.config.ts"], cwd=RAIZ, stdout=open("/tmp/claude-0/work/teste/vite_gig3.log", "w"), stderr=subprocess.STDOUT, start_new_session=True))
+        esperar_http(f"http://127.0.0.1:{PS}/api/native-key-info"); esperar_http(f"http://127.0.0.1:{PV}/")
+        with sync_playwright() as p:
+            b = p.chromium.launch(executable_path=glob.glob("/opt/pw-browsers/chromium-*/chrome-linux*/chrome")[0], args=["--no-sandbox"])
+            ctx = b.new_context(viewport={"width": 1400, "height": 1000})
+            ctx.route("**/api/**", lambda r: r.continue_(headers={**r.request.headers, "x-gemini-api-key": "AQ.Ab8-chave-um-aaaaaaaa", "x-gemini-api-key-pool": json.dumps(["AQ.Ab8-chave-um-aaaaaaaa"])}))
+            # A) PDF pequeno: nada de pergunta de gigante; a análise normal segue como sempre
+            pg, erros = abrir(ctx, pequeno, 30)
+            pg.locator("#tour-execute-btn").click()
+            pg.wait_for_function("document.body.innerText.includes('Prosseguir') || document.querySelector('#tour-meta-parties-box') || document.body.innerText.includes('RELATÓRIO')", timeout=120000)
+            assert pg.locator("[data-testid=dialogo-gigante]").count() == 0
+            L = log_(); print("A) análise normal rodou:", len(L), "chamadas à IA; sem pergunta de gigante")
+            assert len(L) >= 1 and not any(x.get("p") in ("ficha", "fusao") for x in L)
+            pg.close()
+            # B) PDF enorme: pergunta; "cancelar" não dispara nada
+            n_antes = len(log_())
+            pg, erros = abrir(ctx, grande, 700)
+            pg.locator("#tour-execute-btn").click()
+            pg.wait_for_selector("[data-testid=dialogo-gigante]", timeout=60000); print("B) pergunta de processo gigante apareceu")
+            pg.screenshot(path="/tmp/claude-0/work/mob/gig_dialogo.png")
+            pg.locator("text=Cancelar").last.click(); pg.wait_for_timeout(800)
+            assert pg.locator("[data-testid=dialogo-gigante]").count() == 0 and len(log_()) == n_antes, "cancelar não pode chamar a IA"
+            # C) "ler em lotes": o job aparece no selo e termina; a tela continua livre
+            pg.locator("#tour-execute-btn").click(); pg.wait_for_selector("[data-testid=dialogo-gigante]")
+            pg.locator("[data-testid=gigante-lotes]").click()
+            pg.wait_for_selector("[data-testid=gigantes-painel]", timeout=30000); pg.wait_for_selector("[data-testid=gigante-job]")
+            pg.screenshot(path="/tmp/claude-0/work/mob/gig_painel.png")
+            assert pg.locator("#tour-execute-btn").is_enabled(), "o app não pode ficar travado enquanto o gigante processa"
+            pg.wait_for_function("document.querySelector('[data-testid=gigante-job]')?.innerText.includes('Concluído')", timeout=400000)
+            pg.screenshot(path="/tmp/claude-0/work/mob/gig_painel_fim.png")
+            print("C) gigante concluído em segundo plano; resumo para a extensão:", pg.evaluate("document.documentElement.dataset.gigantes")[:160])
+            L = log_(); fichas = [x for x in L if x.get("p") == "ficha"]; print("   fichas:", len(fichas))
+            assert len(fichas) >= 2
+            print("OK" if not erros else "erros de página: " + str(erros[:3]))
+            b.close()
+    finally:
+        for pr in procs:
+            try: os.killpg(pr.pid, 9)
+            except Exception: pass
+main()

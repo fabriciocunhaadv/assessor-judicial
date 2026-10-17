@@ -6,6 +6,9 @@ import { SystemTour } from "./components/SystemTour";
 import { PromptManagerModal } from "./components/PromptManagerModal";
 import { PdfUploadZone } from "./components/PdfUploadZone";
 import { useCoberturaLeitura } from "./components/useCoberturaLeitura";
+import { GigantesPanel } from "./components/GigantesPanel";
+import { GiganteDialog } from "./components/GiganteDialog";
+import { gerenteGigantes, ConfigGigante } from "./utils/gigantes/gerente";
 import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
 import { MinuteViewer } from "./components/MinuteViewer";
 import { HistoryModal } from "./components/HistoryModal";
@@ -226,6 +229,7 @@ export default function App() {
   const [loadingStep, setLoadingStep] = useState<string>("");
   const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
   const coberturaEnvioRef = useRef<any>(null);
+  const [dlgGigante, setDlgGigante] = useState<{ paginas: number; tokens: number; resolver: (e: "lotes" | "normal" | "cancelar") => void } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
   const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
@@ -809,6 +813,19 @@ export default function App() {
     setDismissedParadigmId(null);
   };
 
+  // Processos gigantes: configuração usada pela leitura em lotes (mesmo prompt, ato e unidade da análise normal)
+  const montarConfigGigante = (): ConfigGigante => {
+    const par = selectedParadigmId ? getJudgeParadigms().find((p) => p.id === selectedParadigmId) : null;
+    return {
+      promptText: activePrompt?.promptText || "", promptTitle: activePrompt?.title || "", promptId: activePrompt?.id, promptCategory: activePrompt?.category, promptScope: activePrompt?.scope,
+      actType: selectedActType !== "auto" ? selectedActType : (activePrompt?.actTypeHint || "auto"),
+      unitId: activeUnit?.id, unitName: activeUnit?.name,
+      paradigmText: isParadigmEnabled ? (par?.fullText || customParadigmText || "") : "", paradigmTitle: isParadigmEnabled ? (par?.title || "Minuta Paradigma") : "",
+      processNumber: processNumber || extractedMetadata?.processNumber || "",
+      userUid: user?.uid, userName: user?.displayName || user?.email?.split("@")[0] || "Assessor", userEmail: user?.email || "",
+    };
+  };
+
   const handleExecutePrompt = async () => {
     const access = checkUserAiAccess(userProfile, user?.email);
     if (!access.canExecute) {
@@ -825,6 +842,25 @@ export default function App() {
     if (effectivePdfFiles.length === 0 && !effectiveText && !hasPromptDirectives) {
       setErrorMessage("Por favor, anexe o PDF dos autos, insira o texto processual ou selecione um prompt com diretrizes para executar.");
       return;
+    }
+
+    // Processo gigante: acima do limite da análise normal o final dos autos seria cortado; oferece a leitura em lotes em segundo plano
+    if (inputMode === "pdf" && effectivePdfFiles.length > 0 && !effectiveText) {
+      const chars = effectivePdfFiles.reduce((n, p) => n + (p.extractedText?.length || 0), 0);
+      if (chars > 1_400_000) {
+        const paginas = effectivePdfFiles.reduce((n, p) => n + (p.pageCount || 0), 0);
+        const automatico = document.documentElement.dataset.assessorAuto === "1";
+        const escolhaG = automatico ? "lotes" : await new Promise<"lotes" | "normal" | "cancelar">((resolver) => setDlgGigante({ paginas, tokens: Math.round(chars / 3.2), resolver }));
+        setDlgGigante(null);
+        if (escolhaG === "cancelar") return;
+        if (escolhaG === "lotes") {
+          const idJob = await gerenteGigantes.iniciarComTextos(effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas })), montarConfigGigante());
+          window.dispatchEvent(new CustomEvent("gigantes:abrir"));
+          toast("Processo gigante enviado para a leitura em lotes, em segundo plano. Acompanhe pelo selo “Gigantes”.", { duration: 8000, icon: "📚" });
+          void idJob;
+          return;
+        }
+      }
     }
 
     setIsLoading(true);
@@ -2029,6 +2065,7 @@ export default function App() {
         )}
 
         {dialogCobertura}
+        {dlgGigante && <GiganteDialog paginas={dlgGigante.paginas} tokens={dlgGigante.tokens} onEscolha={dlgGigante.resolver} />}
 
         {/* Loading Progress Card */}
         {isLoading && (
@@ -2534,6 +2571,7 @@ export default function App() {
         currentPromptId={activePrompt.id}
       />
 
+      <GigantesPanel config={montarConfigGigante()} onVerHistorico={() => setIsHistoryModalOpen(true)} />
       <HistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
