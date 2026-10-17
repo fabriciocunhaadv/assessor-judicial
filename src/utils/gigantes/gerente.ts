@@ -387,8 +387,11 @@ class Gerente {
     let dossie = fichas.map((f, i) => `### TRECHO ${f.__rotulo || i + 1}\n${fichaParaTexto(f)}`).join("\n\n");
     const MAX_DOSSIE = 260_000; let dossieAbreviado = false;
     if (dossie.length > MAX_DOSSIE) { dossieAbreviado = true; dossie = dossie.slice(0, Math.floor(MAX_DOSSIE * 0.6)) + "\n\n[… parte do dossiê omitida pelo limite de entrada da IA …]\n\n" + dossie.slice(-Math.floor(MAX_DOSSIE * 0.4)); }
+    const faixaTxt = (ns: number[]) => { const v = [...ns].sort((a, b) => a - b); const o: string[] = []; let i = 0; while (i < v.length) { let j = i; while (j + 1 < v.length && v[j + 1] === v[j] + 1) j++; o.push(j > i ? `${v[i]}-${v[j]}` : `${v[i]}`); i = j + 1; } return o.join(", "); };
+    const semLeitura = job.arquivos.map((a) => ({ nome: a.nome, ns: [...a.semTexto, ...a.naoLidas] })).filter((x) => x.ns.length > 0);
+    const avisoLeitura = semLeitura.length ? `\n[PÁGINAS SEM LEITURA (sem texto nem OCR): ${semLeitura.map((x) => `${x.nome}: págs. ${faixaTxt(x.ns)}`).join("; ")}. Não afirme ausência de prova que possa estar nelas.]\n` : "";
     const processText =
-      `[DOSSIÊ DO PROCESSO — os autos têm ${job.totalPaginas} páginas e foram lidos em ${job.lotes.length} lote(s); abaixo estão as fichas estruturadas (cada item cita o arquivo/página) e, em seguida, as peças essenciais na íntegra]\n\n${dossie}` +
+      avisoLeitura + `[DOSSIÊ DO PROCESSO — os autos têm ${job.totalPaginas} páginas e foram lidos em ${job.lotes.length} lote(s); abaixo estão as fichas estruturadas (cada item cita o arquivo/página) e, em seguida, as peças essenciais na íntegra. REGRA: este texto é um resumo estruturado dos autos; não afirme que um documento ou prova "não existe" só porque não aparece aqui, e cite a página quando útil]\n\n${dossie}` +
       (escolhidas.length ? `\n\n[PEÇAS ESSENCIAIS NA ÍNTEGRA — ${escolhidas.length} página(s)]\n\n` + escolhidas.map((p) => `[Arquivo ${p.arquivo + 1}: ${nomes[p.arquivo] || ""}]\n[Página ${p.pagina} de ${totais[p.arquivo] || p.pagina}]\n${p.texto.slice(0, 6000)}`).join("\n\n") : "");
     return { processText, escolhidas, dossieAbreviado, nomes };
   }

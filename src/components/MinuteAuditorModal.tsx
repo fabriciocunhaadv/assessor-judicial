@@ -64,6 +64,15 @@ import {
 } from "../types";
 import { extractTextFromPdf } from "../utils/pdfExtractor";
 import { useCoberturaLeitura } from "./useCoberturaLeitura";
+import { gerenteGigantes } from "../utils/gigantes/gerente";
+import { arquivoDoPdf } from "../utils/gigantes/arquivoDoPdf";
+import { descreverCorte, juntarComoServidor, CorteInfo } from "../utils/corteAutos";
+import { ProcessoGrandeDialog, EscolhaDossie } from "./ProcessoGrandeDialog";
+import { PainelDossie } from "./PainelDossie";
+import { AvisoGigante } from "./AvisoGigante";
+
+// acima disso a Lupa não consegue ler os autos de uma vez (limite de entrada da chave gratuita): usa o dossiê preparado em lotes
+const LIMITE_CHARS_LUPA = 700_000;
 import { AvisoCoberturaLeitura } from "./AvisoCoberturaLeitura";
 import {
   getAudits,
@@ -142,6 +151,8 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
   const [pdfFiles, setPdfFiles] = useState<UploadedPdf[]>(initialPdfs || []);
   const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
   const coberturaRef = useRef<any>(null);
+  const [dossieJobId, setDossieJobId] = useState<string | null>(null);
+  const [dlgDossie, setDlgDossie] = useState<{ paginas: number; tokens: number; corte: CorteInfo | null; resolver: (e: EscolhaDossie) => void } | null>(null);
   const [inputMode, setInputMode] = useState<"pdf" | "text">("pdf");
   const [specificInstructions, setSpecificInstructions] = useState<string>("");
 
@@ -738,6 +749,38 @@ ${specificInstructions}`
       return;
     }
 
+    // Processo grande: acima do limite de leitura da Lupa, usa o dossiê preparado em lotes (lê todas as páginas, em segundo plano)
+    let dossie: Awaited<ReturnType<typeof gerenteGigantes.obterDossie>> | null = null;
+    const totalChars = processText.length + pdfFiles.reduce((t, p) => t + (p.extractedText?.length || 0), 0);
+    if (totalChars > LIMITE_CHARS_LUPA) {
+      const numero = processNumberInput.trim() || extractProcessNumberFromText(draftText, [processText, ...pdfFiles.map((p) => p.name + "\n" + (p.extractedText || "").slice(0, 30000))]) || "";
+      await gerenteGigantes.carregar();
+      const prontoDoJob = dossieJobId ? gerenteGigantes.lista().find((j) => j.id === dossieJobId && j.status === "concluido")?.id : undefined;
+      const idPronto = prontoDoJob || gerenteGigantes.dossieDoProcesso(numero);
+      if (idPronto) {
+        try { dossie = await gerenteGigantes.obterDossie(idPronto); showToast("Usando o dossiê já pronto deste processo (todas as páginas foram lidas em lotes)."); } catch { dossie = null; }
+      }
+      if (!dossie) {
+        if (document.documentElement.dataset.assessorAuto === "1") {
+          setErrorMessage("Processo grande demais para a auditoria automática (acima do limite de leitura). Prepare o dossiê pela Lupa no app e audite depois.");
+          showToast("Processo acima do limite de leitura: prepare o dossiê manualmente na Lupa.");
+          return;
+        }
+        const paginas = pdfFiles.reduce((t, p) => t + (p.pageCount || 0), 0);
+        const escolhaD = await new Promise<EscolhaDossie>((resolver) => setDlgDossie({ paginas, tokens: Math.round(totalChars / 3.2), corte: (() => { try { return descreverCorte(juntarComoServidor(pdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", paginas: p.pageCount }))), LIMITE_CHARS_LUPA); } catch { return null; } })(), resolver }));
+        setDlgDossie(null);
+        if (escolhaD === "cancelar") return;
+        if (escolhaD === "preparar") {
+          const dados = pdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas, arquivo: () => arquivoDoPdf(p) }));
+          if (processText.trim().length > 30) dados.push({ nome: "Texto dos autos (colado)", texto: processText, pageCount: 0, semTexto: undefined, naoLidas: undefined, arquivo: async () => null } as any);
+          const id = await gerenteGigantes.iniciarComTextos(dados, { promptText: selectedPrompt?.promptText || "", promptTitle: "Auditoria da Lupa do Magistrado", actType: "auditoria", processNumber: numero, finalidade: "dossie", origem: "lupa", userUid: user?.uid, userEmail: user?.email || "" });
+          setDossieJobId(id);
+          showToast("Dossiê em preparo, em segundo plano. Quando ficar pronto, clique em Auditar de novo.");
+          return;
+        }
+      }
+    }
+
     setErrorMessage(null);
     setIsAuditing(true);
     setAuditStep("Lendo e confrontando peças processuais dos autos com a minuta...");
@@ -745,7 +788,10 @@ ${specificInstructions}`
     // Cobertura da leitura: páginas sem texto (escaneadas/fotos) podem esconder provas; pergunta OCR/leitura visual antes de auditar
     let coberturaEnvio: any = null;
     let imagensEnvio: any[] = [];
-    if (pdfFiles.length > 0) {
+    if (dossie) {
+      coberturaEnvio = { escolha: "dossie", paginasOcr: 0, arquivos: dossie.arquivos };
+      coberturaRef.current = coberturaEnvio;
+    } else if (pdfFiles.length > 0) {
       const cob = await resolverCoberturaLeitura(pdfFiles, setAuditStep);
       setPdfFiles([...pdfFiles]);
       if (cob.cancelado) {
@@ -777,10 +823,10 @@ ${specificInstructions}`
         .map((p) => `[=== DOCUMENTO/PEÇA DOS AUTOS: ${p.name} ===]\n${p.extractedText}`)
         .join("\n\n---\n\n");
 
-      const fullProcessText = [processText.trim(), pdfsExtractedText].filter(Boolean).join("\n\n---\n\n");
+      const fullProcessText = dossie ? dossie.texto : [processText.trim(), pdfsExtractedText].filter(Boolean).join("\n\n---\n\n");
 
       // 1. Corte Imediato da Duplicação de Autos: envia apenas metadados dos PDFs sem duplicar o texto
-      const sanitizedPdfFiles = pdfFiles.map((p) => ({
+      const sanitizedPdfFiles = dossie ? dossie.arquivos.map((a) => ({ name: a.nome, pageCount: a.totalPaginas })) : pdfFiles.map((p) => ({
         name: p.name,
         size: p.size,
         pageCount: p.pageCount,
@@ -793,6 +839,7 @@ ${specificInstructions}`
           draftText,
           processText: fullProcessText || processText,
           pdfFiles: sanitizedPdfFiles,
+          dossieGigante: Boolean(dossie),
           coberturaLeitura: coberturaEnvio,
           paginasImagens: imagensEnvio,
           specificInstructions,
@@ -818,6 +865,7 @@ ${specificInstructions}`
       } catch (e) {
         throw new Error("O servidor retornou um formato inválido.");
       }
+      if (dossie) data = { ...data, gigante: { ...dossie.info, omitidas: [], abreviadas: [] }, alertaInjecao: dossie.injecao?.verificado ? (dossie.injecao as any) : data.alertaInjecao } as any;
       setAuditResult(data);
       if (data.systemGeneratedMinute) {
         setSystemGeneratedMinute(data.systemGeneratedMinute);
@@ -900,7 +948,7 @@ ${specificInstructions}`
             signal: controller.signal,
             body: JSON.stringify({
               processText: fullProcessText,
-              pdfFiles: pdfFiles,
+              pdfFiles: dossie ? [] : pdfFiles,
               coberturaLeitura: coberturaEnvio,
               customPromptText: selectedPrompt?.promptText || "",
               actType: "sentenca",
@@ -1601,6 +1649,7 @@ ${reAuditNotes}`
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in">
       {dialogCobertura}
+      {dlgDossie && <ProcessoGrandeDialog modulo="lupa" paginas={dlgDossie.paginas} tokens={dlgDossie.tokens} corte={dlgDossie.corte} onEscolha={dlgDossie.resolver} />}
       <div className="bg-slate-900 border border-amber-500/40 sm:rounded-2xl w-full max-w-6xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
         
         {/* MODAL HEADER: Gold Luxury Bar */}
@@ -1782,6 +1831,8 @@ ${reAuditNotes}`
         {/* MODAL BODY */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
           
+          {dossieJobId && <PainelDossie jobId={dossieJobId} rotuloPronto="clique em Auditar para usá-lo" />}
+
           {/* Toast / Success Message */}
           {successMessage && (
             <div className="p-3 bg-emerald-950/80 border border-emerald-500/60 rounded-xl text-xs text-emerald-200 flex items-center gap-2 animate-in fade-in">
@@ -2602,6 +2653,7 @@ ${reAuditNotes}`
             <div className="space-y-6">
               
               {auditResult.alertaInjecao && <AvisoPromptInjection info={auditResult.alertaInjecao} />}
+              {auditResult.gigante && <AvisoGigante info={auditResult.gigante} />}
               {auditResult.coberturaLeitura && <AvisoCoberturaLeitura info={auditResult.coberturaLeitura} />}
 
               {/* SCORE CARD & VERDICT BANNER */}

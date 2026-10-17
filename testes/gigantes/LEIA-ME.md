@@ -19,3 +19,12 @@ Fase 1: até 3.000 páginas, com a aba do app aberta.
 **Acima de 3.000 páginas** a janela oferece: dividir automaticamente em partes (lidas uma de cada vez, cada uma gera a sua minuta com aviso de quais páginas cobre), remover os PDFs para anexar uma versão reduzida, ou tentar a análise normal (a janela estima o que será cortado e a minuta informa exatamente o que ficou de fora). Testes: `teste_gigante_app.py` (D1/D2), `teste_corte_servidor.py`.
 
 **Fila:** um processo gigante por vez. Os outros ficam "Na fila (posição N)" e começam na ordem em que chegaram (`teste_gigante_fila.py`). As análises normais continuam passando na frente.
+
+## Fase 2
+- **OCR em lotes das páginas sem texto:** antes da leitura, o trabalho lê por OCR (IA) as páginas escaneadas, 5 por vez, em segundo plano (botão “Pular o OCR” no painel). As páginas lidas entram no índice e nos lotes. Se o arquivo original não estiver mais disponível (página recarregada), elas ficam como “sem leitura” e a minuta traz o aviso.
+- **Dossiê reaproveitável:** a Lupa e a Mesa, quando os autos passam do limite de leitura delas, oferecem preparar o **dossiê** (mesma leitura em lotes, sem redigir minuta). Quando fica pronto, a Lupa audita com ele (clique em Auditar de novo) e a Mesa roda o briefing sozinha. Um dossiê pronto de um processo é reaproveitado sempre que o mesmo número CNJ aparecer.
+- **Turbo:** acima do limite do Turbo, oferece a leitura em lotes; a minuta vai para o Histórico.
+- **Pesquisa no índice:** “🔎 Pesquisar nos autos deste processo” em cada trabalho (todas as páginas, sem diferenciar acentos).
+- **Conferência de “ausência de prova”:** depois da minuta, o sistema acha frases como “não foi juntado laudo pericial” e procura o termo no índice completo; se achar, mostra um aviso âmbar com as páginas.
+- **Esteira (extensão 1.0.23):** Turbo e análise principal com processo gigante viram o estado “processo gigante”; a fila segue e a minuta é pega no Histórico quando fica pronta.
+- Testes: `teste_gigante.py` (OCR, pesquisa, conferência), `teste_gigante_modulos.py [turbo|lupa|mesa]`.

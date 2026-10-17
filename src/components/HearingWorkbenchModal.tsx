@@ -69,6 +69,13 @@ import {
   SAMPLE_HEARINGS,
 } from '../utils/hearingsDb';
 import { extractTextFromPdf } from '../utils/pdfExtractor';
+import { gerenteGigantes } from '../utils/gigantes/gerente';
+import { descreverCorte, juntarComoServidor, CorteInfo } from '../utils/corteAutos';
+import { ProcessoGrandeDialog, EscolhaDossie } from './ProcessoGrandeDialog';
+import { PainelDossie } from './PainelDossie';
+
+// acima disso a Mesa não lê os autos de uma vez com segurança: usa o dossiê preparado em lotes
+const LIMITE_CHARS_MESA = 1_000_000;
 import { montarTermoTexto, termoTextoParaBlocos } from '../templates/termoAudiencia';
 import { blocosParaHtml, blocosParaTexto, htmlParaBlocos } from '../templates/ataPreliminarModelo';
 import { useAuth } from '../lib/AuthContext';
@@ -126,6 +133,8 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [showRawSourceModal, setShowRawSourceModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dossieEmUsoRef = useRef<Set<string>>(new Set());
+  const [dlgDossie, setDlgDossie] = useState<{ paginas: number; tokens: number; corte: CorteInfo | null; resolver: (e: EscolhaDossie) => void } | null>(null);
 
   // Input fields for Briefing AI Generation
   const [caseInputText, setCaseInputText] = useState('');
@@ -620,6 +629,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     setAiError(null);
     let combinedText = '';
     const fileNames: string[] = [];
+    const extraidos: { nome: string; texto: string; pageCount: number; semTexto?: number[]; naoLidas?: number[]; arquivo?: () => Promise<File | null> }[] = [];
 
     try {
       for (let i = 0; i < fileArray.length; i++) {
@@ -630,9 +640,30 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
         if (file.name.toLowerCase().endsWith('.txt')) {
           const txt = await file.text();
           combinedText += `\n\n==============================\nARQUIVO DOS AUTOS: ${file.name}\n==============================\n${txt}`;
+          extraidos.push({ nome: file.name, texto: txt, pageCount: 0 });
         } else {
           const pdfResult = await extractTextFromPdf(file);
           combinedText += `\n\n==============================\nARQUIVO DOS AUTOS: ${file.name} (Páginas: ${pdfResult.pageCount})\n==============================\n${pdfResult.text}`;
+          extraidos.push({ nome: file.name, texto: pdfResult.text, pageCount: pdfResult.pageCount, semTexto: pdfResult.paginasSemTexto, naoLidas: pdfResult.paginasNaoLidas, arquivo: async () => file });
+        }
+      }
+
+      // Processo grande: acima do limite da Mesa, usa o dossiê preparado em lotes (lê todas as páginas, em segundo plano)
+      let dossieJobIdNovo: string | undefined;
+      if (combinedText.length > LIMITE_CHARS_MESA && document.documentElement.dataset.assessorAuto !== '1') {
+        await gerenteGigantes.carregar();
+        const numero = (combinedText.slice(0, 30000).match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/) || [''])[0];
+        const existente = gerenteGigantes.dossieDoProcesso(numero);
+        if (existente) {
+          try { const d = await gerenteGigantes.obterDossie(existente); combinedText = d.texto; setExtractionProgressText('Usando o dossiê já pronto deste processo (todas as páginas foram lidas em lotes)...'); } catch { /* segue sem dossiê */ }
+        } else {
+          const paginas = extraidos.reduce((t, x) => t + (x.pageCount || 0), 0);
+          const escolhaD = await new Promise<EscolhaDossie>((resolver) => setDlgDossie({ paginas, tokens: Math.round(combinedText.length / 3.2), corte: (() => { try { return descreverCorte(juntarComoServidor(extraidos.map((x) => ({ nome: x.nome, texto: x.texto, paginas: x.pageCount }))), LIMITE_CHARS_MESA); } catch { return null; } })(), resolver }));
+          setDlgDossie(null);
+          if (escolhaD === 'cancelar') { setIsExtractingPdf(false); setExtractionProgressText(''); return; }
+          if (escolhaD === 'preparar') {
+            dossieJobIdNovo = await gerenteGigantes.iniciarComTextos(extraidos, { promptText: '', promptTitle: 'Mesa de Audiência', actType: 'audiencia', processNumber: numero || activeHearing?.processNumber || '', finalidade: 'dossie', origem: 'mesa', userUid: (user as any)?.uid, userEmail: user?.email || '' });
+          }
         }
       }
 
@@ -650,9 +681,14 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
         ...target,
         uploadedPdfNames: Array.from(new Set([...(target.uploadedPdfNames || []), ...fileNames])),
         rawSourceText: combinedText.slice(0, 300000),
+        ...(dossieJobIdNovo ? { dossieJobId: dossieJobIdNovo, dossieAplicado: false } : {}),
       };
       setActiveHearing(preparedTarget);
       await handleSaveActiveHearing(preparedTarget);
+      if (dossieJobIdNovo) {        // o briefing roda sozinho quando o dossiê ficar pronto
+        setExtractionProgressText('');
+        return;
+      }
 
       // Disparar análise probatória automática com IA
       await runAiHearingCopilot(
@@ -669,6 +705,23 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     } finally {
       setIsExtractingPdf(false);
       setExtractionProgressText('');
+    }
+  };
+
+  // Dossiê pronto: roda o briefing da Mesa com o dossiê no lugar dos autos
+  const aplicarDossie = async () => {
+    const alvo = activeHearing;
+    if (!alvo || !alvo.dossieJobId || alvo.dossieAplicado || dossieEmUsoRef.current.has(alvo.dossieJobId)) return;
+    dossieEmUsoRef.current.add(alvo.dossieJobId);       // o aviso de “dossiê pronto” pode chegar mais de uma vez: roda o briefing só uma
+    try {
+      const d = await gerenteGigantes.obterDossie(alvo.dossieJobId);
+      const preparado: HearingRecord = { ...alvo, dossieAplicado: true, rawSourceText: d.texto.slice(0, 300000) };
+      setActiveHearing(preparado);
+      setCaseInputText(d.texto);
+      await handleSaveActiveHearing(preparado);
+      await runAiHearingCopilot('briefing', { caseText: d.texto, uploadedPdfNames: preparado.uploadedPdfNames }, preparado);
+    } catch (err: any) {
+      setAiError(err?.message || 'Não foi possível usar o dossiê preparado.');
     }
   };
 
@@ -730,6 +783,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
 
   return (
     <div className="mesa-escura fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-3 md:p-4 animate-in fade-in duration-200">
+      {dlgDossie && <ProcessoGrandeDialog modulo="mesa" paginas={dlgDossie.paginas} tokens={dlgDossie.tokens} corte={dlgDossie.corte} onEscolha={dlgDossie.resolver} />}
       <div
         className={`bg-slate-900 border-0 sm:border border-slate-700/80 rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100 transition-all duration-300 w-full ${
           isFullScreen ? 'h-full rounded-none' : 'max-w-7xl h-full sm:h-[94vh]'
@@ -1300,6 +1354,10 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                             <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
                             <span className="font-semibold">{extractionProgressText || 'Processando extração dos autos judiciais...'}</span>
                           </div>
+                        )}
+
+                        {activeHearing.dossieJobId && !activeHearing.dossieAplicado && (
+                          <div className="mt-3"><PainelDossie jobId={activeHearing.dossieJobId} rotuloPronto="o briefing vai rodar com ele" onPronto={() => { void aplicarDossie(); }} /></div>
                         )}
 
                         {/* Arquivos PDF Carregados */}

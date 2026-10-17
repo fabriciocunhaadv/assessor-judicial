@@ -23,6 +23,12 @@ import { toast } from "react-hot-toast";
 import { getApiHeaders } from "../utils/apiKeyManager";
 import { extractTextFromPdf } from "../utils/pdfExtractor";
 import { useCoberturaLeitura } from "./useCoberturaLeitura";
+import { GiganteDialog, EscolhaGigante } from "./GiganteDialog";
+import { gerenteGigantes, ConfigGigante } from "../utils/gigantes/gerente";
+import { descreverCorte, juntarComoServidor, CorteInfo } from "../utils/corteAutos";
+
+// acima disso o Turbo cortaria o final dos autos: oferece a leitura em lotes (a minuta vai para o Histórico)
+const LIMITE_CHARS_TURBO = 1_400_000;
 import { AvisoCoberturaLeitura } from "./AvisoCoberturaLeitura";
 import type { GenerationResult, UploadedPdf } from "../types";
 import { CustomPrompt, SavedAnalysis } from "../types";
@@ -89,6 +95,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
   const [inputMode, setInputMode] = useState<"pdf" | "text">("pdf");
   const [pdfFile, setPdfFile] = useState<{ file: File; name: string; size: number; text?: string; pageCount?: number; paginasSemTexto?: number[]; paginasNaoLidas?: number[]; paginasOcr?: number[] } | null>(null);
   const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
+  const [dlgGigante, setDlgGigante] = useState<{ paginas: number; tokens: number; corte: CorteInfo | null; resolver: (e: EscolhaGigante) => void } | null>(null);
   const [resultCobertura, setResultCobertura] = useState<GenerationResult["coberturaLeitura"] | null>(null);
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pastedText, setPastedText] = useState("");
@@ -230,6 +237,28 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
     if (!effectiveText || effectiveText.length < 20) {
       toast.error("Forneça o arquivo PDF com texto selecionável ou cole o texto dos autos.");
       return;
+    }
+
+    // Processo gigante: acima do limite do Turbo o final dos autos seria cortado; oferece a leitura em lotes (a minuta vai para o Histórico)
+    if (effectiveText.length > LIMITE_CHARS_TURBO) {
+      const paginas = inputMode === "pdf" && pdfFile ? (pdfFile.pageCount || 0) : 0;
+      const automatico = document.documentElement.dataset.assessorAuto === "1";
+      const escolhaG = automatico ? "lotes" : await new Promise<EscolhaGigante>((resolver) => setDlgGigante({ paginas, tokens: Math.round(effectiveText.length / 3.2), corte: (() => { try { return descreverCorte(juntarComoServidor([{ nome: pdfFile?.name || "texto dos autos", texto: effectiveText, paginas }]), 1_500_000); } catch { return null; } })(), resolver }));
+      setDlgGigante(null);
+      if (escolhaG === "cancelar") return;
+      if (escolhaG === "limpar") { setPdfFile(null); setPastedText(""); toast("Autos removidos. Envie uma versão reduzida (até 3.000 páginas).", { icon: "🗑️", duration: 7000 }); return; }
+      if (escolhaG === "lotes" || escolhaG === "partes") {
+        const config: ConfigGigante = {
+          promptText: selectedPrompt?.promptText || "", promptTitle: selectedPrompt?.title || "Minuta Turbo", promptId: selectedPrompt?.id, promptCategory: selectedPrompt?.category, promptScope: selectedPrompt?.scope,
+          actType: actType, unitId: activeUnitId, unitName: activeUnitName, instrucao: directive.trim(), origem: "turbo",
+          userUid: user?.uid, userName: user?.displayName || user?.email?.split("@")[0] || "Assessor", userEmail: user?.email || "",
+        };
+        const dados = [{ nome: pdfFile?.name || "Texto dos autos (colado)", texto: effectiveText, pageCount: paginas, semTexto: pdfFile?.paginasSemTexto, naoLidas: pdfFile?.paginasNaoLidas, arquivo: async () => pdfFile?.file || null }];
+        if (escolhaG === "partes") await gerenteGigantes.iniciarPartes(dados, config); else await gerenteGigantes.iniciarComTextos(dados, config);
+        window.dispatchEvent(new CustomEvent("gigantes:abrir"));
+        toast(escolhaG === "partes" ? "Processo dividido em partes, lidas uma de cada vez em segundo plano. Cada parte gera uma minuta no Histórico." : "Processo gigante enviado para a leitura em lotes, em segundo plano. A minuta irá para o Histórico.", { duration: 9000, icon: "📚" });
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -442,6 +471,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
       {dialogCobertura}
+      {dlgGigante && <GiganteDialog paginas={dlgGigante.paginas} tokens={dlgGigante.tokens} corte={dlgGigante.corte} onEscolha={dlgGigante.resolver} />}
       <div className="bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-slate-100">
         
         {/* TOPO / HEADER DO MÓDULO TURBO */}

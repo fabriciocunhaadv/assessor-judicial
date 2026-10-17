@@ -1508,6 +1508,7 @@ app.post("/api/audit-assessor-draft", async (req, res) => {
         accumulatedProcessText = filterInnocuousCertificates(cleanJudicialPdfText(accumulatedProcessText));
         // ALERTA DE PROMPT INJECTION (Lupa do Magistrado): varre os autos antes de qualquer corte/sinopse
         const cobL = montarCobertura(req.body, false);
+        const notaDossieL = req.body?.dossieGigante ? "\n\n[AUTOS EM DOSSIÊ]: o texto dos autos recebido é um DOSSIÊ estruturado (fichas por trecho, com a página de cada informação) mais as peças essenciais na íntegra, porque o processo é grande demais para ser lido de uma vez. Audite a minuta com base nele; NÃO conclua que um documento ou prova \"não existe nos autos\" apenas porque não aparece no dossiê: nesse caso aponte 'não localizei no dossiê' e recomende conferir as páginas." : "";
         let alertaInjecaoL: any = null, defesaInjecaoL = "";
         try { const r = detectarInjecao(accumulatedProcessText); if (r.verificado) alertaInjecaoL = r; if (r.total > 0) { defesaInjecaoL = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][lupa] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
@@ -1705,7 +1706,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             maxCycles: 2,
             contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }, ...cobL.partes] }],
             config: {
-                systemInstruction: "Você é um juiz de direito auditor rigoroso. Responda apenas com JSON válido e completo." + cobL.regra + defesaInjecaoL,
+                systemInstruction: "Você é um juiz de direito auditor rigoroso. Responda apenas com JSON válido e completo." + cobL.regra + notaDossieL + defesaInjecaoL,
                 responseMimeType: "application/json"
             }
         };

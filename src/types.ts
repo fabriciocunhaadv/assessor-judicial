@@ -670,6 +670,7 @@ export interface DocumentInspectionResult {
 
 export interface AssessorDraftAuditResult {
   coberturaLeitura?: GenerationResult["coberturaLeitura"];
+  gigante?: GenerationResult["gigante"];
   alertaInjecao?: {
     verificado?: boolean;
     caracteres?: number;
@@ -970,6 +971,9 @@ export interface HearingRecord {
   
   // Extração de PDF e Peças
   uploadedPdfNames?: string[];
+  /** dossiê preparado em lotes (processo grande): trabalho dos Gigantes e se a análise já foi feita com ele */
+  dossieJobId?: string;
+  dossieAplicado?: boolean;
   rawSourceText?: string;
   ataPreliminar?: AtaPreliminarDados;
   ataPreliminarHtml?: string; // versão EDITADA da ata (HTML limpo), salva pelo usuário/copiloto
