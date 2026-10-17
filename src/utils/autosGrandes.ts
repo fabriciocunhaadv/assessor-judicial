@@ -14,7 +14,7 @@ type Classe = "essencial" | "relevante" | "dispensavel";
 const ehErroEntradaGrande = (e: any) => !!e && (e.codigo === "ENTRADA_GRANDE_GRATUITA" || String(e?.message || "").includes("free_tier_input_token_count"));
 const limiteDoErro = (e: any) => Number(String(e?.detalhe || e?.message || "").match(/limit:\s*(\d{4,9})/i)?.[1]) || 250000;
 const dorme = (ms: number) => new Promise(r => setTimeout(r, ms));
-const estimar = (contents: any, sys: any) => Math.ceil((JSON.stringify(contents || "").length + String(typeof sys === "string" ? sys : JSON.stringify(sys || "")).length) / CPT);
+const estimar = (contents: any, sys: any) => Math.ceil((JSON.stringify(contents || "", (k, v) => (k === "data" && typeof v === "string" && v.length > 3000 ? v.slice(0, 3000) : v)).length + String(typeof sys === "string" ? sys : JSON.stringify(sys || "")).length) / CPT);
 
 const SISTEMA_CLASSIFICADOR = `Você é um CLASSIFICADOR DE RELEVÂNCIA de páginas de autos judiciais brasileiros (TJGO). Você recebe parte dos autos, página a página (marcadores "[Página N de M]"), e o contexto do ato que será minutado.
 Classifique cada página quanto à utilidade para redigir a minuta (relatório, fundamentação e dispositivo):

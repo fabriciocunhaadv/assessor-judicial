@@ -262,6 +262,48 @@ app.post("/api/extract-pdf-text", async (req, res) => {
     }
 });
 
+// Cobertura da leitura: páginas que o sistema não conseguiu ler não podem virar "ausência de prova" na minuta (usada na análise principal, no Turbo e na Lupa)
+function montarCobertura(body: any, textoCortado: boolean): { cobertura: any; regra: string; partes: any[] } {
+    let cobertura: any = null; let regra = ""; const partes: any[] = [];
+    try {
+        const cob = body?.coberturaLeitura;
+        const faixa = (nums: any): string => {
+            const v: number[] = (Array.isArray(nums) ? nums : []).map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0).sort((a: number, b: number) => a - b);
+            const out: string[] = []; let i = 0;
+            while (i < v.length) { let j = i; while (j + 1 < v.length && v[j + 1] === v[j] + 1) j++; out.push(j > i ? `${v[i]}-${v[j]}` : `${v[i]}`); i = j + 1; }
+            return out.join(", ");
+        };
+        const arquivos: any[] = Array.isArray(cob?.arquivos) ? cob.arquivos : [];
+        const lacunas = arquivos.map((a: any) => ({ arquivo: String(a?.nome || "arquivo"), total: Number(a?.totalPaginas) || 0, paginas: faixa([...(a?.semTexto || []), ...(a?.naoLidas || [])]), qtd: (Array.isArray(a?.semTexto) ? a.semTexto.length : 0) + (Array.isArray(a?.naoLidas) ? a.naoLidas.length : 0) })).filter((l: any) => l.qtd > 0);
+        const imagens: any[] = Array.isArray(body?.paginasImagens) ? body.paginasImagens.slice(0, 40) : [];
+        let nImagens = 0;
+        for (const im of imagens) {
+            const d = String(im?.data || "").replace(/^data:[^;]+;base64,/, "");
+            if (d) { nImagens++; partes.push({ text: `[IMAGEM DA PÁGINA ${Number(im.pagina) || "?"} DOS AUTOS (${String(im.arquivo || "")}) - sem camada de texto; leia visualmente como parte dos autos]` }); partes.push({ inlineData: { mimeType: "image/jpeg", data: d } }); }
+        }
+        if (cob || textoCortado) {
+            cobertura = {
+                totalPaginas: arquivos.reduce((n: number, a: any) => n + (Number(a?.totalPaginas) || 0), 0),
+                lacunas: lacunas.map((l: any) => ({ arquivo: l.arquivo, paginas: l.paginas, qtd: l.qtd })),
+                escolha: String(cob?.escolha || ""),
+                paginasOcr: Number(cob?.paginasOcr) || 0,
+                paginasImagem: nImagens,
+                textoCortado,
+                completa: lacunas.length === 0 && !textoCortado,
+            };
+        }
+        if (lacunas.length > 0 || textoCortado) {
+            regra = `\n\n[COBERTURA DA LEITURA - REGRA MANDATÓRIA ANTI-FALSA-AUSÊNCIA-DE-PROVA]:\n`
+                + (lacunas.length > 0 ? `O sistema NÃO conseguiu ler o texto destas páginas dos autos (imagem/escaneado sem texto): ${lacunas.map((l: any) => `${l.arquivo}: págs. ${l.paginas}`).join("; ")}. Essas páginas PODEM conter provas, documentos, contestação ou decisões.\n` : "")
+                + (textoCortado ? `Os autos excederam o limite técnico e o FINAL do texto foi cortado: documentos posteriores podem não ter sido lidos.\n` : "")
+                + `1. É PROIBIDO afirmar na minuta que "não há prova", "não foi juntado documento", "não consta dos autos", "a parte não comprovou" ou fundamentar procedência/improcedência por ausência probatória quando a prova poderia estar nas páginas não lidas.\n`
+                + `2. Quando faltar prova nos trechos lidos, use a redação: "não localizei, nos trechos lidos pelo sistema, ..." e inclua obrigatoriamente no início do Relatório a nota: "[CONFERIR PÁGINAS NÃO LIDAS PELO SISTEMA: ${lacunas.map((l: any) => `${l.arquivo} págs. ${l.paginas}`).join("; ") || "final dos autos"} - verificar antes de assinar]".\n`
+                + `3. Se a conclusão do mérito depender dessas lacunas, aponte a dependência e recomende a conferência humana em vez de decidir por ausência de prova.\n`;
+        }
+    } catch (eCob) { console.log("[Cobertura da leitura] falha (ignorada):", (eCob as any)?.message); }
+    return { cobertura, regra, partes };
+}
+
 app.post("/api/ocr-paginas", async (req, res) => {
     try {
         const imagens: any[] = Array.isArray(req.body?.images) ? req.body.images.slice(0, 8) : [];
@@ -934,6 +976,7 @@ app.post("/api/generate-minute-turbo", async (req, res) => {
         // Conforme diretriz soberana, a IA recebe o contexto integral de todas as peças,
         // decisões anteriores, certidões e provas para avaliar com precisão a marcha processual.
         if (accumulatedText.length > 1500000) accumulatedText = accumulatedText.substring(0, 750000) + "\n\n... [AUTOS ABREVIADOS: trecho do meio omitido por limite técnico] ...\n\n" + accumulatedText.substring(accumulatedText.length - 750000);
+        const cobT = montarCobertura(req.body, false);
         let alertaInjecaoT: any = null, defesaInjecaoT = "";
         try { const r = detectarInjecao(accumulatedText); if (r.verificado) alertaInjecaoT = r; if (r.total > 0) { defesaInjecaoT = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][turbo] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
@@ -1075,10 +1118,10 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
             maxCycles: 2,
             cycleDelayMs: 8000,
             contents: [
-                { role: "user", parts: [{ text: userPrompt }] }
+                { role: "user", parts: [{ text: userPrompt }, ...cobT.partes] }
             ],
             config: {
-                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + defesaInjecaoT,
+                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + cobT.regra + defesaInjecaoT,
                 temperature: 0.1,
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
@@ -1284,6 +1327,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
         };
 
         if (alertaInjecaoT) (payload as any).alertaInjecao = alertaInjecaoT;
+        if (cobT.cobertura) (payload as any).coberturaLeitura = cobT.cobertura;
         if (!res.headersSent) {
             res.json(payload);
         } else {
@@ -1355,6 +1399,7 @@ app.post("/api/audit-assessor-draft", async (req, res) => {
         // Filtro de Ruídos em Certidões e Metadados Cartorários
         accumulatedProcessText = filterInnocuousCertificates(cleanJudicialPdfText(accumulatedProcessText));
         // ALERTA DE PROMPT INJECTION (Lupa do Magistrado): varre os autos antes de qualquer corte/sinopse
+        const cobL = montarCobertura(req.body, false);
         let alertaInjecaoL: any = null, defesaInjecaoL = "";
         try { const r = detectarInjecao(accumulatedProcessText); if (r.verificado) alertaInjecaoL = r; if (r.total > 0) { defesaInjecaoL = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][lupa] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
@@ -1550,9 +1595,9 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
             timeoutMs: 150000,
             maxCycles: 2,
-            contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }] }],
+            contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }, ...cobL.partes] }],
             config: {
-                systemInstruction: "Você é um juiz de direito auditor rigoroso. Responda apenas com JSON válido e completo." + defesaInjecaoL,
+                systemInstruction: "Você é um juiz de direito auditor rigoroso. Responda apenas com JSON válido e completo." + cobL.regra + defesaInjecaoL,
                 responseMimeType: "application/json"
             }
         };
@@ -1634,6 +1679,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
         };
 
         if (alertaInjecaoL) (finalResult as any).alertaInjecao = alertaInjecaoL;
+        if (cobL.cobertura) (finalResult as any).coberturaLeitura = cobL.cobertura;
         return res.json(finalResult);
     } catch (err: any) {
         console.error("Erro no audit-assessor-draft:", err);
@@ -4083,43 +4129,8 @@ try {
 } catch (eInj) { console.log("[Prompt Injection] falha na verificação (ignorada):", (eInj as any)?.message); }
 const hasPdfs=Boolean(pdfFiles&&Array.isArray(pdfFiles)&&pdfFiles.length>0);const hasPrompt=Boolean(customPromptText&&typeof customPromptText==="string"&&customPromptText.trim().length>0);const hasProcessNumber=Boolean(processInfo?.processNumber&&processInfo.processNumber.trim().length>3&&processInfo.processNumber!=="Extrair automaticamente dos autos");const hasAnyContent=hasText||accumulatedPdfText.length>0||contentsParts.length>0||hasPdfs||hasPrompt||hasProcessNumber;if(!hasAnyContent){return res.status(400).json({error:"É obrigatório fornecer o PDF dos autos, o texto processual ou as diretrizes do prompt."})}
 
-// Cobertura da leitura: páginas que o sistema não conseguiu ler não podem virar "ausência de prova" na minuta
 let coberturaLeitura: any = null; let regraCobertura = "";
-try {
-    const cob = (req.body as any).coberturaLeitura;
-    const faixa = (nums: any): string => {
-        const v: number[] = (Array.isArray(nums) ? nums : []).map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n) && n > 0).sort((a: number, b: number) => a - b);
-        const out: string[] = []; let i = 0;
-        while (i < v.length) { let j = i; while (j + 1 < v.length && v[j + 1] === v[j] + 1) j++; out.push(j > i ? `${v[i]}-${v[j]}` : `${v[i]}`); i = j + 1; }
-        return out.join(", ");
-    };
-    const arquivos: any[] = Array.isArray(cob?.arquivos) ? cob.arquivos : [];
-    const lacunas = arquivos.map((a: any) => ({ arquivo: String(a?.nome || "arquivo"), total: Number(a?.totalPaginas) || 0, paginas: faixa([...(a?.semTexto || []), ...(a?.naoLidas || [])]), qtd: (Array.isArray(a?.semTexto) ? a.semTexto.length : 0) + (Array.isArray(a?.naoLidas) ? a.naoLidas.length : 0) })).filter((l: any) => l.qtd > 0);
-    const imagens: any[] = Array.isArray((req.body as any).paginasImagens) ? (req.body as any).paginasImagens.slice(0, 40) : [];
-    for (const im of imagens) {
-        const d = String(im?.data || "").replace(/^data:[^;]+;base64,/, "");
-        if (d) { contentsParts.push({ text: `[IMAGEM DA PÁGINA ${Number(im.pagina) || "?"} DOS AUTOS (${String(im.arquivo || "")}) - sem camada de texto; leia visualmente como parte dos autos]` }); contentsParts.push({ inlineData: { mimeType: "image/jpeg", data: d } }); }
-    }
-    if (cob || textoCortadoNoLimite) {
-        coberturaLeitura = {
-            totalPaginas: arquivos.reduce((n: number, a: any) => n + (Number(a?.totalPaginas) || 0), 0),
-            lacunas: lacunas.map((l: any) => ({ arquivo: l.arquivo, paginas: l.paginas, qtd: l.qtd })),
-            escolha: String(cob?.escolha || ""),
-            paginasOcr: Number(cob?.paginasOcr) || 0,
-            paginasImagem: imagens.length,
-            textoCortado: textoCortadoNoLimite,
-            completa: lacunas.length === 0 && !textoCortadoNoLimite,
-        };
-    }
-    if (lacunas.length > 0 || textoCortadoNoLimite) {
-        regraCobertura = `\n\n[COBERTURA DA LEITURA - REGRA MANDATÓRIA ANTI-FALSA-AUSÊNCIA-DE-PROVA]:\n`
-            + (lacunas.length > 0 ? `O sistema NÃO conseguiu ler o texto destas páginas dos autos (imagem/escaneado sem texto): ${lacunas.map((l: any) => `${l.arquivo}: págs. ${l.paginas}`).join("; ")}. Essas páginas PODEM conter provas, documentos, contestação ou decisões.\n` : "")
-            + (textoCortadoNoLimite ? `Os autos excederam o limite técnico e o FINAL do texto foi cortado: documentos posteriores podem não ter sido lidos.\n` : "")
-            + `1. É PROIBIDO afirmar na minuta que "não há prova", "não foi juntado documento", "não consta dos autos", "a parte não comprovou" ou fundamentar procedência/improcedência por ausência probatória quando a prova poderia estar nas páginas não lidas.\n`
-            + `2. Quando faltar prova nos trechos lidos, use a redação: "não localizei, nos trechos lidos pelo sistema, ..." e inclua obrigatoriamente no início do Relatório a nota: "[CONFERIR PÁGINAS NÃO LIDAS PELO SISTEMA: ${lacunas.map((l: any) => `${l.arquivo} págs. ${l.paginas}`).join("; ") || "final dos autos"} - verificar antes de assinar]".\n`
-            + `3. Se a conclusão do mérito depender dessas lacunas, aponte a dependência e recomende a conferência humana em vez de decidir por ausência de prova.\n`;
-    }
-} catch (eCob) { console.log("[Cobertura da leitura] falha (ignorada):", (eCob as any)?.message); }
+{ const cobM = montarCobertura(req.body, textoCortadoNoLimite); coberturaLeitura = cobM.cobertura; regraCobertura = cobM.regra; contentsParts.push(...cobM.partes); }
 
 // Safeguard anti-alucinação: se o usuário anexou PDFs, mas nenhum texto foi extraído e não há texto digitado
 const rawPdfTextLength = accumulatedPdfText.replace(/\[===.*?===\]/g, "").replace(/\(.*?\)/g, "").trim().length;

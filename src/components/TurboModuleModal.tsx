@@ -22,6 +22,9 @@ import {
 import { toast } from "react-hot-toast";
 import { getApiHeaders } from "../utils/apiKeyManager";
 import { extractTextFromPdf } from "../utils/pdfExtractor";
+import { useCoberturaLeitura } from "./useCoberturaLeitura";
+import { AvisoCoberturaLeitura } from "./AvisoCoberturaLeitura";
+import type { GenerationResult, UploadedPdf } from "../types";
 import { CustomPrompt, SavedAnalysis } from "../types";
 import { saveToHistory } from "../utils/historyDb";
 import { auth } from "../lib/firebase";
@@ -84,7 +87,9 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
   user,
 }) => {
   const [inputMode, setInputMode] = useState<"pdf" | "text">("pdf");
-  const [pdfFile, setPdfFile] = useState<{ file: File; name: string; size: number; text?: string; pageCount?: number } | null>(null);
+  const [pdfFile, setPdfFile] = useState<{ file: File; name: string; size: number; text?: string; pageCount?: number; paginasSemTexto?: number[]; paginasNaoLidas?: number[]; paginasOcr?: number[] } | null>(null);
+  const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
+  const [resultCobertura, setResultCobertura] = useState<GenerationResult["coberturaLeitura"] | null>(null);
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pastedText, setPastedText] = useState("");
   const [actType, setActType] = useState<"auto" | "sentenca" | "decisao" | "despacho">("auto");
@@ -161,6 +166,8 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
         size: file.size,
         text: extraction.text,
         pageCount: extraction.pageCount,
+        paginasSemTexto: extraction.paginasSemTexto,
+        paginasNaoLidas: extraction.paginasNaoLidas,
       });
       if (extraction.pageCount > 100) {
         toast(`PDF com ${extraction.pageCount} páginas lido. A faixa ideal do Turbo é até 80 a 100 págs. Autos volumosos podem demorar mais. Para processos extensos, recomendamos a Esteira Principal.`, {
@@ -198,6 +205,8 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
         size: file.size,
         text: extraction.text,
         pageCount: extraction.pageCount,
+        paginasSemTexto: extraction.paginasSemTexto,
+        paginasNaoLidas: extraction.paginasNaoLidas,
       });
       if (extraction.pageCount > 100) {
         toast(`PDF com ${extraction.pageCount} páginas lido. A faixa ideal do Turbo é até 80 a 100 págs. Para autos muito volumosos, você também pode utilizar a Esteira Principal.`, {
@@ -226,6 +235,24 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
     setIsLoading(true);
     setResultMinute(null);
     setResultStats(null);
+    setResultCobertura(null);
+
+    // Cobertura da leitura: páginas sem texto (escaneadas/fotos) podem esconder provas; pergunta OCR/leitura visual antes de analisar
+    let textoDosAutos = effectiveText;
+    let coberturaEnvio: any = null;
+    let imagensEnvio: any[] = [];
+    if (inputMode === "pdf" && pdfFile) {
+      const up: UploadedPdf = { id: "turbo-pdf", name: pdfFile.name, size: pdfFile.size, mimeType: "application/pdf", file: pdfFile.file, extractedText: pdfFile.text || "", pageCount: pdfFile.pageCount, paginasSemTexto: pdfFile.paginasSemTexto, paginasNaoLidas: pdfFile.paginasNaoLidas, paginasOcr: pdfFile.paginasOcr };
+      const cob = await resolverCoberturaLeitura([up]);
+      if (cob.cancelado) {
+        setIsLoading(false);
+        return;
+      }
+      textoDosAutos = (up.extractedText || "").trim() || effectiveText;
+      coberturaEnvio = cob.cobertura;
+      imagensEnvio = cob.imagens;
+      setPdfFile({ ...pdfFile, text: up.extractedText, paginasSemTexto: up.paginasSemTexto, paginasNaoLidas: up.paginasNaoLidas, paginasOcr: up.paginasOcr });
+    }
 
     const controller = new AbortController();
     const abortTimeout = setTimeout(() => controller.abort(), 780000); // 13 minutos: processos grandes passam por várias partes e esperam a janela de 1 minuto da IA
@@ -238,7 +265,9 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
         body: JSON.stringify({
           // Não duplica o texto no body: envia apenas em processText ou no array de pdfFiles
           processText: inputMode === "text" ? effectiveText : "",
-          pdfFiles: inputMode === "pdf" && pdfFile ? [{ name: pdfFile.name, extractedText: pdfFile.text, pageCount: pdfFile.pageCount }] : [],
+          pdfFiles: inputMode === "pdf" && pdfFile ? [{ name: pdfFile.name, extractedText: textoDosAutos, pageCount: pdfFile.pageCount }] : [],
+          coberturaLeitura: coberturaEnvio,
+          paginasImagens: imagensEnvio,
           actType,
           comarcaVara: activeUnitName || "Comarca de Montes Claros / Vara Única - TJGO",
           specificInstructions: directive.trim(),
@@ -266,6 +295,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
 
       setResultMinute(generated);
       setResultStats(stats);
+      setResultCobertura(data.coberturaLeitura || null);
       toast.success(`Minuta Turbo gerada em ${stats?.elapsedSeconds || "15"}s! ⚡`);
 
       // Registra telemetria de consumo de tokens no Painel Super Admin e faturamento
@@ -411,6 +441,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+      {dialogCobertura}
       <div className="bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-slate-100">
         
         {/* TOPO / HEADER DO MÓDULO TURBO */}
@@ -537,6 +568,8 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {resultCobertura && !viewHistoryItem && <AvisoCoberturaLeitura info={resultCobertura} />}
 
               {/* Seletor de abas da minuta gerada */}
               <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-semibold overflow-x-auto no-scrollbar">

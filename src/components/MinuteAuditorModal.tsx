@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { AvisoPromptInjection } from "./AvisoPromptInjection";
 import ReactMarkdown from 'react-markdown';
 import {
@@ -63,6 +63,8 @@ import {
   CustomPrompt,
 } from "../types";
 import { extractTextFromPdf } from "../utils/pdfExtractor";
+import { useCoberturaLeitura } from "./useCoberturaLeitura";
+import { AvisoCoberturaLeitura } from "./AvisoCoberturaLeitura";
 import {
   getAudits,
   saveAudit,
@@ -138,6 +140,8 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
   const [assessorNameInput, setAssessorNameInput] = useState<string>("");
   const [processText, setProcessText] = useState<string>(initialProcessText || "");
   const [pdfFiles, setPdfFiles] = useState<UploadedPdf[]>(initialPdfs || []);
+  const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
+  const coberturaRef = useRef<any>(null);
   const [inputMode, setInputMode] = useState<"pdf" | "text">("pdf");
   const [specificInstructions, setSpecificInstructions] = useState<string>("");
 
@@ -351,6 +355,9 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
           mimeType: "application/pdf",
           extractedText: extraction.text,
           pageCount: extraction.pageCount,
+          paginasSemTexto: extraction.paginasSemTexto,
+          paginasNaoLidas: extraction.paginasNaoLidas,
+          file,
           isExtracting: false,
         };
         setPdfFiles((prev) => [...prev, newPdf]);
@@ -378,6 +385,9 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
           mimeType: "application/pdf",
           extractedText: extraction.text,
           pageCount: extraction.pageCount,
+          paginasSemTexto: extraction.paginasSemTexto,
+          paginasNaoLidas: extraction.paginasNaoLidas,
+          file,
           isExtracting: false,
         };
         setReAuditPdfs((prev) => [...prev, newPdf]);
@@ -658,6 +668,7 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
         body: JSON.stringify({
           processText: targetText,
           pdfFiles: sanitizedPdfs,
+          coberturaLeitura: coberturaRef.current,
           customPromptText: selectedPrompt?.promptText || "",
           actType: "sentenca",
           proceduralPhase: "conhecimento",
@@ -731,6 +742,22 @@ ${specificInstructions}`
     setIsAuditing(true);
     setAuditStep("Lendo e confrontando peças processuais dos autos com a minuta...");
 
+    // Cobertura da leitura: páginas sem texto (escaneadas/fotos) podem esconder provas; pergunta OCR/leitura visual antes de auditar
+    let coberturaEnvio: any = null;
+    let imagensEnvio: any[] = [];
+    if (pdfFiles.length > 0) {
+      const cob = await resolverCoberturaLeitura(pdfFiles, setAuditStep);
+      setPdfFiles([...pdfFiles]);
+      if (cob.cancelado) {
+        setIsAuditing(false);
+        return;
+      }
+      coberturaEnvio = cob.cobertura;
+      imagensEnvio = cob.imagens;
+      coberturaRef.current = cob.cobertura;
+      setAuditStep("Lendo e confrontando peças processuais dos autos com a minuta...");
+    }
+
     const stepInterval = setInterval(() => {
       setAuditStep((curr) => {
         if (curr.includes("Lendo e confrontando"))
@@ -766,6 +793,8 @@ ${specificInstructions}`
           draftText,
           processText: fullProcessText || processText,
           pdfFiles: sanitizedPdfFiles,
+          coberturaLeitura: coberturaEnvio,
+          paginasImagens: imagensEnvio,
           specificInstructions,
           customPromptText: selectedPrompt?.promptText || "",
           cabinetTesesText: (await getCabinetTeses().catch(() => null))?.text || "",
@@ -872,6 +901,7 @@ ${specificInstructions}`
             body: JSON.stringify({
               processText: fullProcessText,
               pdfFiles: pdfFiles,
+              coberturaLeitura: coberturaEnvio,
               customPromptText: selectedPrompt?.promptText || "",
               actType: "sentenca",
               proceduralPhase: "conhecimento",
@@ -1570,6 +1600,7 @@ ${reAuditNotes}`
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in">
+      {dialogCobertura}
       <div className="bg-slate-900 border border-amber-500/40 sm:rounded-2xl w-full max-w-6xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
         
         {/* MODAL HEADER: Gold Luxury Bar */}
@@ -2571,6 +2602,7 @@ ${reAuditNotes}`
             <div className="space-y-6">
               
               {auditResult.alertaInjecao && <AvisoPromptInjection info={auditResult.alertaInjecao} />}
+              {auditResult.coberturaLeitura && <AvisoCoberturaLeitura info={auditResult.coberturaLeitura} />}
 
               {/* SCORE CARD & VERDICT BANNER */}
               <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-amber-500/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">

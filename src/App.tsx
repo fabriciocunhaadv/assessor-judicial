@@ -5,8 +5,7 @@ import { PromptSelectorAndEditor } from "./components/PromptSelectorAndEditor";
 import { SystemTour } from "./components/SystemTour";
 import { PromptManagerModal } from "./components/PromptManagerModal";
 import { PdfUploadZone } from "./components/PdfUploadZone";
-import { CoberturaLeituraDialog, LacunaArquivo } from "./components/CoberturaLeituraDialog";
-import { ocrPaginas, renderizarPaginas, blocoOcr } from "./utils/ocrPaginas";
+import { useCoberturaLeitura } from "./components/useCoberturaLeitura";
 import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
 import { MinuteViewer } from "./components/MinuteViewer";
 import { HistoryModal } from "./components/HistoryModal";
@@ -225,7 +224,7 @@ export default function App() {
   // Process Execution State
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingStep, setLoadingStep] = useState<string>("");
-  const [dlgCobertura, setDlgCobertura] = useState<{ lacunas: LacunaArquivo[]; progresso: { feitas: number; total: number; etapa: string } | null; resolver: (e: "ocr" | "visual" | "seguir" | "cancelar") => void } | null>(null);
+  const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
   const coberturaEnvioRef = useRef<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
@@ -810,87 +809,6 @@ export default function App() {
     setDismissedParadigmId(null);
   };
 
-  // Cobertura da leitura: páginas sem texto (escaneadas/fotos) podem esconder provas; pergunta antes de analisar (não bloqueia)
-  const resolverCoberturaLeitura = async (pdfs: UploadedPdf[]): Promise<{ cancelado: boolean; cobertura: any; imagens: any[] }> => {
-    const montar = (escolha: string, paginasOcr: number, semTextoOverride?: Map<string, number[]>) => ({
-      escolha,
-      paginasOcr,
-      arquivos: pdfs.map((p) => ({
-        nome: p.name,
-        totalPaginas: p.pageCount || 0,
-        semTexto: semTextoOverride?.get(p.id) ?? (p.base64 ? [] : (p.paginasSemTexto || [])),
-        naoLidas: p.base64 ? [] : (p.paginasNaoLidas || []),
-      })),
-    });
-    const lacunasDe = (): (LacunaArquivo & { id: string })[] =>
-      pdfs
-        .filter((p) => !p.base64)
-        .map((p) => ({ id: p.id, nome: p.name, total: p.pageCount || 0, paginas: Array.from(new Set([...(p.paginasSemTexto || []), ...(p.paginasNaoLidas || [])])).sort((a, b) => a - b) }))
-        .filter((l) => l.paginas.length > 0);
-    const lacunas = lacunasDe();
-    const qtd = lacunas.reduce((n, l) => n + l.paginas.length, 0);
-    const totalPag = lacunas.reduce((n, l) => n + l.total, 0);
-    if (qtd === 0) return { cancelado: false, cobertura: montar("", 0), imagens: [] };
-    if (qtd < 3 && qtd / Math.max(1, totalPag) < 0.05) return { cancelado: false, cobertura: montar("pequena", 0), imagens: [] };
-
-    const escolha = await new Promise<"ocr" | "visual" | "seguir" | "cancelar">((resolver) => setDlgCobertura({ lacunas, progresso: null, resolver }));
-    const progresso = (feitas: number, total: number, etapa: string) => setDlgCobertura((prev) => (prev ? { ...prev, progresso: { feitas, total, etapa } } : prev));
-    const arquivoDe = async (p: UploadedPdf): Promise<File | null> => {
-      if (!p.previewUrl) return null;
-      try {
-        const b = await (await fetch(p.previewUrl)).blob();
-        return new File([b], p.name, { type: "application/pdf" });
-      } catch { return null; }
-    };
-    try {
-      if (escolha === "cancelar") return { cancelado: true, cobertura: null, imagens: [] };
-      if (escolha === "seguir") return { cancelado: false, cobertura: montar("seguir", 0), imagens: [] };
-      if (escolha === "ocr") {
-        let feitas = 0;
-        let ocrN = 0;
-        progresso(0, qtd, "Lendo páginas com OCR:");
-        for (const l of lacunas) {
-          const p = pdfs.find((x) => x.id === l.id)!;
-          const f = await arquivoDe(p);
-          if (!f) { feitas += l.paginas.length; continue; }
-          const base = feitas;
-          const r = await ocrPaginas(f, l.paginas, (n) => progresso(base + n, qtd, "Lendo páginas com OCR:"));
-          feitas += l.paginas.length;
-          const lidas = Object.keys(r.textos).map(Number);
-          ocrN += lidas.length;
-          p.extractedText = (p.extractedText || "") + blocoOcr(r.textos);
-          p.paginasOcr = [...(p.paginasOcr || []), ...lidas];
-          p.paginasSemTexto = r.falhas;
-          p.paginasNaoLidas = [];
-        }
-        setPdfFiles([...pdfs]);
-        return { cancelado: false, cobertura: montar("ocr", ocrN), imagens: [] };
-      }
-      // leitura visual direta (até 30 páginas)
-      const imagens: any[] = [];
-      const restantes = new Map<string, number[]>();
-      let sobra = 30;
-      progresso(0, Math.min(qtd, 30), "Preparando imagens das páginas:");
-      for (const l of lacunas) {
-        const p = pdfs.find((x) => x.id === l.id)!;
-        const pegar = l.paginas.slice(0, sobra);
-        const f = pegar.length > 0 ? await arquivoDe(p) : null;
-        let ok: number[] = [];
-        if (f) {
-          const base = imagens.length;
-          const imgs = await renderizarPaginas(f, pegar, (n) => progresso(base + n, Math.min(qtd, 30), "Preparando imagens das páginas:"));
-          imgs.forEach((im) => imagens.push({ arquivo: p.name, pagina: im.pagina, data: im.data }));
-          ok = imgs.map((im) => im.pagina);
-        }
-        sobra -= ok.length;
-        restantes.set(p.id, l.paginas.filter((n) => !ok.includes(n)));
-      }
-      return { cancelado: false, cobertura: montar("visual", 0, restantes), imagens };
-    } finally {
-      setDlgCobertura(null);
-    }
-  };
-
   const handleExecutePrompt = async () => {
     const access = checkUserAiAccess(userProfile, user?.email);
     if (!access.canExecute) {
@@ -990,7 +908,8 @@ export default function App() {
     }
 
     {
-      const cob = await resolverCoberturaLeitura(effectivePdfFiles);
+      const cob = await resolverCoberturaLeitura(effectivePdfFiles, setLoadingStep);
+      setPdfFiles([...effectivePdfFiles]);
       if (cob.cancelado) {
         setIsLoading(false);
         return;
@@ -2109,7 +2028,7 @@ export default function App() {
           </div>
         )}
 
-        {dlgCobertura && <CoberturaLeituraDialog lacunas={dlgCobertura.lacunas} progresso={dlgCobertura.progresso} onEscolha={dlgCobertura.resolver} />}
+        {dialogCobertura}
 
         {/* Loading Progress Card */}
         {isLoading && (

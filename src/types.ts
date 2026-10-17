@@ -541,6 +541,8 @@ export interface UploadedPdf {
   paginasNaoLidas?: number[];
   /** páginas cujo texto veio do OCR por IA */
   paginasOcr?: number[];
+  /** arquivo original em memória (não é enviado ao servidor) */
+  file?: File;
 }
 
 export interface SampleCase {
@@ -654,6 +656,7 @@ export interface DocumentInspectionResult {
 }
 
 export interface AssessorDraftAuditResult {
+  coberturaLeitura?: GenerationResult["coberturaLeitura"];
   alertaInjecao?: {
     verificado?: boolean;
     caracteres?: number;
