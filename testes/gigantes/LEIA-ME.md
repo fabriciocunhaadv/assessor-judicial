@@ -1,6 +1,6 @@
 # Processos gigantes (leitura em lotes, em segundo plano)
 
-Fase 1: até 2.500 páginas, com a aba do app aberta.
+Fase 1: até 3.000 páginas, com a aba do app aberta.
 
 **Como funciona**
 1. O texto dos PDFs vai para um banco local do navegador (IndexedDB); nada fica na memória.

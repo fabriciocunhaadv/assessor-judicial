@@ -9,7 +9,7 @@ try:
     for _ in range(90):
         try: urllib.request.urlopen("http://127.0.0.1:5198/testes/gigantes/gig.html", timeout=2); break
         except Exception: time.sleep(1)
-    b64 = base64.b64encode(processo(2600, injecao=False, vazias=())).decode()
+    b64 = base64.b64encode(processo(3100, injecao=False, vazias=())).decode()
     with sync_playwright() as p:
         b = p.chromium.launch(executable_path=glob.glob("/opt/pw-browsers/chromium-*/chrome-linux*/chrome")[0], args=["--no-sandbox"])
         pg = b.new_page(); pg.goto("http://127.0.0.1:5198/testes/gigantes/gig.html"); pg.wait_for_timeout(1500)
@@ -17,7 +17,7 @@ try:
             await window.gerente.carregar(); window.gerente.iniciar([new File([u], 'enorme.pdf', {type:'application/pdf'})], {promptText:'P', promptTitle:'S', actType:'sentenca'}); }""", b64)
         pg.wait_for_function("window.gerente.lista()[0] && window.gerente.lista()[0].status === 'erro'", timeout=180000)
         e = pg.evaluate("window.gerente.lista()[0].erro"); print(e)
-        assert "2500" in e and "2600" in e
+        assert "3000" in e and "3100" in e
         b.close()
     print("OK")
 finally:

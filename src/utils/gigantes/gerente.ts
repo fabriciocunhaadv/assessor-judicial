@@ -19,7 +19,7 @@ const FOLGA_APOS_PISTA_NORMAL_MS = Number((globalThis as any).__GIGANTE_FOLGA_MS
 const INTERVALO_ENTRE_CHAMADAS_MS = Number((globalThis as any).__GIGANTE_INTERVALO_MS ?? 45000);
 const ESPERA_MAXIMA_PISTA_MS = 20 * 60000;
 /** Limite desta fase: acima disso é preciso mais cota (várias chaves ou faturamento) e execução em servidor. */
-export const LIMITE_PAGINAS_GIGANTE = 2500;
+export const LIMITE_PAGINAS_GIGANTE = 3000;
 const LIMITE_PAGINAS = LIMITE_PAGINAS_GIGANTE;
 const dorme = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
