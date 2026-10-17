@@ -96,12 +96,12 @@ async function chamar(gerar: (o: any) => Promise<any>, base: any, extra: any, pa
 }
 
 export async function gerarComAutosGrandes(gerar: (o: any) => Promise<any>, opts: any): Promise<any> {
-    const { autosGrandes, ...resto } = opts;
+    const { autosGrandes, onProgresso, ...resto } = opts;
     try {
         return await gerar(resto);
     } catch (e: any) {
         if (!autosGrandes || !ehErroEntradaGrande(e)) throw e;
-        const log = (m: string) => console.log(m);
+        const log = (m: string) => { console.log(m); if (onProgresso && /, tentativa \d+:/.test(m)) onProgresso("aguardando a janela de 1 minuto da cota da IA renovar…"); };
         const pausa = Number(process.env.AUTOS_GRANDES_PAUSA_MS || 62000);
         const prompt: string = autosGrandes.userPrompt;
         const grandes: string[] = (autosGrandes.textos || []).filter((t: any) => typeof t === "string" && t.length >= MIN_CHARS_AUTOS && prompt.includes(t)).sort((a: string, b: string) => b.length - a.length);
@@ -134,12 +134,14 @@ export async function gerarComAutosGrandes(gerar: (o: any) => Promise<any>, opts
         const cabeCompacto = depoisCompactar <= permitido;
         log(`[Autos Grandes] Compactação sem perda: ${Math.round(antesCompactar / 1000)}k → ${Math.round(depoisCompactar / 1000)}k caracteres (cabem ${Math.round(permitido / 1000)}k)${cabeCompacto ? ": basta, sem classificar nem cortar páginas." : "."}`);
 
+        if (!cabeCompacto) onProgresso?.("os autos passam do limite da chave gratuita: compactando e classificando as páginas…", 0.05);
         // 1) classificação por partes (cada parte fica bem abaixo do limite)
         const contexto = String(prompt.match(/Tipo de ato[^\n]*|TIPO DE (?:ATO|MINUTA)[^\n]*/i)?.[0] || "").slice(0, 200);
         const partes = cabeCompacto ? [] : dividir(unidades, Math.floor(limite * 0.55 * CPT));
         log(`[Autos Grandes] Pedido recusado pelo limite gratuito (~${Math.round((permitido / CPT + fixo) / 1000)}k→limite ${Math.round(limite / 1000)}k). Classificando ${unidades.length} páginas em ${partes.length} parte(s) por relevância...`);
         const classe = new Map<number, { c: Classe; m: string }>();
         for (let i = 0; i < partes.length; i++) {
+            onProgresso?.(`classificando as páginas por relevância (parte ${i + 1} de ${partes.length})…`, 0.08 + 0.4 * (i / Math.max(1, partes.length)));
             const texto = partes[i].map(u => sintetico ? `[Página ${u.n} de ${unidades.length}]\n${u.t}` : u.t).join("");
             let ok = false;
             for (let tent = 1; tent <= 2 && !ok; tent++) {
@@ -181,6 +183,7 @@ export async function gerarComAutosGrandes(gerar: (o: any) => Promise<any>, opts
             const partesD = dividir(uteis.map(u => ({ n: u.n, t: u.out })), Math.floor(limite * 0.55 * CPT));
             const memos: string[] = [];
             for (let i = 0; i < partesD.length; i++) {
+                onProgresso?.(`lendo os autos em partes (parte ${i + 1} de ${partesD.length})…`, 0.5 + 0.4 * (i / Math.max(1, partesD.length)));
                 const txtParte = partesD[i].map(u => sintetico ? `[Página ${u.n} de ${unidades.length}]\n${u.t}` : u.t).join("");
                 const resp = await chamar(gerar, base, {
                     timeoutMs: 240000,
@@ -208,6 +211,7 @@ export async function gerarComAutosGrandes(gerar: (o: any) => Promise<any>, opts
         const contents = JSON.parse(JSON.stringify(resto.contents || []));
         if (contents[0]?.parts?.[0]) contents[0].parts[0] = { text: reduzido };
         if (Array.isArray(autosGrandes.partesRef) && autosGrandes.partesRef.length > 0) autosGrandes.partesRef[0] = { text: reduzido };
+        onProgresso?.("analisando os autos reduzidos (fatos, partes e provas)…", 0.93);
         const { customModelQueue: _q, maxCycles: _c, ...semFila } = resto;
         const resposta = await chamar(gerar, {}, { ...semFila, contents }, pausa, log, "Etapa 1 sobre os autos reduzidos");
         // relatório do que foi feito (o servidor devolve ao app, que mostra na tela)

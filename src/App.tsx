@@ -7,6 +7,7 @@ import { PromptManagerModal } from "./components/PromptManagerModal";
 import { PdfUploadZone } from "./components/PdfUploadZone";
 import { useCoberturaLeitura } from "./components/useCoberturaLeitura";
 import { GigantesPanel } from "./components/GigantesPanel";
+import { PainelProgresso } from "./components/PainelProgresso";
 import { GiganteDialog } from "./components/GiganteDialog";
 import { gerenteGigantes, ConfigGigante } from "./utils/gigantes/gerente";
 import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
@@ -229,6 +230,7 @@ export default function App() {
   const [loadingStep, setLoadingStep] = useState<string>("");
   const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
   const coberturaEnvioRef = useRef<any>(null);
+  const [progId, setProgId] = useState<string | null>(null);
   const [dlgGigante, setDlgGigante] = useState<{ paginas: number; tokens: number; resolver: (e: "lotes" | "normal" | "cancelar") => void } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
@@ -1043,11 +1045,13 @@ export default function App() {
         executionStage: isTwoStageExecution ? 1 : undefined,
       });
 
+      const novoProg = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `p-${Date.now()}`);
+      setProgId(novoProg);
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           response = await fetch("/api/generate-minute", {
             method: "POST",
-            headers: getApiHeaders(),
+            headers: getApiHeaders({ "x-progresso-id": novoProg }),
             signal: controller.signal,
             body: requestPayload,
           });
@@ -1761,6 +1765,8 @@ export default function App() {
   const handleProceedToStage2 = async () => {
     if (!generationResult?.canProceedToStage2) return;
     setIsProceedingToStage2(true);
+    const progStage2 = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `p2-${Date.now()}`);
+    setProgId(progStage2);
     const toastId = toast.loading("Executando 2ª Etapa: Juiz Revisor e Matriz Forense...");
     try {
       const stage1Snapshot = generationResult.stage1Snapshot || {
@@ -1816,7 +1822,7 @@ export default function App() {
 
       const res = await fetch("/api/generate-minute", {
         method: "POST",
-        headers: getApiHeaders(),
+        headers: getApiHeaders({ "x-progresso-id": progStage2 }),
         body: JSON.stringify(payload),
       });
 
@@ -2068,18 +2074,15 @@ export default function App() {
         {dlgGigante && <GiganteDialog paginas={dlgGigante.paginas} tokens={dlgGigante.tokens} onEscolha={dlgGigante.resolver} />}
 
         {/* Loading Progress Card */}
-        {isLoading && (
-          <div className="p-5 bg-white border border-emerald-400 rounded-xl shadow-md flex flex-col items-center justify-center text-center space-y-2.5 animate-pulse">
+        {(isLoading || isProceedingToStage2) && (
+          <div className="sticky top-24 z-30 p-5 bg-white border border-emerald-400 rounded-xl shadow-lg flex flex-col items-center justify-center text-center space-y-3">
             <div className="w-9 h-9 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-            <div className="space-y-1">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Executando Prompt Automático no Processo
-              </h3>
-              <p className="text-xs font-medium text-slate-700 font-mono">{loadingStep}</p>
-              <p className="text-[11px] text-slate-400">
-                Auditoria automática com confronto fático-probatório e regras do TJGO.
-              </p>
-            </div>
+            <PainelProgresso
+              ativo={isLoading || isProceedingToStage2}
+              progId={progId}
+              titulo={isProceedingToStage2 && !isLoading ? "2ª Etapa — Juiz Revisor" : "Executando prompt no processo"}
+              fallbackTexto={loadingStep}
+            />
           </div>
         )}
 

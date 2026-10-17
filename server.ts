@@ -396,6 +396,20 @@ app.post("/api/gigante-fusao", async (req, res) => {
     }
 });
 
+// ====== Andamento das análises longas: o app consulta a cada poucos segundos e mostra etapa e porcentagem reais ======
+const progressos = new Map<string, { texto: string; pct: number | null; teto: number; ini: number; t: number }>();
+function setProg(id: string, texto: string, pct?: number | null, teto?: number) {
+    if (!id) return;
+    const a = progressos.get(id);
+    const novo = pct == null ? (a?.pct ?? null) : Math.max(a?.pct ?? 0, Math.min(99, Math.round(pct)));
+    progressos.set(id, { texto, pct: novo, teto: Math.min(99, teto ?? a?.teto ?? 99), ini: a?.ini ?? Date.now(), t: Date.now() });
+    if (progressos.size > 200) for (const [k, v] of progressos) if (Date.now() - v.t > 30 * 60000) progressos.delete(k);
+}
+app.get("/api/progresso/:id", (req, res) => {
+    const p = progressos.get(String(req.params.id || ""));
+    res.json(p ? { texto: p.texto, pct: p.pct, teto: p.teto, decorridoSeg: Math.round((Date.now() - p.ini) / 1000), idadeSeg: Math.round((Date.now() - p.t) / 1000) } : {});
+});
+
 app.post("/api/ocr-paginas", async (req, res) => {
     try {
         const imagens: any[] = Array.isArray(req.body?.images) ? req.body.images.slice(0, 8) : [];
@@ -4122,6 +4136,7 @@ function extractProcessMetadata(stage1Json: any, processInfo: any, allText: stri
 app.post("/api/generate-minute", async (req, res) => {
     let keepAliveInterval: any = null;
     const requestStartTime = Date.now();
+    const progId = String(req.headers["x-progresso-id"] || "").slice(0, 80);
     let stage1DurationMs = 0;
     let stage2DurationMs = 0;
     try {
@@ -4224,6 +4239,7 @@ const hasPdfs=Boolean(pdfFiles&&Array.isArray(pdfFiles)&&pdfFiles.length>0);cons
 let coberturaLeitura: any = null; let regraCobertura = "";
 { const cobM = montarCobertura(req.body, textoCortadoNoLimite); coberturaLeitura = cobM.cobertura; regraCobertura = cobM.regra; contentsParts.push(...cobM.partes); }
 
+setProg(progId, "Lendo e preparando os autos…", 4, 11);
 // Safeguard anti-alucinação: se o usuário anexou PDFs, mas nenhum texto foi extraído e não há texto digitado
 const rawPdfTextLength = accumulatedPdfText.replace(/\[===.*?===\]/g, "").replace(/\(.*?\)/g, "").trim().length;
 const hasRealFactualContent = (safeProcessText && safeProcessText.trim().length > 40) || rawPdfTextLength > 50 || contentsParts.length > 0;
@@ -5076,11 +5092,13 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
     };
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
+    setProg(progId, "Etapa 1 — assessor fático: extraindo partes, fatos e provas dos autos…", 12, 56);
     stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + regraCobertura;
     const stage1StartTimer = Date.now();
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 3000);      // maior para autos grandes
     stage1Response = await gerarComAutosGrandes(generateWithFallbackAndRetry, {
         autosGrandes: { userPrompt, textos: [accumulatedPdfText, safeProcessText], partesRef: stage1ContentsParts },
+        onProgresso: (t: string, f?: number) => setProg(progId, "Etapa 1 — " + t, f != null ? 12 + f * 40 : undefined, 56),
         apiKey: userApiKey,
         keyPool: extractApiKeyPool(req),
         isNativeAllowed: isRequestNativeAllowed(req),
@@ -5457,6 +5475,7 @@ if (executionStage === 1) {
 console.log("[Assessor Judicial] Etapa 1 (Assessor Fático) concluída com êxito. Intervalo preventivo de resfriamento de cota (2.5s)...");
 if (executionStage !== 2) await new Promise(resolve => setTimeout(resolve, 500));      // o controle de consumo por chave já distribui a carga
 console.log("[Assessor Judicial] Disparando ETAPA 2: Juiz Revisor (Teses, Precedentes & Matriz Forense)...");
+setProg(progId, "Etapa 2 — juiz revisor: teses, precedentes e redação final da minuta…", executionStage === 2 ? 8 : 62, 97);
 
 const stage2Prompt = `
 DADOS DO PROCESSO:
