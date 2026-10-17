@@ -50,6 +50,8 @@ def main():
             pg.locator("#tour-execute-btn").click()
             pg.wait_for_selector("[data-testid=dialogo-gigante]", timeout=60000); print("B) pergunta de processo gigante apareceu")
             pg.screenshot(path="/tmp/claude-0/work/mob/gig_dialogo.png")
+            est = pg.locator("[data-testid=gigante-corte-estimado]").inner_text(); print("   estimativa do corte mostrada:", est.replace("\n", " | ")[:200])
+            assert "NÃO será lido" in est and "págs." in est, est
             pg.locator("text=Cancelar").last.click(); pg.wait_for_timeout(800)
             assert pg.locator("[data-testid=dialogo-gigante]").count() == 0 and len(log_()) == n_antes, "cancelar não pode chamar a IA"
             # C) "ler em lotes": o job aparece no selo e termina; a tela continua livre
@@ -63,6 +65,13 @@ def main():
             print("C) gigante concluído em segundo plano; resumo para a extensão:", pg.evaluate("document.documentElement.dataset.gigantes")[:160])
             L = log_(); fichas = [x for x in L if x.get("p") == "ficha"]; print("   fichas:", len(fichas))
             assert len(fichas) >= 2
+            # D) processo acima do limite da leitura em lotes: o que ele vê e o que fazer
+            open("/tmp/claude-0/work/mob/app_enorme.pdf", "wb").write(processo(3100, injecao=False, vazias=()))
+            pg2, e2 = abrir(ctx, "/tmp/claude-0/work/mob/app_enorme.pdf", 3100)
+            pg2.locator("#tour-execute-btn").click(); pg2.wait_for_selector("[data-testid=dialogo-gigante]", timeout=60000)
+            t = pg2.locator("[data-testid=gigante-acima-limite]").inner_text(); print("D) acima do limite:", t.replace("\n", " | ")[:260])
+            assert "3.000" in t and "O que fazer" in t and pg2.locator("[data-testid=gigante-lotes]").count() == 0 and pg2.locator("[data-testid=gigante-normal]").count() == 1
+            pg2.screenshot(path="/tmp/claude-0/work/mob/gig_acima.png")
             print("OK" if not erros else "erros de página: " + str(erros[:3]))
             b.close()
     finally:

@@ -233,6 +233,7 @@ export interface GenerationResult {
     paginasOcr: number;
     paginasImagem: number;
     textoCortado: boolean;
+    cortes?: { arquivo: string; de: number; ate: number; total: number; parcial?: number; inteiro?: boolean }[];
     completa: boolean;
   };
   deduplicationStats?: {

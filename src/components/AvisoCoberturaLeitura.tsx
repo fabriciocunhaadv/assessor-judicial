@@ -1,5 +1,6 @@
 import React from "react";
 import type { GenerationResult } from "../types";
+import { textoDoCorte } from "../utils/corteAutos";
 
 // Aviso fixo na minuta quando partes dos autos não foram lidas pelo sistema: a "ausência de prova" pode ser só falta de leitura.
 export function AvisoCoberturaLeitura({ info }: { info: NonNullable<GenerationResult["coberturaLeitura"]> }) {
@@ -25,7 +26,11 @@ export function AvisoCoberturaLeitura({ info }: { info: NonNullable<GenerationRe
         </p>
       )}
       {info.textoCortado && (
-        <p className="mt-1 leading-relaxed">Os autos passaram do limite técnico de leitura e o <strong>final do processo foi cortado</strong>: documentos posteriores podem não ter sido lidos.</p>
+        <div className="mt-1 leading-relaxed" data-testid="aviso-corte">
+          <p>Os autos passaram do limite de leitura da análise normal e <strong>parte do final do processo foi CORTADA e NÃO foi lida</strong>:</p>
+          {(info.cortes || []).length > 0 && <ul className="list-disc pl-5 my-1">{(info.cortes || []).map((c, i) => <li key={i}><strong>{textoDoCorte(c)}</strong></li>)}</ul>}
+          <p>Documentos, contestação, provas ou decisões que estejam nessas páginas não foram considerados. Para ler tudo, use a leitura em lotes (processo gigante) ou envie o processo dividido em partes menores.</p>
+        </div>
       )}
       <p className="mt-1.5 leading-relaxed">O sistema foi instruído a não decidir por ausência de prova nessas condições e a marcar a minuta com “[CONFERIR PÁGINAS NÃO LIDAS]”. Você pode refazer a análise escolhendo OCR ou leitura visual dessas páginas.</p>
     </div>

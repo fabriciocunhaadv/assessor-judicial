@@ -12,6 +12,7 @@ import { deduplicateJudicialPdfFiles, deduplicateTextBlocks } from './src/utils/
 import { extractFromCoverPage } from './src/utils/judicialMetadataExtractor';
 import { gerarComAutosGrandes } from './src/utils/autosGrandes';
 import { detectarInjecao, instrucaoDefesaInjecao } from './src/utils/promptInjection';
+import { descreverCorte, textoDoCorte, CorteArquivo } from './src/utils/corteAutos';
 import { textoOcultoDeDocumento, blocoTextoOculto } from './src/utils/pdfTextoOculto';
 import fs from 'fs';
 // Dispositivo escrito para a ESCRIVANIA cumprir sem interpretação (pedido do magistrado: "o óbvio deve ser dito sempre"). Entra nas instruções de todas as minutas (Etapa 1, Etapa 2 e Turbo).
@@ -263,7 +264,7 @@ app.post("/api/extract-pdf-text", async (req, res) => {
 });
 
 // Cobertura da leitura: páginas que o sistema não conseguiu ler não podem virar "ausência de prova" na minuta (usada na análise principal, no Turbo e na Lupa)
-function montarCobertura(body: any, textoCortado: boolean): { cobertura: any; regra: string; partes: any[] } {
+function montarCobertura(body: any, textoCortado: boolean, cortes: CorteArquivo[] = []): { cobertura: any; regra: string; partes: any[] } {
     let cobertura: any = null; let regra = ""; const partes: any[] = [];
     try {
         const cob = body?.coberturaLeitura;
@@ -289,15 +290,16 @@ function montarCobertura(body: any, textoCortado: boolean): { cobertura: any; re
                 paginasOcr: Number(cob?.paginasOcr) || 0,
                 paginasImagem: nImagens,
                 textoCortado,
+                cortes,
                 completa: lacunas.length === 0 && !textoCortado,
             };
         }
         if (lacunas.length > 0 || textoCortado) {
             regra = `\n\n[COBERTURA DA LEITURA - REGRA MANDATÓRIA ANTI-FALSA-AUSÊNCIA-DE-PROVA]:\n`
                 + (lacunas.length > 0 ? `O sistema NÃO conseguiu ler o texto destas páginas dos autos (imagem/escaneado sem texto): ${lacunas.map((l: any) => `${l.arquivo}: págs. ${l.paginas}`).join("; ")}. Essas páginas PODEM conter provas, documentos, contestação ou decisões.\n` : "")
-                + (textoCortado ? `Os autos excederam o limite técnico e o FINAL do texto foi cortado: documentos posteriores podem não ter sido lidos.\n` : "")
+                + (textoCortado ? `Os autos excederam o limite técnico e parte do FINAL do texto foi CORTADA: ${cortes.length ? cortes.map(textoDoCorte).join("; ") : "documentos posteriores"} NÃO foram lidos e podem conter provas, contestação ou decisões.\n` : "")
                 + `1. É PROIBIDO afirmar na minuta que "não há prova", "não foi juntado documento", "não consta dos autos", "a parte não comprovou" ou fundamentar procedência/improcedência por ausência probatória quando a prova poderia estar nas páginas não lidas.\n`
-                + `2. Quando faltar prova nos trechos lidos, use a redação: "não localizei, nos trechos lidos pelo sistema, ..." e inclua obrigatoriamente no início do Relatório a nota: "[CONFERIR PÁGINAS NÃO LIDAS PELO SISTEMA: ${lacunas.map((l: any) => `${l.arquivo} págs. ${l.paginas}`).join("; ") || "final dos autos"} - verificar antes de assinar]".\n`
+                + `2. Quando faltar prova nos trechos lidos, use a redação: "não localizei, nos trechos lidos pelo sistema, ..." e inclua obrigatoriamente no início do Relatório a nota: "[CONFERIR PÁGINAS NÃO LIDAS PELO SISTEMA: ${[...lacunas.map((l: any) => `${l.arquivo} págs. ${l.paginas} (sem texto)`), ...cortes.map((c: CorteArquivo) => textoDoCorte(c) + " (cortado por limite de tamanho)")].join("; ") || "final dos autos"} - verificar antes de assinar]".\n`
                 + `3. Se a conclusão do mérito depender dessas lacunas, aponte a dependência e recomende a conferência humana em vez de decidir por ausência de prova.\n`;
         }
     } catch (eCob) { console.log("[Cobertura da leitura] falha (ignorada):", (eCob as any)?.message); }
@@ -4137,6 +4139,7 @@ app.post("/api/generate-minute", async (req, res) => {
     let keepAliveInterval: any = null;
     const requestStartTime = Date.now();
     const progId = String(req.headers["x-progresso-id"] || "").slice(0, 80);
+    const cortesDoTexto: CorteArquivo[] = [];
     let stage1DurationMs = 0;
     let stage2DurationMs = 0;
     try {
@@ -4152,6 +4155,7 @@ app.post("/api/generate-minute", async (req, res) => {
 
     // Preservação integral do texto processual sem mutilação de miolo (limite de segurança ultra-amplo: 1.500.000 caracteres)
     if (safeProcessText.length > 1500000) {
+        try { cortesDoTexto.push(...descreverCorte(safeProcessText, 1500000, "texto dos autos (colado/digitado)").cortes); } catch { /* sem detalhe */ }
         safeProcessText = safeProcessText.substring(0, 1500000);
     }
 const hasText=Boolean(safeProcessText&&typeof safeProcessText==="string"&&safeProcessText.trim().length>0);
@@ -4224,6 +4228,7 @@ if (textDedup.duplicatesFound > 0) {
 // Mantemos todos os documentos, contestações, réplicas, preliminares e provas intactos.
 if (accumulatedPdfText.length > 1500000) {
     console.log(`[Assessor Judicial] Processo excepcionalmente grande (${accumulatedPdfText.length} caracteres). Preservando os primeiros 1.500.000 caracteres integrais.`);
+    try { cortesDoTexto.push(...descreverCorte(accumulatedPdfText, 1500000).cortes); } catch { /* sem detalhe */ }
     accumulatedPdfText = accumulatedPdfText.substring(0, 1500000);
     textoCortadoNoLimite = true;
 }
@@ -4237,7 +4242,7 @@ try {
 const hasPdfs=Boolean(pdfFiles&&Array.isArray(pdfFiles)&&pdfFiles.length>0);const hasPrompt=Boolean(customPromptText&&typeof customPromptText==="string"&&customPromptText.trim().length>0);const hasProcessNumber=Boolean(processInfo?.processNumber&&processInfo.processNumber.trim().length>3&&processInfo.processNumber!=="Extrair automaticamente dos autos");const hasAnyContent=hasText||accumulatedPdfText.length>0||contentsParts.length>0||hasPdfs||hasPrompt||hasProcessNumber;if(!hasAnyContent){return res.status(400).json({error:"É obrigatório fornecer o PDF dos autos, o texto processual ou as diretrizes do prompt."})}
 
 let coberturaLeitura: any = null; let regraCobertura = "";
-{ const cobM = montarCobertura(req.body, textoCortadoNoLimite); coberturaLeitura = cobM.cobertura; regraCobertura = cobM.regra; contentsParts.push(...cobM.partes); }
+{ const cobM = montarCobertura(req.body, textoCortadoNoLimite || cortesDoTexto.length > 0, cortesDoTexto); coberturaLeitura = cobM.cobertura; regraCobertura = cobM.regra; contentsParts.push(...cobM.partes); }
 
 setProg(progId, "Lendo e preparando os autos…", 4, 11);
 // Safeguard anti-alucinação: se o usuário anexou PDFs, mas nenhum texto foi extraído e não há texto digitado
