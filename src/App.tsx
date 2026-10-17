@@ -10,6 +10,7 @@ import { GigantesPanel } from "./components/GigantesPanel";
 import { PainelProgresso } from "./components/PainelProgresso";
 import { GiganteDialog, EscolhaGigante } from "./components/GiganteDialog";
 import { gerenteGigantes, ConfigGigante } from "./utils/gigantes/gerente";
+import { arquivoDoPdf } from "./utils/gigantes/arquivoDoPdf";
 import { descreverCorte, juntarComoServidor, CorteInfo } from "./utils/corteAutos";
 import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
 import { MinuteViewer } from "./components/MinuteViewer";
@@ -862,14 +863,14 @@ export default function App() {
           return;
         }
         if (escolhaG === "partes") {
-          const dados = effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas }));
+          const dados = effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas, arquivo: () => arquivoDoPdf(p) }));
           const ids = await gerenteGigantes.iniciarPartes(dados, montarConfigGigante());
           window.dispatchEvent(new CustomEvent("gigantes:abrir"));
           toast(`Processo dividido em ${ids.length} partes, lidas uma de cada vez em segundo plano. Cada parte gera uma minuta no Histórico.`, { duration: 10000, icon: "✂️" });
           return;
         }
         if (escolhaG === "lotes") {
-          const idJob = await gerenteGigantes.iniciarComTextos(effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas })), montarConfigGigante());
+          const idJob = await gerenteGigantes.iniciarComTextos(effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas, arquivo: () => arquivoDoPdf(p) })), montarConfigGigante());
           window.dispatchEvent(new CustomEvent("gigantes:abrir"));
           toast("Processo gigante enviado para a leitura em lotes, em segundo plano. Acompanhe pelo selo “Gigantes”.", { duration: 8000, icon: "📚" });
           void idJob;

@@ -224,6 +224,8 @@ export interface GenerationResult {
     essenciaisIntegra: number;
     dossieAbreviado?: boolean;
     parte?: { indice: number; total: number; de: number; ate: number; totalPaginas: number };
+    ocrPaginas?: number;
+    verificacaoAusencia?: { trecho: string; termo: string; total: number; paginas: { arquivo: string; pagina: number; trecho: string }[] }[];
     omitidas: { de: number; ate: number; motivo: string }[];
     abreviadas: { de: number; ate: number; motivo: string }[];
   };

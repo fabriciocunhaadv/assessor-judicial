@@ -2,14 +2,34 @@ import React, { useEffect, useRef, useState } from "react";
 import { gerenteGigantes, ConfigGigante } from "../utils/gigantes/gerente";
 import type { JobGig } from "../utils/gigantes/db";
 
+function PesquisaNosAutos({ jobId }: { jobId: string }) {
+  const [termo, setTermo] = useState("");
+  const [res, setRes] = useState<{ total: number; achados: { arquivo: number; pagina: number; trecho: string; nomeArquivo: string }[] } | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="space-y-1.5" data-testid="pesquisa-autos">
+      <div className="flex gap-1.5">
+        <input value={termo} onChange={(e) => setTermo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} placeholder="Pesquisar nos autos (ex.: laudo pericial)" className="flex-1 min-w-0 px-2 py-1 rounded-md border border-slate-300 text-[11px]" data-testid="pesquisa-termo" />
+        <button disabled={busy || termo.trim().length < 2} onClick={async () => { setBusy(true); try { setRes(await gerenteGigantes.pesquisar(jobId, termo)); } finally { setBusy(false); } }} className="px-2 py-1 rounded-md bg-sky-700 text-white text-[11px] font-bold cursor-pointer disabled:opacity-50" data-testid="pesquisa-botao">🔎 Buscar</button>
+      </div>
+      {res && (
+        <div className="text-[11px] bg-slate-50 rounded-md p-2 space-y-1 max-h-48 overflow-y-auto" data-testid="pesquisa-resultado">
+          <div className="font-bold">{res.total === 0 ? "Não encontrei esse termo em nenhuma página dos autos." : `Encontrado em ${res.total} página(s)${res.total > res.achados.length ? ` (mostrando ${res.achados.length})` : ""}:`}</div>
+          {res.achados.map((a, i) => <div key={i}><strong>{a.nomeArquivo ? `${a.nomeArquivo}, ` : ""}pág. {a.pagina}:</strong> <span className="text-slate-600">{a.trecho}</span></div>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const COR: Record<JobGig["status"], string> = {
-  preparando: "bg-slate-200 text-slate-700", na_fila: "bg-slate-200 text-slate-700", lendo: "bg-indigo-100 text-indigo-800", fundindo: "bg-violet-100 text-violet-800",
+  preparando: "bg-slate-200 text-slate-700", na_fila: "bg-slate-200 text-slate-700", ocr: "bg-teal-100 text-teal-800", lendo: "bg-indigo-100 text-indigo-800", fundindo: "bg-violet-100 text-violet-800",
   redigindo: "bg-amber-100 text-amber-800", concluido: "bg-emerald-100 text-emerald-800", erro: "bg-red-100 text-red-800", pausado: "bg-orange-100 text-orange-800", cancelado: "bg-slate-200 text-slate-500",
 };
 const ROTULO: Record<JobGig["status"], string> = {
-  preparando: "Preparando", na_fila: "Na fila", lendo: "Lendo em lotes", fundindo: "Fundindo fichas", redigindo: "Redigindo a minuta", concluido: "Concluído", erro: "Erro", pausado: "Pausado", cancelado: "Cancelado",
+  preparando: "Preparando", na_fila: "Na fila", ocr: "OCR das páginas sem texto", lendo: "Lendo em lotes", fundindo: "Fundindo fichas", redigindo: "Redigindo a minuta", concluido: "Concluído", erro: "Erro", pausado: "Pausado", cancelado: "Cancelado",
 };
-const ATIVO = (s: JobGig["status"]) => ["preparando", "na_fila", "lendo", "fundindo", "redigindo"].includes(s);
+const ATIVO = (s: JobGig["status"]) => ["preparando", "na_fila", "ocr", "lendo", "fundindo", "redigindo"].includes(s);
 
 // Selo fixo (canto inferior esquerdo) + painel dos processos gigantes lidos em lotes em segundo plano.
 export function GigantesPanel({ config, onVerHistorico }: { config: ConfigGigante; onVerHistorico?: () => void }) {
@@ -72,6 +92,8 @@ export function GigantesPanel({ config, onVerHistorico }: { config: ConfigGigant
               {ATIVO(j.status) && <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-sky-600 transition-all" style={{ width: `${pct(j)}%` }} /></div>}
               <div className="text-[11px] text-slate-600">{j.etapa}</div>
               {j.erro && <div className="text-[11px] text-red-700 bg-red-50 rounded p-1.5">{j.erro}</div>}
+              {j.config?.finalidade === "dossie" && <div className="text-[10px] font-bold text-indigo-700">Dossiê para {j.config.origem === "mesa" ? "a Mesa de Audiência" : j.config.origem === "lupa" ? "a Lupa do Magistrado" : "uso nos módulos"}: não gera minuta própria.</div>}
+              {j.status === "ocr" && <button onClick={() => gerenteGigantes.pularOcr(j.id)} className="px-2 py-1 rounded-md bg-teal-50 border border-teal-300 text-teal-800 text-[11px] font-bold cursor-pointer" data-testid="gigante-pular-ocr">Pular o OCR (seguir só com as páginas que têm texto)</button>}
               {j.arquivos.some((a) => a.semTexto.length > 0) && <div className="text-[10px] text-amber-800 bg-amber-50 rounded p-1.5">⚠️ Há páginas sem texto (imagem/escaneadas): {j.arquivos.filter((a) => a.semTexto.length).map((a) => `${a.nome}: ${a.semTexto.length} pág.`).join("; ")} A minuta sairá com aviso de conferência.</div>}
               <div className="flex flex-wrap gap-1.5">
                 {ATIVO(j.status) && j.status !== "preparando" && <button onClick={() => gerenteGigantes.pausar(j.id)} className="px-2 py-1 rounded-md bg-orange-100 text-orange-800 text-[11px] font-bold cursor-pointer">Pausar</button>}
@@ -80,6 +102,7 @@ export function GigantesPanel({ config, onVerHistorico }: { config: ConfigGigant
                 {j.status === "concluido" && <button onClick={() => { onVerHistorico?.(); }} className="px-2 py-1 rounded-md bg-emerald-600 text-white text-[11px] font-bold cursor-pointer">Abrir o Histórico</button>}
                 {!ATIVO(j.status) && <button onClick={() => gerenteGigantes.remover(j.id)} className="px-2 py-1 rounded-md bg-slate-100 text-slate-600 text-[11px] cursor-pointer">Remover da lista</button>}
               </div>
+              {j.lotes.length > 0 && <details className="text-[11px]"><summary className="cursor-pointer font-bold text-sky-800">🔎 Pesquisar nos autos deste processo</summary><div className="pt-1.5"><PesquisaNosAutos jobId={j.id} /></div></details>}
             </div>
           ))}
         </div>

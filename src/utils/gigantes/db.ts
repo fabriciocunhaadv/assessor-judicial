@@ -27,7 +27,7 @@ export interface JobGig {
   numeroProcesso?: string;
   criadoEm: number;
   atualizadoEm: number;
-  status: "preparando" | "na_fila" | "lendo" | "fundindo" | "redigindo" | "concluido" | "erro" | "pausado" | "cancelado";
+  status: "preparando" | "na_fila" | "ocr" | "lendo" | "fundindo" | "redigindo" | "concluido" | "erro" | "pausado" | "cancelado";
   etapa: string;
   progresso: { feitas: number; total: number };
   arquivos: { nome: string; paginas: number; semTexto: number[]; naoLidas: number[]; totalOriginal?: number }[];
@@ -40,6 +40,9 @@ export interface JobGig {
   injecao: { verificado: boolean; caracteres: number; total: number; alto: number; medio: number; achados: any[] };
   triagem: { essenciais: number; relevantes: number; dispensaveis: number; repetidas: number; omitidas: { de: number; ate: number; motivo: string }[]; abreviadas: { de: number; ate: number; motivo: string }[] };
   config: any;                           // prompt, ato, unidade, usuário
+  /** OCR por IA das páginas sem texto, feito em lotes antes da leitura */
+  ocr?: { total: number; feitas: number; falhas: number };
+  ocrFeito?: boolean;
   erro?: string;
   historicoId?: string;
   fim?: number;

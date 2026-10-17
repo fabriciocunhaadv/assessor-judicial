@@ -11,7 +11,7 @@ export const getDocs = async (..._a: any[]) => { const ref: any = _a[0]; const p
 export const setDoc = async (...a: any[]) => {
   const w: any = globalThis;
   if (w.__falharSetDoc) { const e: any = new Error("Simulado: falha ao gravar"); e.code = "resource-exhausted"; throw e; }
-  (w.__setDocs ||= []).push({ id: a[0]?._id, bytes: new TextEncoder().encode(JSON.stringify(a[1])).length, texto: (a[1]?.processText || "").length });
+  (w.__setDocs ||= []).push({ id: a[0]?._id, bytes: new TextEncoder().encode(JSON.stringify(a[1])).length, texto: (a[1]?.processText || "").length, dados: a[1] });
 };
 export const addDoc = async (..._a: any[]) => ({ id: "novo" });
 export const updateDoc = async (..._a: any[]) => {};

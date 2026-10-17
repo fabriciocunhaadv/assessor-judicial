@@ -42,6 +42,12 @@ class H(BaseHTTPRequestHandler):
         LOG[-1]["fatos"] = fatos
         if "FATO-803" in txt and "CLASSIFICADOR DE RELEVÂNCIA" not in sist:
             k = txt.find("FATO-803"); open("/tmp/claude-0/work/teste/ctx803.txt", "a").write(f"--- {len(txt)} ---\n" + txt[max(0, k-600):k+200] + "\n")
+        if "leitor de documentos judiciais (OCR)" in txt:
+            nums = [int(x) for x in re.findall(r"PÁGINA (\d+):", txt)]
+            paginas = [{"pagina": nn, "texto": f"CONTESTAÇÃO lida por OCR. FATO-{500 + nn % 100} registrado na página {nn}. O réu junta o comprovante.", "emBranco": False} for nn in nums]
+            LOG[-1]["p"] = "ocr"; LOG[-1]["paginasOcr"] = nums
+            b = json.dumps({"candidates": [{"content": {"role": "model", "parts": [{"text": json.dumps({"paginas": paginas}, ensure_ascii=False)}]}, "finishReason": "STOP", "index": 0}], "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 10, "totalTokenCount": 20}}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
         if "devolve uma FICHA ESTRUTURADA" in sist or "FUNDI-LAS em uma única ficha" in sist:
             fusao = "FUNDI-LAS" in sist
             filler_cfg = int(sys.argv[3]) if len(sys.argv) > 3 else 1000
@@ -106,7 +112,7 @@ class H(BaseHTTPRequestHandler):
         else:
             par = "\n\n".join([f"Parágrafo {i} da fundamentação, com análise do confronto probatório e citação (Mov. {i}, Arq. 1, Pág. {i}). " + "Texto de análise. " * 40 for i in range(1, 12)])
             texto = json.dumps({"processNumber": "5530114-61.2025.8.09.0166", "author": "AUTOR TESTE", "defendant": "RÉU TESTE", "judicialUnit": "Vara Teste", "pendingMatter": "Sentença",
-                "actType": "SENTENÇA", "relatorio": "Relatório com os fatos: " + ", ".join(fatos) + ". " + "Narrativa do processo. " * 120,
+                "actType": "SENTENÇA", "relatorio": "Relatório com os fatos: " + ", ".join(fatos) + ". " + "Narrativa do processo. " * 120 + " O autor não juntou laudo pericial aos autos. ",
                 "fundamentacao": par, "dispositivo": "Dispositivo operacional completo. " * 20})
         import os
         if os.environ.get("MOCK_ARRAY") and not eh_parte: texto = "[ " + texto + " ]"

@@ -7,6 +7,10 @@ import { apagarJob, chavePagina, JobGig, lerJob, lerPaginas, listarJobs, PaginaG
 import { classificarTodas } from "./triagem";
 import { agruparFichas, ALVO_LOTE_CHARS, fichaParaTexto, LIMIAR_FINAL_CHARS, montarLotes, tamanhoFicha, textoDoLote, CPT } from "./lotes";
 import { dividirEmPartes, ParteDosAutos } from "./partes";
+import { ocrPaginas } from "../ocrPaginas";
+import { conferirAusencias } from "./verificacaoAusencia";
+import { pesquisarIndice } from "./indice";
+import { classificarPagina } from "./triagem";
 import { instalarObservadorPistaNormal, pistaNormalOcupada, ultimaAtividadePistaNormal } from "./pistaNormal";
 
 export interface ConfigGigante {
@@ -14,13 +18,22 @@ export interface ConfigGigante {
   actType: string; unitId?: string; unitName?: string;
   paradigmText?: string; paradigmTitle?: string; instrucao?: string; processNumber?: string;
   userUid?: string; userName?: string; userEmail?: string;
+  /** 'dossie': lê em lotes e para no dossiê (usado pela Lupa e pela Mesa); 'minuta' (padrão): redige a minuta e salva no Histórico */
+  finalidade?: "minuta" | "dossie";
+  /** de onde veio o pedido (principal, turbo, lupa, mesa) */
+  origem?: string;
+  /** OCR por IA das páginas sem texto (padrão: ligado) */
+  ocr?: boolean;
   /** quando os autos foram divididos automaticamente: esta minuta cobre só uma parte */
   parte?: { indice: number; total: number; de: number; ate: number; totalPaginas: number };
 }
 
 const FOLGA_APOS_PISTA_NORMAL_MS = Number((globalThis as any).__GIGANTE_FOLGA_MS ?? 25000);
 const INTERVALO_ENTRE_CHAMADAS_MS = Number((globalThis as any).__GIGANTE_INTERVALO_MS ?? 45000);
+const INTERVALO_OCR_MS = Number((globalThis as any).__GIGANTE_INTERVALO_OCR_MS ?? 12000);
 const ESPERA_MAXIMA_PISTA_MS = 20 * 60000;
+
+type Fonte = { nome: string; totalOriginal?: number; paginaInicial?: number; arquivo?: () => Promise<File | null>; ler: (onProg: (c: number, t: number) => void) => Promise<{ text: string; pageCount: number; semTexto: number[]; naoLidas: number[] }> };
 /** Limite desta fase: acima disso é preciso mais cota (várias chaves ou faturamento) e execução em servidor. */
 export const LIMITE_PAGINAS_GIGANTE = 3000;
 const LIMITE_PAGINAS = LIMITE_PAGINAS_GIGANTE;
@@ -32,6 +45,8 @@ class Gerente {
   private jobs = new Map<string, JobGig>();
   private rodando = new Set<string>();
   private sinais = new Map<string, "pausar" | "cancelar">();
+  private fontesOcr = new Map<string, { arquivo?: () => Promise<File | null>; paginaInicial: number }[]>();
+  private pularOcrDe = new Set<string>();
   private ultimaChamada = 0;
   private carregado = false;
 
@@ -47,7 +62,7 @@ class Gerente {
     try {
       for (const j of await listarJobs()) {
         // o que estava em andamento quando a página foi fechada fica pausado, para você retomar
-        if (["lendo", "fundindo", "redigindo", "preparando", "na_fila"].includes(j.status)) { j.status = j.status === "preparando" ? "erro" : "pausado"; j.etapa = j.status === "erro" ? "Interrompido durante a leitura dos PDFs: envie os arquivos de novo." : "Interrompido: clique em Retomar para continuar do ponto em que parou."; await salvarJob(j); }
+        if (["ocr", "lendo", "fundindo", "redigindo", "preparando", "na_fila"].includes(j.status)) { j.status = j.status === "preparando" ? "erro" : "pausado"; j.etapa = j.status === "erro" ? "Interrompido durante a leitura dos PDFs: envie os arquivos de novo." : "Interrompido: clique em Retomar para continuar do ponto em que parou."; await salvarJob(j); }
         this.jobs.set(j.id, j);
       }
     } catch (e) { console.warn("[Gigantes] banco local indisponível:", e); }
@@ -56,23 +71,23 @@ class Gerente {
 
   /** Cria o trabalho e devolve na hora; a leitura dos PDFs e o processamento seguem em segundo plano. */
   async iniciar(arquivos: File[], config: ConfigGigante): Promise<string> {
-    return this.criar(arquivos.map((f) => ({ nome: f.name, ler: async (onProg: (c: number, t: number) => void) => { const ex = await extractTextFromPdf(f, onProg, { fullSequential: true }); return { text: ex.text, pageCount: ex.pageCount, semTexto: ex.paginasSemTexto || [], naoLidas: ex.paginasNaoLidas || [] }; } })), config);
+    return this.criar(arquivos.map((f) => ({ nome: f.name, arquivo: async () => f, ler: async (onProg: (c: number, t: number) => void) => { const ex = await extractTextFromPdf(f, onProg, { fullSequential: true }); return { text: ex.text, pageCount: ex.pageCount, semTexto: ex.paginasSemTexto || [], naoLidas: ex.paginasNaoLidas || [] }; } })), config);
   }
 
   /** Aproveita o texto que o app já extraiu dos PDFs anexados (não lê os arquivos de novo). */
-  async iniciarComTextos(pdfs: { nome: string; texto: string; pageCount: number; semTexto?: number[]; naoLidas?: number[] }[], config: ConfigGigante): Promise<string> {
-    return this.criar(pdfs.map((p) => ({ nome: p.nome, ler: async () => ({ text: p.texto, pageCount: p.pageCount, semTexto: p.semTexto || [], naoLidas: p.naoLidas || [] }) })), config);
+  async iniciarComTextos(pdfs: { nome: string; texto: string; pageCount: number; semTexto?: number[]; naoLidas?: number[]; arquivo?: () => Promise<File | null> }[], config: ConfigGigante): Promise<string> {
+    return this.criar(pdfs.map((p) => ({ nome: p.nome, arquivo: p.arquivo, ler: async () => ({ text: p.texto, pageCount: p.pageCount, semTexto: p.semTexto || [], naoLidas: p.naoLidas || [] }) })), config);
   }
 
   /** Autos acima do limite: divide em partes de até LIMITE_PAGINAS_GIGANTE páginas e lê uma parte por vez, em sequência. Devolve os ids dos trabalhos. */
-  async iniciarPartes(pdfs: { nome: string; texto: string; pageCount: number; semTexto?: number[]; naoLidas?: number[] }[], config: ConfigGigante): Promise<string[]> {
+  async iniciarPartes(pdfs: { nome: string; texto: string; pageCount: number; semTexto?: number[]; naoLidas?: number[]; arquivo?: () => Promise<File | null> }[], config: ConfigGigante): Promise<string[]> {
     await this.carregar();
     const partes: ParteDosAutos[] = dividirEmPartes(pdfs, LIMITE_PAGINAS_GIGANTE);
     const ids: string[] = [];
     const base = Date.now();
     for (const parte of partes) {
       const id = await this.criar(
-        parte.fontes.map((f) => ({ nome: f.nome, totalOriginal: f.totalOriginal, ler: async () => ({ text: f.texto, pageCount: f.pageCount, semTexto: f.semTexto, naoLidas: f.naoLidas }) })),
+        parte.fontes.map((f) => ({ nome: f.nome, totalOriginal: f.totalOriginal, paginaInicial: f.paginaInicial, arquivo: pdfs[f.origem]?.arquivo, ler: async () => ({ text: f.texto, pageCount: f.pageCount, semTexto: f.semTexto, naoLidas: f.naoLidas }) })),
         { ...config, parte: { indice: parte.indice, total: parte.total, de: parte.de, ate: parte.ate, totalPaginas: parte.totalPaginas } },
         ids[ids.length - 1],
         `Parte ${parte.indice} de ${parte.total} — págs. ${parte.de.toLocaleString("pt-BR")} a ${parte.ate.toLocaleString("pt-BR")} de ${parte.totalPaginas.toLocaleString("pt-BR")}`,
@@ -83,7 +98,7 @@ class Gerente {
     return ids;
   }
 
-  private async criar(fontes: { nome: string; totalOriginal?: number; ler: (onProg: (c: number, t: number) => void) => Promise<{ text: string; pageCount: number; semTexto: number[]; naoLidas: number[] }> }[], config: ConfigGigante, antecessorId?: string, rotulo?: string, criadoEm?: number): Promise<string> {
+  private async criar(fontes: Fonte[], config: ConfigGigante, antecessorId?: string, rotulo?: string, criadoEm?: number): Promise<string> {
     await this.carregar();
     const id = `gig-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const job: JobGig = {
@@ -93,25 +108,29 @@ class Gerente {
       injecao: { verificado: false, caracteres: 0, total: 0, alto: 0, medio: 0, achados: [] },
       triagem: { essenciais: 0, relevantes: 0, dispensaveis: 0, repetidas: 0, omitidas: [], abreviadas: [] }, config,
     };
+    this.fontesOcr.set(id, fontes.map((f) => ({ arquivo: f.arquivo, paginaInicial: f.paginaInicial || 1 })));
     await this.gravar(job);
     void this.preparar(job, fontes);
     return id;
   }
 
-  private async preparar(job: JobGig, fontes: { nome: string; totalOriginal?: number; ler: (onProg: (c: number, t: number) => void) => Promise<{ text: string; pageCount: number; semTexto: number[]; naoLidas: number[] }> }[]) {
+  private async preparar(job: JobGig, fontes: Fonte[]) {
     const id = job.id;
     try {
-      let n = 0; const todas: PaginaGig[] = [];
+      const todas: PaginaGig[] = []; let ocrTotal = 0;
       for (let a = 0; a < fontes.length; a++) {
         job.etapa = `Lendo ${fontes[a].nome} (${a + 1}/${fontes.length})…`; this.avisar();
         const ex = await fontes[a].ler((c, t) => { job.progresso = { feitas: c, total: t }; this.avisar(); });
         const pags = dividirPaginas(ex.text, ex.pageCount);
+        const baseN = job.arquivos.reduce((t, x) => t + (x.paginas || 0), 0), ini = fontes[a].paginaInicial || 1;       // numeração = posição física da página no processo
+        if (job.config.ocr !== false && fontes[a].arquivo) ocrTotal += ex.semTexto.length;
         job.arquivos.push({ nome: fontes[a].nome, paginas: ex.pageCount || pags.length, semTexto: ex.semTexto, naoLidas: ex.naoLidas, totalOriginal: fontes[a].totalOriginal });
         const cls = classificarTodas(pags);
-        pags.forEach((p, i) => { n++; todas.push({ chave: chavePagina(id, n), jobId: id, n, arquivo: a, pagina: p.pagina, texto: p.texto, tipo: cls[i].tipo, rotuloTipo: cls[i].rotuloTipo }); });
+        pags.forEach((p, i) => { const n = baseN + (p.pagina - ini + 1); todas.push({ chave: chavePagina(id, n), jobId: id, n, arquivo: a, pagina: p.pagina, texto: p.texto, tipo: cls[i].tipo, rotuloTipo: cls[i].rotuloTipo }); });
         if (!job.numeroProcesso) { const m = ex.text.slice(0, 20000).match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/); if (m) job.numeroProcesso = m[0]; }
       }
-      if (todas.length === 0) throw new Error("Não foi possível extrair texto dos PDFs. Faça o OCR das páginas (leitura por imagem) e envie de novo.");
+      if (todas.length === 0 && ocrTotal === 0) throw new Error("Não foi possível extrair texto dos PDFs (são imagens sem texto). Faça o OCR das páginas (leitura por imagem) e envie de novo.");
+      if (ocrTotal > 0) job.ocr = { total: ocrTotal, feitas: 0, falhas: 0 };
       job.totalPaginas = todas.length;
       const fisicas = job.arquivos.reduce((n, a) => n + (a.paginas || 0), 0);
       if (Math.max(fisicas, job.totalPaginas) > LIMITE_PAGINAS) throw new Error(`Este processo tem ${Math.max(fisicas, job.totalPaginas)} páginas. Esta versão processa até ${LIMITE_PAGINAS}; acima disso é preciso mais cota (várias chaves ou faturamento) e execução em servidor. Divida os autos em partes menores ou aguarde a próxima fase.`);
@@ -121,9 +140,10 @@ class Gerente {
       job.triagem.omitidas = faixasDe(todas, (p) => (p.tipo === "repetida" ? p.rotuloTipo || "página repetida" : ""));
       job.triagem.abreviadas = faixasDe(todas, (p) => (p.tipo === "dispensavel" ? p.rotuloTipo || "documento sem relevância" : ""));
       job.totalTokensEstimados = Math.round(todas.reduce((s, p) => s + p.texto.length, 0) / CPT);
+      if (job.ocr) job.totalTokensEstimados += Math.round(job.ocr.total * 700 / CPT * 3.2);       // estimativa das páginas que o OCR vai ler
       const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.totalOriginal || x.paginas);
       job.lotes = montarLotes(todas, nomes, totais);
-      job.status = "na_fila"; job.etapa = `Pronto: ${job.totalPaginas} páginas em ${job.lotes.length} lote(s).`; job.progresso = { feitas: 0, total: job.lotes.length };
+      job.status = "na_fila"; job.etapa = job.ocr ? `Pronto: ${job.totalPaginas} páginas com texto em ${job.lotes.length} lote(s); ${job.ocr.total} páginas sem texto serão lidas por OCR.` : `Pronto: ${job.totalPaginas} páginas em ${job.lotes.length} lote(s).`; job.progresso = { feitas: 0, total: job.lotes.length };
       await this.gravar(job);
       void this.depoisDe(job.antecessorId).then(() => this.executar(id));
     } catch (e: any) {
@@ -156,12 +176,12 @@ class Gerente {
   async retomar(id: string) { const j = this.jobs.get(id); if (!j || this.rodando.has(id)) return; j.erro = undefined; j.status = "na_fila"; j.etapa = "Retomando…"; await this.gravar(j); void this.executar(id); }
 
   // ---------- pista própria: espera a pista normal (esteira/usuário) ficar livre e respeita o intervalo entre chamadas ----------
-  private async aguardarVez(id: string) {
+  private async aguardarVez(id: string, intervalo = INTERVALO_ENTRE_CHAMADAS_MS) {
     const ini = Date.now();
     for (;;) {
       if (this.sinais.has(id)) return;
       const livre = !pistaNormalOcupada() && Date.now() - ultimaAtividadePistaNormal() >= FOLGA_APOS_PISTA_NORMAL_MS;
-      const intervaloOk = Date.now() - this.ultimaChamada >= INTERVALO_ENTRE_CHAMADAS_MS;
+      const intervaloOk = Date.now() - this.ultimaChamada >= intervalo;
       if ((livre && intervaloOk) || Date.now() - ini > ESPERA_MAXIMA_PISTA_MS) { this.ultimaChamada = Date.now(); return; }
       const j = this.jobs.get(id);
       if (j && !livre && !/Aguardando/.test(j.etapa)) { j.etapa = "Aguardando as análises normais terminarem (elas têm prioridade)…"; this.avisar(); }
@@ -228,6 +248,9 @@ class Gerente {
     try {
       const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.totalOriginal || x.paginas);
       const contexto = `${job.config.promptTitle || "minuta"} (${job.config.actType || "ato"})${job.numeroProcesso ? ` — processo ${job.numeroProcesso}` : ""}`;
+      // 0) OCR por IA das páginas sem texto, em lotes de 5 páginas (a pista normal tem prioridade)
+      await this.fazerOcr(job);
+      if (this.sinais.has(id)) return this.encerrarPorSinal(job);
       // 1) lotes: uma ficha por trecho dos autos
       job.status = "lendo"; job.progresso = { feitas: job.lotes.filter((l) => job.fichas[`n0:${l.i}`]).length, total: job.lotes.length };
       for (const lote of job.lotes) {
@@ -268,6 +291,11 @@ class Gerente {
         atual = novas; job.nivelAtual = nivel + 1;
         if (novoTotal >= total || nivel >= 7) break;       // a fusão deixou de encolher: segue com o que há (o excedente é abreviado na minuta final, com aviso)
       }
+      if (job.config.finalidade === "dossie") {       // Lupa e Mesa só precisam do dossiê: não redige minuta
+        job.status = "concluido"; job.etapa = "Dossiê pronto: já pode ser usado na Lupa, na Mesa de Audiência ou no Turbo."; job.fim = Date.now(); job.progresso = { feitas: 1, total: 1 };
+        await this.gravar(job);
+        return;
+      }
       // 3) minuta final com o dossiê + peças essenciais na íntegra
       await this.aguardarVez(id); if (this.sinais.has(id)) return this.encerrarPorSinal(job);
       job.status = "redigindo"; job.etapa = "Redigindo a minuta a partir do dossiê…"; job.progresso = { feitas: 0, total: 1 }; await this.gravar(job);
@@ -282,17 +310,77 @@ class Gerente {
     }
   }
 
+  pularOcr(id: string) { this.pularOcrDe.add(id); }
+
+  private async ocrDaPagina(job: JobGig, file: File, grupo: number[]) {
+    for (let t = 0; t < 3; t++) {
+      const r = await ocrPaginas(file, grupo);
+      const feitas = Object.keys(r.textos).length + r.emBranco.length;
+      if (feitas > 0 || t === 2) return r;
+      job.etapa = `OCR: aguardando a cota da IA renovar (tentativa ${t + 2}/3)…`; this.avisar();
+      await dorme(Number((globalThis as any).__GIGANTE_ESPERA_COTA_MS ?? 70000));
+    }
+    return { textos: {}, emBranco: [], falhas: grupo } as any;
+  }
+
+  private async fazerOcr(job: JobGig) {
+    if (!job.ocr || job.ocrFeito) return;
+    const id = job.id, fontes = this.fontesOcr.get(id) || [];
+    job.status = "ocr"; job.progresso = { feitas: job.ocr.feitas, total: job.ocr.total }; await this.gravar(job);
+    let base = 0; let interrompido = false;
+    for (let a = 0; a < job.arquivos.length; a++) {
+      const arq = job.arquivos[a], inicio = base; base += arq.paginas || 0;
+      const alvo = [...arq.semTexto];
+      if (alvo.length === 0 || job.config.ocr === false) continue;
+      const getter = fontes[a]?.arquivo, ini = fontes[a]?.paginaInicial || 1;
+      const file = getter ? await getter().catch(() => null) : null;
+      if (!file) { job.ocr.falhas += alvo.length; job.etapa = "OCR: o arquivo original não está mais disponível nesta sessão (as páginas sem texto seguem sem leitura)."; continue; }
+      const restantes: number[] = [];
+      for (let i = 0; i < alvo.length; i += 5) {
+        if (this.sinais.has(id)) { interrompido = true; restantes.push(...alvo.slice(i)); break; }
+        if (this.pularOcrDe.has(id)) { restantes.push(...alvo.slice(i)); continue; }
+        await this.aguardarVez(id, INTERVALO_OCR_MS);
+        if (this.sinais.has(id)) { interrompido = true; restantes.push(...alvo.slice(i)); break; }
+        const grupo = alvo.slice(i, i + 5);
+        job.etapa = `OCR por IA das páginas sem texto: ${job.ocr.feitas} de ${job.ocr.total}…`; this.avisar();
+        const r = await this.ocrDaPagina(job, file, grupo);
+        const novas: PaginaGig[] = [];
+        for (const pg of grupo) {
+          const txt = r.textos[pg];
+          if (txt) { const c = classificarPagina(txt); const n = inicio + (pg - ini + 1); novas.push({ chave: chavePagina(id, n), jobId: id, n, arquivo: a, pagina: pg, texto: `[página lida por OCR] ${txt}`, tipo: c.tipo, rotuloTipo: c.rotulo }); }
+          else if (r.emBranco.includes(pg)) { /* página em branco: resolvida, sem texto */ }
+          else { restantes.push(pg); job.ocr.falhas++; }
+        }
+        if (novas.length) await salvarPaginas(novas);
+        job.ocr.feitas += grupo.length; job.progresso = { feitas: job.ocr.feitas, total: job.ocr.total }; await this.gravar(job);
+      }
+      arq.semTexto = restantes;
+    }
+    if (interrompido) return;
+    // reconstrói os lotes com as páginas lidas por OCR
+    const todas = await lerPaginas(id, 1, 99_999_999);
+    const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.totalOriginal || x.paginas);
+    job.totalPaginas = todas.length;
+    const cont = (t: PaginaGig["tipo"]) => todas.filter((p) => p.tipo === t).length;
+    job.triagem.essenciais = cont("essencial"); job.triagem.relevantes = cont("relevante"); job.triagem.dispensaveis = cont("dispensavel"); job.triagem.repetidas = cont("repetida");
+    job.triagem.abreviadas = faixasDe(todas, (p) => (p.tipo === "dispensavel" ? p.rotuloTipo || "documento sem relevância" : ""));
+    job.totalTokensEstimados = Math.round(todas.reduce((t, p) => t + p.texto.length, 0) / CPT);
+    job.lotes = montarLotes(todas, nomes, totais);
+    if (job.lotes.length === 0) throw new Error("Nenhuma página do processo pôde ser lida (nem por texto nem por OCR).");
+    job.ocrFeito = true; job.progresso = { feitas: 0, total: job.lotes.length };
+    await this.gravar(job);
+  }
+
   private async encerrarPorSinal(job: JobGig) {
     const s = this.sinais.get(job.id);
     job.status = s === "cancelar" ? "cancelado" : "pausado"; job.etapa = s === "cancelar" ? "Cancelado." : "Pausado: clique em Retomar para continuar.";
     await this.gravar(job);
   }
 
-  private async redigir(job: JobGig, fichas: any[]) {
-    const cfg = job.config as ConfigGigante;
+  /** Texto do dossiê (fichas fundidas) + peças essenciais na íntegra: é o que a minuta, a Lupa e a Mesa recebem no lugar dos autos. */
+  private async montarTextoDossie(job: JobGig, fichas: any[]) {
     const nomes = job.arquivos.map((x) => x.nome), totais = job.arquivos.map((x) => x.totalOriginal || x.paginas);
-    // peças essenciais na íntegra (até um orçamento de caracteres), na ordem do processo
-    const todas = await lerPaginas(job.id, 1, job.totalPaginas);
+    const todas = await lerPaginas(job.id, 1, 99_999_999);
     const ess = todas.filter((p) => p.tipo === "essencial");
     const ORC = 190_000; let usado = 0; const escolhidas: PaginaGig[] = [];
     for (const p of ess) { const t = Math.min(p.texto.length, 6000); if (usado + t > ORC) continue; usado += t; escolhidas.push(p); }
@@ -302,6 +390,46 @@ class Gerente {
     const processText =
       `[DOSSIÊ DO PROCESSO — os autos têm ${job.totalPaginas} páginas e foram lidos em ${job.lotes.length} lote(s); abaixo estão as fichas estruturadas (cada item cita o arquivo/página) e, em seguida, as peças essenciais na íntegra]\n\n${dossie}` +
       (escolhidas.length ? `\n\n[PEÇAS ESSENCIAIS NA ÍNTEGRA — ${escolhidas.length} página(s)]\n\n` + escolhidas.map((p) => `[Arquivo ${p.arquivo + 1}: ${nomes[p.arquivo] || ""}]\n[Página ${p.pagina} de ${totais[p.arquivo] || p.pagina}]\n${p.texto.slice(0, 6000)}`).join("\n\n") : "");
+    return { processText, escolhidas, dossieAbreviado, nomes };
+  }
+
+  private fichasFinais(job: JobGig): any[] {
+    const niveis = Object.keys(job.fichas).map((k) => Number(k.slice(1).split(":")[0]));
+    const topo = niveis.length ? Math.max(...niveis) : 0;
+    return chavesDoNivel(job, topo).map((k) => job.fichas[k]);
+  }
+
+  /** Dossiê pronto de um trabalho concluído (para a Lupa, a Mesa e o Turbo). */
+  async obterDossie(jobId: string) {
+    const job = this.jobs.get(jobId) || (await lerJob(jobId));
+    if (!job || Object.keys(job.fichas).length === 0) throw new Error("Dossiê não encontrado neste navegador.");
+    const d = await this.montarTextoDossie(job, this.fichasFinais(job));
+    return {
+      texto: d.processText, jobId: job.id, numeroProcesso: job.numeroProcesso || "",
+      info: { paginas: job.totalPaginas, lotes: job.lotes.length, niveis: job.nivelAtual, essenciaisIntegra: d.escolhidas.length, dossieAbreviado: d.dossieAbreviado },
+      arquivos: job.arquivos.map((a) => ({ nome: a.nome, totalPaginas: a.paginas, semTexto: a.semTexto, naoLidas: a.naoLidas })),
+      injecao: job.injecao,
+    };
+  }
+
+  /** Último trabalho concluído deste processo (pelo número CNJ) cujo dossiê pode ser reaproveitado. */
+  dossieDoProcesso(numero: string): string | null {
+    const dig = String(numero || "").replace(/\D/g, "");
+    if (dig.length < 10) return null;
+    const achados = this.lista().filter((j) => j.status === "concluido" && (j.numeroProcesso || "").replace(/\D/g, "") === dig && Object.keys(j.fichas).length > 0 && !j.config.parte);
+    achados.sort((a, b) => (b.fim || 0) - (a.fim || 0));
+    return achados[0]?.id || null;
+  }
+
+  async pesquisar(jobId: string, termo: string) {
+    const r = await pesquisarIndice(jobId, termo, 40);
+    const job = this.jobs.get(jobId);
+    return { total: r.total, achados: r.achados.map((x) => ({ ...x, nomeArquivo: job?.arquivos[x.arquivo]?.nome || "" })) };
+  }
+
+  private async redigir(job: JobGig, fichas: any[]) {
+    const cfg = job.config as ConfigGigante;
+    const { processText, escolhidas, dossieAbreviado } = await this.montarTextoDossie(job, fichas);
     let tesesTxt = ""; try { const t: any = await getCabinetTeses(); if (t && t.isEnabled !== false && typeof t.text === "string") tesesTxt = t.text.trim(); } catch { /* sem teses */ }
     const parteTxt = cfg.parte ? ` ATENÇÃO: estes autos foram divididos automaticamente e este é o trecho ${cfg.parte.indice} de ${cfg.parte.total} (páginas ${cfg.parte.de.toLocaleString("pt-BR")} a ${cfg.parte.ate.toLocaleString("pt-BR")} de ${cfg.parte.totalPaginas.toLocaleString("pt-BR")}). As demais partes NÃO foram consideradas nesta minuta: não conclua o mérito do processo como um todo, não afirme ausência de prova que possa estar nas outras partes e registre no Relatório que a minuta cobre apenas as páginas ${cfg.parte.de} a ${cfg.parte.ate}.` : "";
     const regra = `[PROCESSO GIGANTE LIDO EM LOTES]:${parteTxt} o texto fornecido é um DOSSIÊ estruturado (fichas por trecho, com a página de cada item) mais as peças essenciais na íntegra. Redija a minuta com base nele e cite páginas quando útil. NÃO afirme "não há prova", "não foi juntado" ou "a parte não comprovou" só por não constar do dossiê: só registre ausência quando a ficha disser expressamente; no mais, use "não localizei no dossiê dos autos" e indique conferência humana.`;
@@ -315,7 +443,12 @@ class Gerente {
     };
     const data = await this.chamar(job.id, "/api/generate-minute", corpo);
     if (!data?.minute) throw new Error("A IA não devolveu uma minuta válida a partir do dossiê.");
-    const info = { paginas: job.totalPaginas, lotes: job.lotes.length, niveis: job.nivelAtual, essenciaisIntegra: escolhidas.length, omitidas: job.triagem.omitidas, abreviadas: job.triagem.abreviadas, dossieAbreviado, parte: cfg.parte };
+    let verificacaoAusencia: any[] = [];
+    try {
+      const conf = await conferirAusencias(job.id, data.minute);
+      verificacaoAusencia = conf.map((c) => ({ ...c, paginas: c.paginas.map((p) => ({ arquivo: job.arquivos[p.arquivo]?.nome || `arquivo ${p.arquivo + 1}`, pagina: p.pagina, trecho: p.trecho })) }));
+    } catch (e) { console.warn("[Gigantes] conferência de ausência de prova falhou (ignorada):", e); }
+    const info = { paginas: job.totalPaginas, lotes: job.lotes.length, niveis: job.nivelAtual, essenciaisIntegra: escolhidas.length, omitidas: job.triagem.omitidas, abreviadas: job.triagem.abreviadas, dossieAbreviado, parte: cfg.parte, ocrPaginas: job.ocr ? job.ocr.feitas - job.ocr.falhas : 0, verificacaoAusencia };
     const alertaInjecao = job.injecao.verificado ? job.injecao : data.alertaInjecao;
     const analysisId = data.analysisId || (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `gig-${Date.now()}`);
     const numero = (data.minute?.processNumber && !/extrair|n[ãa]o informado/i.test(data.minute.processNumber)) ? data.minute.processNumber : (job.numeroProcesso || cfg.processNumber || "Sem Número");

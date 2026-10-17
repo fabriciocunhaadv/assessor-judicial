@@ -54,16 +54,24 @@ def main():
             assert job["totalPaginas"] >= n - 5 and len(job["lotes"]) >= 2
             assert job["triagem"]["repetidas"] >= 5 and job["triagem"]["dispensaveis"] >= 1
             assert job["injecao"]["total"] >= 1 and 120 in [a.get("pagina") for a in job["injecao"]["achados"]], "injeção da pág. 120 não foi agregada"
-            assert job["arquivos"][0]["semTexto"] == [200, 201, 202, 203, 204]
+            assert job["arquivos"][0]["semTexto"] == [], "as 5 páginas sem texto devem ter sido lidas por OCR"
+            assert job["ocr"]["feitas"] == 5 and job["ocr"]["falhas"] == 0, job["ocr"]
             # B) minuta final: tem de conter os 4 fatos plantados em páginas distantes (nada se perdeu nos lotes/fusões)
             hist = pg.evaluate("window.__setDocs || []"); print("gravações no histórico:", len(hist))
             L = log_(); fichas = [x for x in L if x.get("p") == "ficha"]; fus = [x for x in L if x.get("p") == "fusao"]; final = [x for x in L if x.get("p") not in ("ficha", "fusao", "classif")]
             print(f"chamadas: {len(fichas)} fichas, {len(fus)} fusões, {len(final)} finais | maior pedido: {max(x['tok'] for x in L)} tokens | 429: {len([x for x in L if x['res']==429])}")
             assert len(fichas) == len(job["lotes"]) and len(final) >= 1 and all(x["tok"] < 250000 for x in L if x["res"] == 200)
             ult = [x for x in final if x["res"] == 200][-1]; print("fatos que chegaram à minuta final:", ult.get("fatos"))
-            assert {"FATO-101", "FATO-202", "FATO-303", "FATO-404"} <= set(ult.get("fatos", [])), "um fato plantado em página distante se perdeu nos lotes/fusões"
-            assert any(x.get("cob") for x in final), "a regra de cobertura (páginas sem texto) deve ir na minuta final"
+            assert {"FATO-101", "FATO-202", "FATO-303", "FATO-404"} <= set(ult.get("fatos", [])) and any(f.startswith("FATO-5") for f in ult.get("fatos", [])), "os fatos das páginas lidas por OCR também devem chegar à minuta"
+            assert True, "um fato plantado em página distante se perdeu nos lotes/fusões"
+            assert any(x.get("p") == "ocr" for x in L), "o OCR por IA das páginas sem texto deve ter sido chamado"
+            assert not any(x.get("cob") for x in final), "com o OCR feito não há mais páginas sem leitura: a regra de lacuna não deve ir"
             fi = pg.evaluate("window.__setDocs.filter(d=>d.bytes>1000).length")
+            doc = pg.evaluate("(window.__setDocs || []).filter(d => d.dados && d.dados.result && d.dados.result.gigante).slice(-1)[0]?.dados.result.gigante")
+            ver = (doc or {}).get("verificacaoAusencia") or []; print("verificação de ausência:", json.dumps(ver, ensure_ascii=False)[:300])
+            assert any(v["termo"] == "laudo pericial" and any(p["pagina"] == 300 for p in v["paginas"]) for v in ver), "a conferência deve achar o 'laudo pericial' da pág. 300 que a minuta diz não existir"
+            r = pg.evaluate("window.gerente.pesquisar(window.gerente.lista()[0].id, 'laudo pericial')"); print("pesquisa no índice:", r["total"], [a["pagina"] for a in r["achados"]][:5])
+            assert 300 in [a["pagina"] for a in r["achados"]]
             print("OK" if not erros else ("erros de página: " + str(erros[:3])))
             b.close()
     finally:

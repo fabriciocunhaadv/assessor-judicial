@@ -4,7 +4,7 @@ export interface ParteDosAutos {
   indice: number; total: number;
   de: number; ate: number;           // posições físicas (1..totalPaginas) cobertas por esta parte
   totalPaginas: number;
-  fontes: { nome: string; texto: string; pageCount: number; semTexto: number[]; naoLidas: number[]; totalOriginal: number }[];
+  fontes: { nome: string; texto: string; pageCount: number; semTexto: number[]; naoLidas: number[]; totalOriginal: number; origem: number; paginaInicial: number }[];
 }
 
 const PAGINA = /\[Página (\d+) de (\d+)\]\n?/g;
@@ -42,6 +42,8 @@ export function dividirEmPartes(pdfs: PdfParaDividir[], limite: number): ParteDo
         semTexto: (x.p.semTexto || []).filter((n) => n >= locais.de && n <= locais.ate),
         naoLidas: (x.p.naoLidas || []).filter((n) => n >= locais.de && n <= locais.ate),
         totalOriginal: x.p.pageCount,
+        origem: porPdf.indexOf(x),
+        paginaInicial: locais.de,
       });
     }
     partes.push({ indice: i + 1, total: k, de, ate, totalPaginas: total, fontes });
