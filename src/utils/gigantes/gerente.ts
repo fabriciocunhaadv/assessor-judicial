@@ -18,7 +18,9 @@ export interface ConfigGigante {
 const FOLGA_APOS_PISTA_NORMAL_MS = Number((globalThis as any).__GIGANTE_FOLGA_MS ?? 25000);
 const INTERVALO_ENTRE_CHAMADAS_MS = Number((globalThis as any).__GIGANTE_INTERVALO_MS ?? 45000);
 const ESPERA_MAXIMA_PISTA_MS = 20 * 60000;
-const LIMITE_PAGINAS = 5000;       // além disso, é a fase 3 (precisa de servidor/mais cota)
+/** Limite desta fase: acima disso é preciso mais cota (várias chaves ou faturamento) e execução em servidor. */
+export const LIMITE_PAGINAS_GIGANTE = 2500;
+const LIMITE_PAGINAS = LIMITE_PAGINAS_GIGANTE;
 const dorme = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Ouvinte = (jobs: JobGig[]) => void;
@@ -89,7 +91,8 @@ class Gerente {
       }
       if (todas.length === 0) throw new Error("Não foi possível extrair texto dos PDFs. Faça o OCR das páginas (leitura por imagem) e envie de novo.");
       job.totalPaginas = todas.length;
-      if (job.totalPaginas > LIMITE_PAGINAS) throw new Error(`Este processo tem ${job.totalPaginas} páginas com texto. Esta versão processa até ${LIMITE_PAGINAS}; acima disso é preciso mais cota (várias chaves ou faturamento) e execução em servidor.`);
+      const fisicas = job.arquivos.reduce((n, a) => n + (a.paginas || 0), 0);
+      if (Math.max(fisicas, job.totalPaginas) > LIMITE_PAGINAS) throw new Error(`Este processo tem ${Math.max(fisicas, job.totalPaginas)} páginas. Esta versão processa até ${LIMITE_PAGINAS}; acima disso é preciso mais cota (várias chaves ou faturamento) e execução em servidor. Divida os autos em partes menores ou aguarde a próxima fase.`);
       for (let i = 0; i < todas.length; i += 400) await salvarPaginas(todas.slice(i, i + 400));
       const cont = (t: PaginaGig["tipo"]) => todas.filter((p) => p.tipo === t).length;
       job.triagem.essenciais = cont("essencial"); job.triagem.relevantes = cont("relevante"); job.triagem.dispensaveis = cont("dispensavel"); job.triagem.repetidas = cont("repetida");

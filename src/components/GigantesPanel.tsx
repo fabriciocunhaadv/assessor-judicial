@@ -50,7 +50,7 @@ export function GigantesPanel({ config, onVerHistorico }: { config: ConfigGigant
             <h3 className="text-sm font-black text-sky-900">📚 Processos gigantes (leitura em lotes)</h3>
             <button onClick={() => setAberto(false)} className="text-slate-500 hover:text-slate-800 text-lg leading-none cursor-pointer" aria-label="Fechar">×</button>
           </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">Para autos com muitas páginas. O sistema lê tudo em lotes, funde as fichas e redige a minuta, sem travar o resto: as análises normais têm prioridade. Mantenha esta aba aberta; se fechar, retome de onde parou.</p>
+          <p className="text-[11px] text-slate-600 leading-relaxed">Para autos com muitas páginas (até 2.500). O sistema lê tudo em lotes, funde as fichas e redige a minuta, sem travar o resto: as análises normais têm prioridade. Mantenha esta aba aberta; se fechar, retome de onde parou.</p>
           <div className="p-2 rounded-xl bg-sky-50 border border-sky-200 space-y-1.5">
             <div className="text-[11px] font-bold text-sky-900">Novo processo gigante — usa o prompt selecionado: “{config.promptTitle || "—"}”</div>
             <input ref={arq} type="file" accept="application/pdf" multiple className="text-[11px]" data-testid="gigantes-arquivos" />
