@@ -143,11 +143,14 @@ class Gerente {
     }
   }
 
-  pausar(id: string) { if (this.rodando.has(id)) this.sinais.set(id, "pausar"); }
+  pausar(id: string) {
+    if (this.rodando.has(id)) { this.sinais.set(id, "pausar"); return; }
+    if (this.fila.includes(id)) { this.sairDaFila(id); const j = this.jobs.get(id); if (j) { j.status = "pausado"; j.etapa = "Pausado: clique em Retomar para voltar à fila."; void this.gravar(j); } }
+  }
   async cancelar(id: string) {
     const j = this.jobs.get(id); if (!j) return;
     if (this.rodando.has(id)) this.sinais.set(id, "cancelar");
-    else { j.status = "cancelado"; j.etapa = "Cancelado."; await this.gravar(j); }
+    else { this.sairDaFila(id); j.status = "cancelado"; j.etapa = "Cancelado."; await this.gravar(j); }
   }
   async remover(id: string) { if (this.rodando.has(id)) return; this.jobs.delete(id); this.avisar(); try { await apagarJob(id); } catch { /* ignora */ } }
   async retomar(id: string) { const j = this.jobs.get(id); if (!j || this.rodando.has(id)) return; j.erro = undefined; j.status = "na_fila"; j.etapa = "Retomando…"; await this.gravar(j); void this.executar(id); }
@@ -188,7 +191,35 @@ class Gerente {
     throw ultimoErro;
   }
 
+  // ---------- fila: um processo gigante por vez (os outros esperam a sua vez, na ordem em que chegaram) ----------
+  private fila: string[] = [];
+  private emExecucao: string | null = null;
+  private posicoes() {
+    this.fila.forEach((fid, i) => {
+      const j = this.jobs.get(fid);
+      if (j && j.status === "na_fila") { j.etapa = `Na fila: aguardando o processo gigante em andamento terminar (posição ${i + 1} na fila)…`; }
+    });
+    this.avisar();
+  }
+  private sairDaFila(id: string) { const i = this.fila.indexOf(id); if (i >= 0) { this.fila.splice(i, 1); this.posicoes(); } }
+
   private async executar(id: string) {
+    if (this.rodando.has(id) || this.fila.includes(id) || this.emExecucao === id) return;
+    this.fila.push(id);
+    const j0 = this.jobs.get(id);
+    if (j0 && (this.emExecucao || this.fila.length > 1)) { j0.status = "na_fila"; this.posicoes(); }
+    while (this.emExecucao || this.fila[0] !== id) {
+      if (!this.fila.includes(id)) return;                          // pausado ou cancelado enquanto esperava
+      await dorme(1500);
+    }
+    this.fila.shift(); this.emExecucao = id; this.posicoes();
+    try {
+      const j = this.jobs.get(id);
+      if (j && j.status !== "cancelado" && j.status !== "pausado") await this.executarAgora(id);
+    } finally { this.emExecucao = null; }
+  }
+
+  private async executarAgora(id: string) {
     if (this.rodando.has(id)) return;
     this.rodando.add(id); this.sinais.delete(id);
     const job = this.jobs.get(id) || (await lerJob(id));
