@@ -1,0 +1,11 @@
+import { limitarAtoParaNuvem, bytesUtf8 } from "../../src/utils/historicoTamanho";
+const minuta = { relatorio: "R".repeat(30000), dispositivo: "D".repeat(5000) };
+const ato: any = { id: "a1", processNumber: "5541798-51.2023.8.09.0166", processTextContext: "ç".repeat(2_500_000), holisticSynopsis: "H".repeat(400000), result: { minute: minuta, stage1Snapshot: { x: "S".repeat(300000) } }, chatMessages: [] };
+console.log("antes", bytesUtf8(ato));
+const { dado, cortou } = limitarAtoParaNuvem(ato);
+console.log("depois", bytesUtf8(dado), cortou.join(","));
+if (bytesUtf8(dado) > 850000) throw new Error("não coube");
+if (dado.result.minute.relatorio.length !== 30000 || dado.result.minute.dispositivo.length !== 5000) throw new Error("minuta alterada");
+const pequeno: any = { id: "b", result: { minute: minuta }, processTextContext: "x".repeat(1000) };
+const r2 = limitarAtoParaNuvem(pequeno); if (r2.cortou.length || r2.dado.processTextContext.length !== 1000) throw new Error("ato pequeno não pode ser alterado");
+console.log("OK");

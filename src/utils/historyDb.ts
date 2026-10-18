@@ -2,6 +2,8 @@ import { SavedAnalysis } from "../types";
 import { getHistoryFromDb, saveHistoryToDb, deleteHistoryFromDb, globalTenantId } from "../lib/firestoreUtils";
 import { auth } from "../lib/firebase";
 import { safeGetItem, safeSetItem, safeRemoveItem } from "./safeStorage";
+import { limitarAtoParaNuvem } from "./historicoTamanho";
+import toast from "react-hot-toast";
 
 export type { SavedAnalysis };
 
@@ -209,6 +211,7 @@ export const getHistory = async (): Promise<SavedAnalysis[]> => {
       const cleanList = filterAndPrune(dbList);
       // Logado: o Firestore (com cache em IndexedDB) é a fonte única; NÃO grava no localStorage (limite ~5 MB).
       const marcas = lerMarcas();
+      for (const [id, ato] of pendentesHistorico) if (!cleanList.some((x) => x.id === id) && !tombstones.has(id)) cleanList.unshift(ato);      // ainda não gravado na nuvem: aparece mesmo assim
       return cleanList.map((it) => (Object.prototype.hasOwnProperty.call(marcas, it.id) ? { ...it, lancadoProjudi: marcas[it.id] } : it));
     } catch (err) {
       console.warn("Could not fetch history from DB, falling back to local cache:", err);
@@ -219,6 +222,36 @@ export const getHistory = async (): Promise<SavedAnalysis[]> => {
   return filterAndPrune(localList);
 };
 
+// ===== Gravação do Histórico na nuvem: limite de tamanho, prazo, fila de pendentes e reenvio =====
+const pendentesHistorico = new Map<string, SavedAnalysis>();      // atos que ainda não foram para a nuvem (só enquanto a aba estiver aberta)
+const comPrazoHistorico = <T,>(p: Promise<T>, ms: number): Promise<T> => new Promise((ok, falha) => {
+  const t = setTimeout(() => falha(new Error("tempo esgotado ao gravar na nuvem (conexão lenta ou sem rede)")), ms);
+  p.then((v) => { clearTimeout(t); ok(v); }, (e) => { clearTimeout(t); falha(e); });
+});
+const descreverErroHistorico = (e: any): string => `${e?.code ? e.code + ": " : ""}${String(e?.message || e || "erro desconhecido").slice(0, 140)}`;
+const enviarHistoricoParaNuvem = async (analysis: SavedAnalysis, ms: number) => {
+  const { dado, cortou } = limitarAtoParaNuvem(analysis);
+  if (cortou.length) console.warn(`[Histórico] ato ${analysis.id} encurtado para caber na nuvem:`, cortou.join(", "));
+  await comPrazoHistorico(saveHistoryToDb(dado), ms);
+};
+let reenvioHistoricoIniciado = false, reenviandoHistorico = false;
+export const reenviarHistoricoPendente = async (): Promise<void> => {
+  if (reenviandoHistorico || !auth.currentUser || pendentesHistorico.size === 0) return;
+  reenviandoHistorico = true;
+  try {
+    for (const [id, ato] of Array.from(pendentesHistorico.entries())) {
+      try { await enviarHistoricoParaNuvem(ato, 30000); pendentesHistorico.delete(id); try { toast.success(`Ato ${ato.processNumber || ""} gravado no Histórico.`, { duration: 6000 }); } catch { /* sem toast */ } }
+      catch (e) { console.warn("[Histórico] reenvio falhou:", descreverErroHistorico(e)); }
+    }
+  } finally { reenviandoHistorico = false; }
+};
+const iniciarReenvioHistorico = () => {
+  if (reenvioHistoricoIniciado || typeof window === "undefined") return;
+  reenvioHistoricoIniciado = true;
+  window.addEventListener("online", () => { void reenviarHistoricoPendente(); });
+  setInterval(() => { void reenviarHistoricoPendente(); }, 60000);
+};
+
 export const saveToHistory = async (analysis: SavedAnalysis): Promise<void> => {
   if (!analysis || !analysis.id) return;
   if (isCorruptedHistoryItem(analysis)) {
@@ -227,11 +260,19 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<void> => {
   }
   removeTombstone(analysis.id);
 
-  // 1. Persist to Firestore DB (source of truth)
-  try {
-    await saveHistoryToDb(analysis);
-  } catch (err) {
-    console.warn("Could not save history to Firestore DB:", err);
+  // 1. Persist to Firestore DB (source of truth): cópia dentro do limite da nuvem, com prazo, aviso visível e reenvio automático
+  if (auth.currentUser) {
+    iniciarReenvioHistorico();
+    try {
+      await enviarHistoricoParaNuvem(analysis, 25000);
+      pendentesHistorico.delete(analysis.id);
+    } catch (err) {
+      console.warn("Could not save history to Firestore DB:", err);
+      pendentesHistorico.set(analysis.id, analysis);
+      try { toast.error(`O ato do processo ${analysis.processNumber || ""} foi gerado, mas NÃO foi gravado no Histórico (${descreverErroHistorico(err)}). Vou tentar de novo sozinho enquanto esta aba estiver aberta; copie a minuta se precisar.`, { duration: 25000 }); } catch { /* sem toast */ }
+    }
+  } else {
+    try { await saveHistoryToDb(analysis); } catch (err) { console.warn("Could not save history to Firestore DB:", err); }
   }
 
   // 2. Persist to LocalStorage cache — só sem login (logado, o Firestore + cache IndexedDB já guardam tudo)
