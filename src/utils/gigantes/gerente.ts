@@ -58,7 +58,7 @@ class Gerente {
   private async gravar(job: JobGig) { this.jobs.set(job.id, job); this.avisar(); try { await salvarJob(job); } catch (e) { console.warn("[Gigantes] não consegui gravar o andamento:", e); } }
 
   async carregar() {
-    instalarObservadorPistaNormal();
+    try { instalarObservadorPistaNormal(); } catch (e) { console.warn("[Gigantes] observador da pista normal indisponível:", e); }
     if (this.carregado) return;
     this.carregado = true;
     try {

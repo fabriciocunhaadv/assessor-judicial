@@ -99,6 +99,17 @@ async function extractViaServer(file: File): Promise<ExtractedPdfResult | null> 
   }
 }
 
+/** Devolve o controle ao navegador sem usar timer: com a aba em segundo plano o Chrome reduz os timers a 1 por minuto
+ *  (a leitura de um PDF grande "travava" quando o usuário trocava de aba). Mensagens não sofrem esse limite. */
+const cederAoNavegador = (): Promise<void> => new Promise((ok) => {
+  try {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden" && typeof MessageChannel !== "undefined") {
+      const c = new MessageChannel(); c.port1.onmessage = () => { c.port1.close(); ok(); }; c.port2.postMessage(0); return;
+    }
+  } catch { /* usa o timer */ }
+  setTimeout(ok, 0);
+});
+
 /** Acima disto o PDF não é carregado inteiro na memória: o leitor busca só os trechos de que precisa (arquivos de centenas de MB derrubavam a aba). */
 export const limiteMemoriaPdf = (): number => (Number((globalThis as any).__PDF_LIMITE_MB) || 120) * 1024 * 1024;
 
@@ -172,7 +183,7 @@ export async function extractTextFromPdf(
 
       // Yield event loop every 5 pages to keep UI fluid and responsive
       if (idx % 5 === 0) {
-        await new Promise((r) => setTimeout(r, 0));
+        await cederAoNavegador();
         if (onProgress) {
           onProgress(idx + 1, pagesToRead.length);
         }
@@ -275,6 +286,15 @@ export async function extractTextFromPdf(
           continue;
         }
         vaziasSeguidas = 0;
+
+        // página com dezenas de milhares de fragmentos (camada de OCR/planilha/tabela gigante): o ajuste fino de linhas trava o navegador;
+        // lê o texto direto, sem formatação, e segue
+        if (items.length > 8000) {
+          const plano = items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim().slice(0, 200000);
+          if (plano.replace(/\s/g, "").length < 15) paginasSemTexto.push(i);
+          else pageParagraphs.push(`[Página ${i} de ${numPages}]\n` + plano);
+          continue;
+        }
 
         // Calculate average / base left margin of the page to detect indented quotes (recuo de 4cm / citações / ementas)
         const leftPositions = items
@@ -502,7 +522,7 @@ function formatLine(
     let needsSpaceBefore = false;
     if (lastItem) {
       const gap = item.x - (lastItem.x + (lastItem.width || 0));
-      const endsWithNonSpace = lineStr.length > 0 && !/\s$/.test(lineStr.replace(/[*_<>/]/g, ""));
+      const endsWithNonSpace = lineStr.length > 0 && !/\s$/.test(lineStr.slice(-12).replace(/[*_<>/]/g, ""));
       const startsWithNonSpace = !/^\s/.test(textChunk);
 
       if (gap > 1.2 || (endsWithNonSpace && startsWithNonSpace && gap > -2)) {

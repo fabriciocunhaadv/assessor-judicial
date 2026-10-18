@@ -10,7 +10,7 @@ export function instalarObservadorPistaNormal() {
   if (instalado || typeof window === "undefined" || typeof window.fetch !== "function") return;
   instalado = true;
   const original = window.fetch.bind(window);
-  window.fetch = (async (input: any, init?: any) => {
+  const novo = (async (input: any, init?: any) => {
     let url = "";
     try { url = typeof input === "string" ? input : input?.url || String(input); } catch { /* ignora */ }
     const caminho = url.split("?")[0].replace(/^https?:\/\/[^/]+/, "");
@@ -28,6 +28,19 @@ export function instalarObservadorPistaNormal() {
       throw e;
     }
   }) as typeof window.fetch;
+  // alguns ambientes (ex.: a prévia do Google AI Studio) deixam window.fetch só com "getter": a atribuição direta lança erro e derrubava o painel
+  try { window.fetch = novo; return; } catch { /* tenta o próximo */ }
+  try { Object.defineProperty(window, "fetch", { value: novo, configurable: true, writable: true }); return; } catch { /* tenta o próximo */ }
+  // último recurso: sem trocar o fetch, só se percebe a atividade das análises normais pelas respostas que já terminaram
+  try {
+    const po = new PerformanceObserver((lista) => {
+      for (const e of lista.getEntries()) {
+        const caminho = String(e.name || "").split("?")[0].replace(/^https?:\/\/[^/]+/, "");
+        if (ROTAS.includes(caminho)) ultima = Date.now();
+      }
+    });
+    po.observe({ entryTypes: ["resource"] });
+  } catch { /* sem observador: a pista normal não é percebida; os intervalos entre chamadas seguem valendo */ }
 }
 
 export const pistaNormalOcupada = () => emAndamento > 0;
