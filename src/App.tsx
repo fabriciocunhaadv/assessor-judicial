@@ -293,6 +293,8 @@ export default function App() {
   const [autoExecutePending, setAutoExecutePending] = useState<boolean>(false);
   const [selectedActType, setSelectedActType] = useState<"auto" | "sentenca" | "decisao" | "despacho" | "embargos">("auto");
 
+  useEffect(() => { try { document.documentElement.dataset.historicoSuporte = "1"; } catch { /* sem dataset */ } }, []);
+
   useEffect(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
@@ -1215,7 +1217,9 @@ export default function App() {
         creatorEmail: user?.email || "",
         chatMessages: [],
       };
-      await saveToHistory(analysisToSave);
+      const gravado = await saveToHistory(analysisToSave);
+      // avisa a extensão (esteira) se o ato foi mesmo gravado no Histórico, para ela não seguir adiante antes disso nem dar o processo por salvo sem estar
+      try { document.documentElement.dataset.historicoSalvo = JSON.stringify({ id: newAnalysisId, processo: effectiveProcessNum, ok: gravado.ok, erro: gravado.erro || "", t: Date.now() }); } catch { /* sem dataset */ }
 
     } catch (err: any) {
       clearInterval(interval);

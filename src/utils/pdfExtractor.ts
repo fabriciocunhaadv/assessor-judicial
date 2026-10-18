@@ -99,6 +99,17 @@ async function extractViaServer(file: File): Promise<ExtractedPdfResult | null> 
   }
 }
 
+/** Devolve o controle ao navegador sem usar timer: com a aba em segundo plano o Chrome reduz os timers a 1 por minuto
+ *  (a leitura de um PDF grande "travava" quando o usuário trocava de aba). Mensagens não sofrem esse limite. */
+const cederAoNavegador = (): Promise<void> => new Promise((ok) => {
+  try {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden" && typeof MessageChannel !== "undefined") {
+      const c = new MessageChannel(); c.port1.onmessage = () => { c.port1.close(); ok(); }; c.port2.postMessage(0); return;
+    }
+  } catch { /* usa o timer */ }
+  setTimeout(ok, 0);
+});
+
 export async function extractTextFromPdf(
   file: File,
   onProgress?: (current: number, total: number) => void,
@@ -170,7 +181,7 @@ export async function extractTextFromPdf(
 
       // Yield event loop every 5 pages to keep UI fluid and responsive
       if (idx % 5 === 0) {
-        await new Promise((r) => setTimeout(r, 0));
+        await cederAoNavegador();
         if (onProgress) {
           onProgress(idx + 1, pagesToRead.length);
         }

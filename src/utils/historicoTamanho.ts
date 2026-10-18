@@ -34,3 +34,22 @@ export function limitarAtoParaNuvem(ato: SavedAnalysis, limiteBytes = 850_000): 
   if (bytesUtf8(dado) > limiteBytes && typeof dado.processTextContext === "string") { dado.processTextContext = cortar(dado.processTextContext, 2000); if (!cortou.includes("processTextContext")) cortou.push("processTextContext"); }
   return { dado, cortou };
 }
+
+// O Firestore não aceita lista dentro de lista (erro "Nested arrays are not supported"). Cada lista interna vira { __lista: [...] }.
+export function semListasAninhadas<T>(valor: T): T {
+  const ir = (v: any): any => {
+    if (Array.isArray(v)) return v.map((x) => (Array.isArray(x) ? { __lista: ir(x) } : ir(x)));
+    if (v && typeof v === "object") { const o: any = {}; for (const k of Object.keys(v)) o[k] = ir(v[k]); return o; }
+    return v;
+  };
+  return ir(valor);
+}
+
+// Versão mínima do ato (só o que o Histórico precisa para abrir a minuta), usada como segunda tentativa se a completa for recusada.
+export function versaoMinimaDoAto(ato: SavedAnalysis): SavedAnalysis {
+  const r: any = ato.result || {};
+  const { minute, originalMinute, indicacaoTpuCnj, usage, modelUsed, analysisId, gigante, alertaInjecao } = r;
+  const o: any = { ...ato, result: { minute, originalMinute, indicacaoTpuCnj, usage, modelUsed, analysisId, gigante, alertaInjecao }, chatMessages: [], processTextContext: typeof ato.processTextContext === "string" ? ato.processTextContext.slice(0, 2000) : "" };
+  delete o.holisticSynopsis;
+  return o as SavedAnalysis;
+}

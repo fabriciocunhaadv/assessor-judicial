@@ -2,7 +2,7 @@ import { SavedAnalysis } from "../types";
 import { getHistoryFromDb, saveHistoryToDb, deleteHistoryFromDb, globalTenantId } from "../lib/firestoreUtils";
 import { auth } from "../lib/firebase";
 import { safeGetItem, safeSetItem, safeRemoveItem } from "./safeStorage";
-import { limitarAtoParaNuvem } from "./historicoTamanho";
+import { limitarAtoParaNuvem, semListasAninhadas, versaoMinimaDoAto } from "./historicoTamanho";
 import toast from "react-hot-toast";
 
 export type { SavedAnalysis };
@@ -232,7 +232,15 @@ const descreverErroHistorico = (e: any): string => `${e?.code ? e.code + ": " : 
 const enviarHistoricoParaNuvem = async (analysis: SavedAnalysis, ms: number) => {
   const { dado, cortou } = limitarAtoParaNuvem(analysis);
   if (cortou.length) console.warn(`[Histórico] ato ${analysis.id} encurtado para caber na nuvem:`, cortou.join(", "));
-  await comPrazoHistorico(saveHistoryToDb(dado), ms);
+  try {
+    await comPrazoHistorico(saveHistoryToDb(semListasAninhadas(dado)), ms);
+  } catch (e1) {
+    if (/tempo esgotado/.test(String((e1 as any)?.message))) throw e1;      // sem rede: não adianta mudar o conteúdo
+    console.warn("[Histórico] gravação completa recusada; tentando a versão mínima:", descreverErroHistorico(e1));
+    try { await comPrazoHistorico(saveHistoryToDb(semListasAninhadas(versaoMinimaDoAto(analysis))), ms); }
+    catch (e2) { (e2 as any).message = `${descreverErroHistorico(e1)} | mínima: ${descreverErroHistorico(e2)}`; throw e2; }
+    try { toast("O ato foi gravado no Histórico em versão resumida (a completa foi recusada pela nuvem). A minuta está inteira.", { duration: 15000, icon: "ℹ️" }); } catch { /* sem toast */ }
+  }
 };
 let reenvioHistoricoIniciado = false, reenviandoHistorico = false;
 export const reenviarHistoricoPendente = async (): Promise<void> => {
@@ -252,21 +260,23 @@ const iniciarReenvioHistorico = () => {
   setInterval(() => { void reenviarHistoricoPendente(); }, 60000);
 };
 
-export const saveToHistory = async (analysis: SavedAnalysis): Promise<void> => {
-  if (!analysis || !analysis.id) return;
+export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: boolean; erro?: string }> => {
+  if (!analysis || !analysis.id) return { ok: false, erro: "ato sem identificador" };
   if (isCorruptedHistoryItem(analysis)) {
     console.warn("Blocked attempt to save corrupted/error analysis to history:", analysis.id);
-    return;
+    return { ok: false, erro: "o ato veio incompleto (sem minuta) e não foi gravado" };
   }
   removeTombstone(analysis.id);
 
   // 1. Persist to Firestore DB (source of truth): cópia dentro do limite da nuvem, com prazo, aviso visível e reenvio automático
+  let resultado: { ok: boolean; erro?: string } = { ok: true };
   if (auth.currentUser) {
     iniciarReenvioHistorico();
     try {
       await enviarHistoricoParaNuvem(analysis, 25000);
       pendentesHistorico.delete(analysis.id);
     } catch (err) {
+      resultado = { ok: false, erro: descreverErroHistorico(err) };
       console.warn("Could not save history to Firestore DB:", err);
       pendentesHistorico.set(analysis.id, analysis);
       try { toast.error(`O ato do processo ${analysis.processNumber || ""} foi gerado, mas NÃO foi gravado no Histórico (${descreverErroHistorico(err)}). Vou tentar de novo sozinho enquanto esta aba estiver aberta; copie a minuta se precisar.`, { duration: 25000 }); } catch { /* sem toast */ }
@@ -276,7 +286,7 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<void> => {
   }
 
   // 2. Persist to LocalStorage cache — só sem login (logado, o Firestore + cache IndexedDB já guardam tudo)
-  if (auth.currentUser) return;
+  if (auth.currentUser) return resultado;
   const localList = getLocalHistory();
   const existingIdx = localList.findIndex((item) => item.id === analysis.id);
   let updatedList: SavedAnalysis[];
@@ -287,6 +297,7 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<void> => {
     updatedList = [analysis, ...localList];
   }
   saveLocalHistory(updatedList);
+  return resultado;
 };
 
 export const deleteFromHistory = async (id: string): Promise<void> => {

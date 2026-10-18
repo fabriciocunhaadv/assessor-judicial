@@ -30,6 +30,10 @@ O campo "dispositivo" deve ser escrito para ser CUMPRIDO pela escrivania/cartór
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 
+// Localização das peças nos autos do Projudi: o carimbo vermelho de cada página ("Processo: ... Movimentacao N : ... Arquivo M: nome.pdf - Pag.K/T") é a fonte
+// de Mov./Arq./Pág.; os marcadores "[Página X de Y]" / "[Página X]" que o sistema insere são só a posição física no PDF consolidado.
+const REGRA_LOCALIZACAO_AUTOS = `LOCALIZAÇÃO Mov./Arq./Pág. (REGRA MANDATÓRIA): cada página dos autos do Projudi traz um carimbo vermelho no topo, no formato "Movimentacao N : <tipo> Arquivo M: <nome>.pdf - Pag.K/T". Use SEMPRE esse carimbo: Mov. = N (a movimentação), Arq. = M (o arquivo DENTRO daquela movimentação) e Pág. = K (a página DENTRO daquele arquivo, de 1 a T). Cada movimentação tem os seus arquivos e cada arquivo tem as suas páginas, que reiniciam em 1. NUNCA use como "Pág." o número do marcador "[Página X de Y]" nem "[Página X]" (é só a posição física da página no PDF consolidado, em que a contagem continua entre as movimentações); esses marcadores servem apenas para indicar páginas não lidas. Para um intervalo, repita o arquivo (ex.: "Mov. 134, Arq. 1, Págs. 1 a 3"). Se uma página não tiver o carimbo legível, escreva "Pág. não identificada" em vez de usar o número do marcador.`;
+
 const SYSTEM_INSTRUCTION_FABRICIO = `Você é um Magistrado e Assessor Judicial sênior de altíssima performance no Poder Judiciário.
 Sua função é elaborar minutas judiciais oficiais (Despachos, Decisões Interlocutórias e Sentenças) estruturadas, profundas, precisas, exaustivas e com rigor forense impecável, baseadas estritamente nos autos do processo e nas normas vigentes (CPC, Código Civil, CDC, Leis especiais, Súmulas e Jurisprudência do TJGO e Tribunais Superiores).
 
@@ -42,6 +46,7 @@ DIRETRIZES DE RIGOR JURÍDICO, EXAUSTIVIDADE E EXTRAÇÃO PROBATÓRIA (ART. 489,
 2. PROTOCOLO DE TRÍPLICE LOCALIZAÇÃO PROCESSUAL:
    - Ao citar qualquer peça, petição, manifestação, certidão ou prova documental, indique obrigatoriamente a tríplice localização: '(Mov. X, Arq. Y, Pág. Z / Fls. Z)'.
    - Extraia com exatidão onde o documento está anexado nos autos eletrônicos (Projudi/PJe).
+   - ${REGRA_LOCALIZACAO_AUTOS}
 
 3. TRANSCRIÇÃO LITERAL DE TRECHOS PROBATÓRIOS ESSENCIAIS:
    - Não se limite a parafrasear superficialmente documentos técnicos. TRANSCREVA LITERALMENTE ENTRE ASPAS os trechos decisivos:
@@ -1459,7 +1464,7 @@ DIRETRIZES OBRIGATÓRIAS DE AUDITORIA FORENSE (PADRÃO OURO DO MAGISTRADO):
 CALIBRAGEM DO AUDITOR (VALE PARA QUALQUER PROCESSO E QUALQUER ÁREA):
 0. CRITÉRIO: o PROMPT SELECIONADO pelo gabinete (campo "DIRETRIZ DE TESE / MODELO") e o CADERNO DE TESES, quando existirem, são o critério de mérito da avaliação. Avalie a minuta por essas regras e pelo que os autos mostram. Não importe regras, providências ou checklists de fora deles. Se o prompt e as teses forem silenciosos sobre um ponto, avalie apenas fidelidade aos autos, congruência com os pedidos, coerência com as decisões anteriores e coerência interna da minuta.
 1. MÉTODO: (a) extraia da minuta TODOS os comandos do dispositivo e TODAS as afirmações de fato do relatório e da fundamentação e preencha "confrontoMinutaAutos", item por item, localizando a base de cada um nos autos; (b) só depois formule apontamentos, usando exclusivamente o que esse confronto revelou.
-2. PROVA DO APONTAMENTO: todo alerta bloqueante ou de atenção deve trazer (i) o trecho literal da minuta, (ii) o elemento dos autos que o contradiz ou que a minuta omitiu, com Mov./Arq./Pág. e citação curta, e (iii) por que isso altera o resultado ou cria risco concreto. Se você não conseguir citar o elemento dos autos, NÃO emita o alerta.
+2. PROVA DO APONTAMENTO: todo alerta bloqueante ou de atenção deve trazer (i) o trecho literal da minuta, (ii) o elemento dos autos que o contradiz ou que a minuta omitiu, com Mov./Arq./Pág. e citação curta (siga a regra: ${REGRA_LOCALIZACAO_AUTOS}), e (iii) por que isso altera o resultado ou cria risco concreto. Se você não conseguir citar o elemento dos autos, NÃO emita o alerta.
 3. SEM PRESUNÇÕES: não presuma problemas pelo tipo de ato nem pelo assunto. Só levante um ponto se os próprios autos o mostrarem, citando onde está.
 4. PRESUNÇÃO DE REGULARIDADE: minuta coerente com os autos (pedidos apreciados, fatos fiéis, decisões anteriores respeitadas) e fundamentada em base jurídica plausível é APROVADA. Escolhas de fundamentação, de solução entre alternativas juridicamente possíveis ou de redação não são erro e não reduzem a nota.
 5. VOCABULÁRIO: só use "sem base legal", "ilegal", "ignorou" ou "contraria" quando puder indicar o dispositivo violado ou a prova dos autos desconsiderada. Caso contrário use "diverge de ..." ou "não localizei nos autos ...".
@@ -1865,7 +1870,7 @@ Você DEVE responder ESTRITAMENTE em formato JSON com o seguinte schema:
             const systemPrompt = `Você é Assessor Judicial de gabinete e prepara a ATA PRELIMINAR da audiência para o juiz, lendo os autos fornecidos.
 REGRAS INEGOCIÁVEIS:
 1. Use SOMENTE o que consta nos autos. Se um dado não constar, escreva "não consta nos autos". É PROIBIDO inventar nomes, datas, documentos ou usar nomes de exemplo.
-2. Toda informação sobre partes, testemunhas, citação, intimação e pedidos deve trazer a LOCALIZAÇÃO exata no formato "Mov. X, Arq. Y, Pág. Z". Os PDFs do Projudi trazem em cada página um carimbo vermelho ("Movimentacao X : ...", "Arquivo Y", "Pag. Z") e/ou marcadores "[Página N de M]": use-os. Se a localização não puder ser determinada com segurança, escreva "localização não identificada" (nunca chute números).
+2. Toda informação sobre partes, testemunhas, citação, intimação e pedidos deve trazer a LOCALIZAÇÃO exata no formato "Mov. X, Arq. Y, Pág. Z". ${REGRA_LOCALIZACAO_AUTOS} Se a localização não puder ser determinada com segurança, escreva "localização não identificada" (nunca chute números).
 3. Testemunhas: liste apenas as ARROLADAS/INDICADAS pelas partes nos autos (petição inicial, contestação, rol de testemunhas, ata anterior, despacho). Informe quem indicou. Se não houver nenhuma, a lista fica vazia.
 4. Citação e intimação: para cada PARTE e cada TESTEMUNHA, informe se foi citada/intimada, o resultado (positiva, negativa, por edital, por hora certa, aguardando, ou nao_localizada se os autos nada trazem), a data e a localização. Considere certidões de oficial de justiça, AR, mandados, publicações, juntada de comprovantes e intimações via sistema (prazo/decurso).
 5. Pedidos relacionados à audiência: adiamento/redesignação, intimação ou substituição de testemunha, videoconferência/telepresencial, dispensa de audiência, justificativa de ausência, pedido de provas, acordo/conciliação, preliminares pendentes. Informe quem pediu, quando, o que pediu, se há decisão (e onde).
