@@ -47,7 +47,7 @@ export function GigantesPanel({ config, onVerHistorico }: { config: ConfigGigant
 
   // resumo legível pela extensão (a esteira acompanha os gigantes por aqui)
   useEffect(() => {
-    try { document.documentElement.dataset.gigantes = JSON.stringify(jobs.map((j) => ({ id: j.id, processo: j.numeroProcesso || "", status: j.status, historicoId: j.historicoId || "", erro: j.erro || "" }))); } catch { /* ignora */ }
+    try { document.documentElement.dataset.gigantes = JSON.stringify(jobs.map((j) => ({ id: j.id, processo: j.numeroProcesso || "", status: j.status, historicoId: j.historicoId || "", erro: j.erro || "", serie: j.serieRaiz || "", uniao: !!j.config?.uniaoAutomatica }))); } catch { /* ignora */ }
   }, [jobs]);
 
   const ativos = jobs.filter((j) => ATIVO(j.status));

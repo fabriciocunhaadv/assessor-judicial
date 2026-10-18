@@ -20,6 +20,8 @@ export interface ConfigGigante {
   userUid?: string; userName?: string; userEmail?: string;
   /** 'dossie': lê em lotes e para no dossiê (usado pela Lupa e pela Mesa); 'minuta' (padrão): redige a minuta e salva no Histórico */
   finalidade?: "minuta" | "dossie";
+  /** esteira automática: as partes só geram dossiê e, ao fim da última, o sistema une tudo numa minuta única */
+  uniaoAutomatica?: boolean;
   /** de onde veio o pedido (principal, turbo, lupa, mesa) */
   origem?: string;
   /** OCR por IA das páginas sem texto (padrão: ligado) */
@@ -88,7 +90,7 @@ class Gerente {
     for (const parte of partes) {
       const id = await this.criar(
         parte.fontes.map((f) => ({ nome: f.nome, totalOriginal: f.totalOriginal, paginaInicial: f.paginaInicial, arquivo: pdfs[f.origem]?.arquivo, ler: async () => ({ text: f.texto, pageCount: f.pageCount, semTexto: f.semTexto, naoLidas: f.naoLidas }) })),
-        { ...config, parte: { indice: parte.indice, total: parte.total, de: parte.de, ate: parte.ate, totalPaginas: parte.totalPaginas } },
+        { ...config, ...(config.uniaoAutomatica ? { finalidade: "dossie" as const } : {}), parte: { indice: parte.indice, total: parte.total, de: parte.de, ate: parte.ate, totalPaginas: parte.totalPaginas } },
         ids[ids.length - 1],
         `Parte ${parte.indice} de ${parte.total} — págs. ${parte.de.toLocaleString("pt-BR")} a ${parte.ate.toLocaleString("pt-BR")} de ${parte.totalPaginas.toLocaleString("pt-BR")}`,
         base + (partes.length - parte.indice),      // a Parte 1 aparece no alto da lista
@@ -186,6 +188,14 @@ class Gerente {
     return serie;
   }
 
+  private uniaoSeUltima(job: JobGig) {
+    if (!job.config.uniaoAutomatica || !job.config.parte) return;
+    const serie = this.serieDe(job.id);
+    if (serie.length > 1 && serie[serie.length - 1].id === job.id && serie.every((x) => x.status === "concluido")) {
+      this.unirPartes(job.id).catch(async (e) => { job.status = "erro"; job.erro = "Não consegui unir as partes: " + (e?.message || e); await this.gravar(job); });
+    }
+  }
+
   /** Junta as partes já lidas numa minuta única: reaproveita as fichas e as páginas, sem reler nada. */
   async unirPartes(id: string): Promise<string> {
     const serie = this.serieDe(id);
@@ -193,7 +203,7 @@ class Gerente {
     if (serie.some((j) => j.status !== "concluido" || Object.keys(j.fichas).length === 0)) throw new Error("Espere todas as partes terminarem para unir.");
     const novoId = `gig-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const cfg0 = { ...serie[0].config } as ConfigGigante; const total = serie.reduce((n, j) => n + j.totalPaginas, 0);
-    delete (cfg0 as any).parte; (cfg0 as any).finalidade = serie[0].config.finalidade;
+    delete (cfg0 as any).parte; if (cfg0.uniaoAutomatica) { delete (cfg0 as any).finalidade; delete (cfg0 as any).uniaoAutomatica; }
     const arquivos: JobGig["arquivos"] = []; const fichas: Record<string, any> = {}; const lotes: JobGig["lotes"] = [];
     let offN = 0, k = 0; const triagem: JobGig["triagem"] = { essenciais: 0, relevantes: 0, dispensaveis: 0, repetidas: 0, omitidas: [], abreviadas: [] };
     const injecao: JobGig["injecao"] = { verificado: true, caracteres: 0, total: 0, alto: 0, medio: 0, achados: [] };
@@ -211,7 +221,7 @@ class Gerente {
     const job: JobGig = {
       id: novoId, nome: `${serie[0].numeroProcesso || serie[0].nome} — todas as ${serie.length} partes unidas`.slice(0, 160), numeroProcesso: serie[0].numeroProcesso, criadoEm: Date.now(), atualizadoEm: Date.now(),
       status: "na_fila", etapa: "Pronto para unir as partes numa só minuta…", progresso: { feitas: 0, total: 1 }, arquivos, totalPaginas: total, totalTokensEstimados: serie.reduce((n, j) => n + j.totalTokensEstimados, 0),
-      lotes, fichas, nivelAtual: 0, injecao, triagem, config: cfg0, ocrFeito: true,
+      lotes, fichas, nivelAtual: 0, injecao, triagem, config: cfg0, ocrFeito: true, serieRaiz: serie[0].id,
     };
     await this.gravar(job);
     void this.executar(novoId);
@@ -337,8 +347,9 @@ class Gerente {
         if (novoTotal >= total || nivel >= 7) break;       // a fusão deixou de encolher: segue com o que há (o excedente é abreviado na minuta final, com aviso)
       }
       if (job.config.finalidade === "dossie") {       // Lupa e Mesa só precisam do dossiê: não redige minuta
-        job.status = "concluido"; job.etapa = "Dossiê pronto: já pode ser usado na Lupa, na Mesa de Audiência ou no Turbo."; job.fim = Date.now(); job.progresso = { feitas: 1, total: 1 };
+        job.status = "concluido"; job.etapa = job.config.parte && job.config.uniaoAutomatica ? "Parte lida. A minuta única do processo será redigida quando todas as partes terminarem." : "Dossiê pronto: já pode ser usado na Lupa, na Mesa de Audiência ou no Turbo."; job.fim = Date.now(); job.progresso = { feitas: 1, total: 1 };
         await this.gravar(job);
+        this.uniaoSeUltima(job);
         return;
       }
       // 3) minuta final com o dossiê + peças essenciais na íntegra

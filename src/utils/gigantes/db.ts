@@ -44,6 +44,7 @@ export interface JobGig {
   ocr?: { total: number; feitas: number; falhas: number; motivo?: string };
   ocrFeito?: boolean;
   ocrIgnorado?: string;
+  serieRaiz?: string;                    // minuta única que une as partes de um processo: id da 1ª parte
   erro?: string;
   historicoId?: string;
   fim?: number;

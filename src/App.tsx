@@ -9,7 +9,7 @@ import { useCoberturaLeitura } from "./components/useCoberturaLeitura";
 import { GigantesPanel } from "./components/GigantesPanel";
 import { PainelProgresso } from "./components/PainelProgresso";
 import { GiganteDialog, EscolhaGigante } from "./components/GiganteDialog";
-import { gerenteGigantes, ConfigGigante } from "./utils/gigantes/gerente";
+import { gerenteGigantes, ConfigGigante, LIMITE_PAGINAS_GIGANTE } from "./utils/gigantes/gerente";
 import { arquivoDoPdf } from "./utils/gigantes/arquivoDoPdf";
 import { descreverCorte, juntarComoServidor, CorteInfo } from "./utils/corteAutos";
 import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
@@ -854,7 +854,7 @@ export default function App() {
       if (chars > 1_400_000) {
         const paginas = effectivePdfFiles.reduce((n, p) => n + (p.pageCount || 0), 0);
         const automatico = document.documentElement.dataset.assessorAuto === "1";
-        const escolhaG = automatico ? "lotes" : await new Promise<EscolhaGigante>((resolver) => setDlgGigante({ paginas, tokens: Math.round(chars / 3.2), corte: (() => { try { return descreverCorte(juntarComoServidor(effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", paginas: p.pageCount }))), 1_500_000); } catch { return null; } })(), resolver }));
+        const escolhaG = automatico ? (paginas > LIMITE_PAGINAS_GIGANTE ? "partes" : "lotes") : await new Promise<EscolhaGigante>((resolver) => setDlgGigante({ paginas, tokens: Math.round(chars / 3.2), corte: (() => { try { return descreverCorte(juntarComoServidor(effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", paginas: p.pageCount }))), 1_500_000); } catch { return null; } })(), resolver }));
         setDlgGigante(null);
         if (escolhaG === "cancelar") return;
         if (escolhaG === "limpar") {
@@ -864,7 +864,7 @@ export default function App() {
         }
         if (escolhaG === "partes") {
           const dados = effectivePdfFiles.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas, arquivo: () => arquivoDoPdf(p) }));
-          const ids = await gerenteGigantes.iniciarPartes(dados, montarConfigGigante());
+          const ids = await gerenteGigantes.iniciarPartes(dados, { ...montarConfigGigante(), uniaoAutomatica: automatico });
           window.dispatchEvent(new CustomEvent("gigantes:abrir"));
           toast(`Processo dividido em ${ids.length} partes, lidas uma de cada vez em segundo plano. Cada parte gera uma minuta no Histórico.`, { duration: 10000, icon: "✂️" });
           return;
