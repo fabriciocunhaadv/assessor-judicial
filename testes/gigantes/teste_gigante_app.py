@@ -96,6 +96,14 @@ def main():
             assert len(st) == 2 and all("Concluído" in x for x in st), st
             L = log_(); fichas = len([x for x in L if x.get("p") == "ficha"]); print("   fichas das duas partes:", fichas)
             print("D2) as duas partes concluídas, uma de cada vez")
+            # D3) unir as partes numa só minuta (sem reler: só fusão + minuta final)
+            nf0 = len([x for x in log_() if x.get("p") == "ficha"]); nfin0 = len([x for x in log_() if x.get("p") == "final" or x.get("dossie")])
+            btn = pg3.locator("[data-testid=gigante-unir-partes]"); assert btn.count() == 1, "o botão de unir deve aparecer só na última parte"
+            btn.click()
+            pg3.wait_for_function("[...document.querySelectorAll('[data-testid=gigante-job]')].some(j => /partes unidas/.test(j.innerText) && /Concluído/.test(j.innerText))", timeout=300000)
+            assert len([x for x in log_() if x.get("p") == "ficha"]) == nf0, "unir não pode reler os lotes"
+            assert pg3.locator("[data-testid=gigante-unir-partes]").count() == 0, "o botão some depois de unir"
+            print("D3) partes unidas numa só minuta, sem reler os lotes")
             print("OK" if not erros else "erros de página: " + str(erros[:3]))
             b.close()
     finally:

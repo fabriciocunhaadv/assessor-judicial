@@ -178,9 +178,11 @@ export async function extractTextFromPdf(
 
       let page: any = null;
       try {
-        page = await pdf.getPage(i);
+        // prazo por página: uma página pesada não pode parar a leitura das outras milhares
+        const prazo = (pr: Promise<any>): Promise<any> => Promise.race([pr, new Promise<never>((_, no) => setTimeout(() => no(new Error("página demorou mais de 40 s")), 40000))]);
+        page = await prazo(pdf.getPage(i));
         const viewport = page.getViewport ? page.getViewport({ scale: 1.0 }) : { width: 595, height: 842 };
-        const textContent = await page.getTextContent();
+        const textContent = await prazo(page.getTextContent());
         const styles = textContent.styles || {};
 
         const pageHeight = viewport.height || 842; // default A4 height points

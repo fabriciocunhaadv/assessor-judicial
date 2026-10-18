@@ -173,6 +173,48 @@ class Gerente {
     else { this.sairDaFila(id); j.status = "cancelado"; j.etapa = "Cancelado."; await this.gravar(j); }
   }
   async remover(id: string) { if (this.rodando.has(id)) return; this.jobs.delete(id); this.avisar(); try { await apagarJob(id); } catch { /* ignora */ } }
+  /** Série de partes do mesmo processo (da primeira à última, pela cadeia de antecessores). */
+  serieDe(id: string): JobGig[] {
+    const todos = Array.from(this.jobs.values());
+    let raiz = this.jobs.get(id); if (!raiz) return [];
+    while (raiz.antecessorId && this.jobs.get(raiz.antecessorId)) raiz = this.jobs.get(raiz.antecessorId)!;
+    const serie: JobGig[] = [raiz];
+    for (;;) { const prox = todos.find((x) => x.antecessorId === serie[serie.length - 1].id); if (!prox) break; serie.push(prox); }
+    return serie;
+  }
+
+  /** Junta as partes já lidas numa minuta única: reaproveita as fichas e as páginas, sem reler nada. */
+  async unirPartes(id: string): Promise<string> {
+    const serie = this.serieDe(id);
+    if (serie.length < 2) throw new Error("Não há outras partes deste processo para unir.");
+    if (serie.some((j) => j.status !== "concluido" || Object.keys(j.fichas).length === 0)) throw new Error("Espere todas as partes terminarem para unir.");
+    const novoId = `gig-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const cfg0 = { ...serie[0].config } as ConfigGigante; const total = serie.reduce((n, j) => n + j.totalPaginas, 0);
+    delete (cfg0 as any).parte; (cfg0 as any).finalidade = serie[0].config.finalidade;
+    const arquivos: JobGig["arquivos"] = []; const fichas: Record<string, any> = {}; const lotes: JobGig["lotes"] = [];
+    let offN = 0, k = 0; const triagem: JobGig["triagem"] = { essenciais: 0, relevantes: 0, dispensaveis: 0, repetidas: 0, omitidas: [], abreviadas: [] };
+    const injecao: JobGig["injecao"] = { verificado: true, caracteres: 0, total: 0, alto: 0, medio: 0, achados: [] };
+    for (const j of serie) {
+      const baseArq = arquivos.length;
+      arquivos.push(...j.arquivos);
+      const pags = await lerPaginas(j.id, 1, 99_999_999);
+      for (let i = 0; i < pags.length; i += 400) await salvarPaginas(pags.slice(i, i + 400).map((p) => ({ ...p, jobId: novoId, n: p.n + offN, chave: chavePagina(novoId, p.n + offN), arquivo: p.arquivo + baseArq })));
+      for (const f of this.fichasFinais(j)) { fichas[`n0:${k}`] = f; lotes.push({ i: k, de: offN + 1, ate: offN + (j.totalPaginas || 1), chars: tamanhoFicha(f), rotulo: f.__rotulo || `parte ${lotes.length + 1}` }); k++; }
+      triagem.essenciais += j.triagem.essenciais; triagem.relevantes += j.triagem.relevantes; triagem.dispensaveis += j.triagem.dispensaveis; triagem.repetidas += j.triagem.repetidas;
+      triagem.omitidas.push(...j.triagem.omitidas.map((x) => ({ ...x, de: x.de + offN, ate: x.ate + offN }))); triagem.abreviadas.push(...j.triagem.abreviadas.map((x) => ({ ...x, de: x.de + offN, ate: x.ate + offN })));
+      injecao.caracteres += j.injecao.caracteres; injecao.total += j.injecao.total; injecao.alto += j.injecao.alto; injecao.medio += j.injecao.medio; injecao.achados.push(...j.injecao.achados);
+      offN += j.totalPaginas;
+    }
+    const job: JobGig = {
+      id: novoId, nome: `${serie[0].numeroProcesso || serie[0].nome} — todas as ${serie.length} partes unidas`.slice(0, 160), numeroProcesso: serie[0].numeroProcesso, criadoEm: Date.now(), atualizadoEm: Date.now(),
+      status: "na_fila", etapa: "Pronto para unir as partes numa só minuta…", progresso: { feitas: 0, total: 1 }, arquivos, totalPaginas: total, totalTokensEstimados: serie.reduce((n, j) => n + j.totalTokensEstimados, 0),
+      lotes, fichas, nivelAtual: 0, injecao, triagem, config: cfg0, ocrFeito: true,
+    };
+    await this.gravar(job);
+    void this.executar(novoId);
+    return novoId;
+  }
+
   async retomar(id: string) { const j = this.jobs.get(id); if (!j || this.rodando.has(id)) return; j.erro = undefined; j.status = "na_fila"; j.etapa = "Retomando…"; await this.gravar(j); void this.executar(id); }
 
   // ---------- pista própria: espera a pista normal (esteira/usuário) ficar livre e respeita o intervalo entre chamadas ----------
