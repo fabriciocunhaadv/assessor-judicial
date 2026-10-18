@@ -310,7 +310,19 @@ class Gerente {
     }
   }
 
-  pularOcr(id: string) { this.pularOcrDe.add(id); }
+  pularOcr(id: string) {
+    this.pularOcrDe.add(id);
+    const j = this.jobs.get(id); if (j) { j.etapa = "Pulando o OCR… (seguindo só com as páginas que têm texto)"; this.avisar(); }
+  }
+
+  /** Espera a operação, mas devolve PULOU assim que o usuário clicar em "Pular o OCR" (sem esperar etapas longas). */
+  private async ouPular<T>(id: string, p: Promise<T>): Promise<T | typeof PULOU> {
+    p.catch(() => {});
+    return new Promise((ok, no) => {
+      const iv = setInterval(() => { if (this.pularOcrDe.has(id)) { clearInterval(iv); ok(PULOU); } }, 400);
+      p.then((v) => { clearInterval(iv); ok(v); }, (e) => { clearInterval(iv); no(e); });
+    });
+  }
 
   private async ocrDaPagina(job: JobGig, doc: any, grupo: number[]) {
     for (let t = 0; t < 2; t++) {
@@ -332,12 +344,19 @@ class Gerente {
       const arq = job.arquivos[a], inicio = base; base += arq.paginas || 0;
       const alvo = [...arq.semTexto];
       if (alvo.length === 0 || job.config.ocr === false) continue;
+      if (this.pularOcrDe.has(id)) { job.ocr.falhas += alvo.length; continue; }
       const getter = fontes[a]?.arquivo, ini = fontes[a]?.paginaInicial || 1;
-      const file = getter ? await getter().catch(() => null) : null;
+      const fr = getter ? await this.ouPular(id, getter().catch(() => null)) : null;
+      if (fr === PULOU) { job.ocr.falhas += alvo.length; continue; }
+      const file = fr as File | null;
       if (!file) { job.ocr.falhas += alvo.length; job.etapa = "OCR: o arquivo original não está mais disponível nesta sessão (as páginas sem texto seguem sem leitura)."; continue; }
       job.etapa = `OCR: abrindo o arquivo ${arq.nome} (pode levar alguns minutos em arquivos grandes)…`; this.avisar();
       let doc: any;
-      try { doc = await abrirPdf(file); }
+      try {
+        const dp = abrirPdf(file); const d = await this.ouPular(id, dp);
+        if (d === PULOU) { dp.then((x) => x.destroy?.()).catch(() => {}); job.ocr.falhas += alvo.length; continue; }
+        doc = d;
+      }
       catch (e: any) { job.ocr.falhas += alvo.length; job.ocr.motivo = `não foi possível abrir ${arq.nome} (${e?.message || e})`; job.etapa = `OCR cancelado: ${job.ocr.motivo}. A leitura segue só com as páginas que têm texto.`; await this.gravar(job); continue; }
       const restantes: number[] = [];
       let seguidasSemResultado = 0;
@@ -349,7 +368,9 @@ class Gerente {
         if (this.sinais.has(id)) { interrompido = true; restantes.push(...alvo.slice(i)); break; }
         const grupo = alvo.slice(i, i + 5);
         job.etapa = `OCR por IA das páginas sem texto: ${job.ocr.feitas} de ${job.ocr.total}…`; this.avisar();
-        const r = await this.ocrDaPagina(job, doc, grupo);
+        const rr = await this.ouPular(id, this.ocrDaPagina(job, doc, grupo));
+        if (rr === PULOU) { restantes.push(...alvo.slice(i)); continue; }
+        const r = rr as Awaited<ReturnType<typeof this.ocrDaPagina>>;
         if (Object.keys(r.textos).length + r.emBranco.length === 0) {
           seguidasSemResultado++; job.ocr.motivo = r.motivo || "sem resposta da IA";
           if (seguidasSemResultado >= 2) {   // falhou duas vezes seguidas: não adianta insistir em 200 lotes
@@ -517,5 +538,6 @@ function somarInjecao(job: JobGig, r: any) {
   if (Array.isArray(r.achados)) a.achados = [...a.achados, ...r.achados].slice(0, 30);
 }
 
+const PULOU = Symbol("pulou");
 export const gerenteGigantes = new Gerente();
 export { ALVO_LOTE_CHARS };
