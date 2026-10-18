@@ -21,11 +21,20 @@ export interface ResultadoOcr {
   textos: Record<number, string>;
   emBranco: number[];
   falhas: number[];
+  motivo?: string; // por que falhou (para mostrar ao usuário)
 }
 
-async function abrirPdf(file: File): Promise<any> {
-  const buf = await file.arrayBuffer();
-  return (pdfjsLib as any).getDocument({ data: new Uint8Array(buf), useSystemFonts: true, disableFontFace: true, stopAtErrors: false }).promise;
+function comPrazo<T>(p: Promise<T>, ms: number, oque: string): Promise<T> {
+  return new Promise<T>((ok, no) => {
+    const t = setTimeout(() => no(new Error(`${oque} demorou mais de ${Math.round(ms / 1000)} s`)), ms);
+    p.then((v) => { clearTimeout(t); ok(v); }, (e) => { clearTimeout(t); no(e); });
+  });
+}
+
+/** Abre o PDF uma única vez (arquivos grandes demoram); o chamador deve fechar com pdf.destroy(). */
+export async function abrirPdf(file: File): Promise<any> {
+  const buf = await comPrazo(file.arrayBuffer(), 180_000, "A leitura do arquivo PDF");
+  return comPrazo((pdfjsLib as any).getDocument({ data: new Uint8Array(buf), useSystemFonts: true, disableFontFace: true, stopAtErrors: false }).promise, 180_000, "A abertura do PDF");
 }
 
 async function renderizar(pdf: any, numero: number, escala: number, qualidade: number): Promise<string> {
@@ -75,12 +84,15 @@ export async function renderizarPaginas(
 
 /** OCR das páginas sem texto: renderiza e pede a transcrição à IA (lotes de 5 páginas). */
 export async function ocrPaginas(
-  file: File,
+  fonte: File | any,
   paginas: number[],
   onProgress?: (feitas: number, total: number) => void
 ): Promise<ResultadoOcr> {
   const resultado: ResultadoOcr = { textos: {}, emBranco: [], falhas: [] };
-  const pdf = await abrirPdf(file);
+  const jaAberto = typeof (fonte as any)?.getPage === "function"; // documento do pdf.js já aberto: não fecha aqui
+  let pdf: any;
+  try { pdf = jaAberto ? fonte : await abrirPdf(fonte); }
+  catch (e: any) { resultado.falhas.push(...paginas); resultado.motivo = `não foi possível abrir o PDF (${e?.message || e})`; return resultado; }
   try {
     const LOTE = 5;
     for (let i = 0; i < paginas.length; i += LOTE) {
@@ -88,25 +100,32 @@ export async function ocrPaginas(
       const imagens: PaginaImagem[] = [];
       for (const n of grupo) {
         try {
-          const data = await renderizar(pdf, n, 1.6, 0.7);
+          const data = await comPrazo(renderizar(pdf, n, 1.6, 0.7), 60_000, `A renderização da página ${n}`);
           if (data) imagens.push({ pagina: n, data });
           else resultado.falhas.push(n);
         } catch (e) {
           console.warn("Falha ao renderizar página", n, e);
+          resultado.motivo = `falha ao preparar a página ${n} (${(e as any)?.message || e})`;
           resultado.falhas.push(n);
         }
       }
       let lido = false;
       if (imagens.length > 0) {
         try {
-          const r = await fetch("/api/ocr-paginas", {
-            method: "POST",
-            headers: getApiHeaders({ "Content-Type": "application/json" }),
-            body: JSON.stringify({ images: imagens }),
-          });
-          const txt = await r.text();
+          const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 240_000);
+          let r: Response, txt: string;
+          try {
+            r = await fetch("/api/ocr-paginas", {
+              method: "POST",
+              headers: getApiHeaders({ "Content-Type": "application/json" }),
+              body: JSON.stringify({ images: imagens }),
+              signal: ctl.signal,
+            });
+            txt = await r.text();
+          } finally { clearTimeout(to); }
           let j: any = {};
           try { j = JSON.parse(txt.trim()); } catch { /* resposta incompleta */ }
+          if (!(r.ok && Array.isArray(j.paginas))) resultado.motivo = `a IA não respondeu (${typeof j.error === "string" ? j.error.slice(0, 160) : "HTTP " + r.status})`;
           if (r.ok && Array.isArray(j.paginas)) {
             lido = true;
             const vistas = new Set<number>();
@@ -119,13 +138,14 @@ export async function ocrPaginas(
           }
         } catch (e) {
           console.warn("Falha no OCR do lote", grupo, e);
+          resultado.motivo = `a chamada à IA falhou (${(e as any)?.message || e})`;
         }
       }
       if (!lido) for (const im of imagens) if (!resultado.falhas.includes(im.pagina)) resultado.falhas.push(im.pagina);
       onProgress?.(Math.min(i + LOTE, paginas.length), paginas.length);
     }
   } finally {
-    try { await pdf.destroy(); } catch { /* ignora */ }
+    if (!jaAberto) { try { await pdf.destroy(); } catch { /* ignora */ } }
   }
   return resultado;
 }

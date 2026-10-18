@@ -41,7 +41,7 @@ export interface JobGig {
   triagem: { essenciais: number; relevantes: number; dispensaveis: number; repetidas: number; omitidas: { de: number; ate: number; motivo: string }[]; abreviadas: { de: number; ate: number; motivo: string }[] };
   config: any;                           // prompt, ato, unidade, usuário
   /** OCR por IA das páginas sem texto, feito em lotes antes da leitura */
-  ocr?: { total: number; feitas: number; falhas: number };
+  ocr?: { total: number; feitas: number; falhas: number; motivo?: string };
   ocrFeito?: boolean;
   erro?: string;
   historicoId?: string;

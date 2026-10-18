@@ -7,7 +7,7 @@ import { apagarJob, chavePagina, JobGig, lerJob, lerPaginas, listarJobs, PaginaG
 import { classificarTodas } from "./triagem";
 import { agruparFichas, ALVO_LOTE_CHARS, fichaParaTexto, LIMIAR_FINAL_CHARS, montarLotes, tamanhoFicha, textoDoLote, CPT } from "./lotes";
 import { dividirEmPartes, ParteDosAutos } from "./partes";
-import { ocrPaginas } from "../ocrPaginas";
+import { ocrPaginas, abrirPdf } from "../ocrPaginas";
 import { conferirAusencias } from "./verificacaoAusencia";
 import { pesquisarIndice } from "./indice";
 import { classificarPagina } from "./triagem";
@@ -312,12 +312,12 @@ class Gerente {
 
   pularOcr(id: string) { this.pularOcrDe.add(id); }
 
-  private async ocrDaPagina(job: JobGig, file: File, grupo: number[]) {
-    for (let t = 0; t < 3; t++) {
-      const r = await ocrPaginas(file, grupo);
+  private async ocrDaPagina(job: JobGig, doc: any, grupo: number[]) {
+    for (let t = 0; t < 2; t++) {
+      const r = await ocrPaginas(doc, grupo);
       const feitas = Object.keys(r.textos).length + r.emBranco.length;
-      if (feitas > 0 || t === 2) return r;
-      job.etapa = `OCR: aguardando a cota da IA renovar (tentativa ${t + 2}/3)…`; this.avisar();
+      if (feitas > 0 || t === 1) return r;
+      job.etapa = `OCR: ${r.motivo || "sem resposta"} — nova tentativa em instantes (2/2)…`; this.avisar();
       await dorme(Number((globalThis as any).__GIGANTE_ESPERA_COTA_MS ?? 70000));
     }
     return { textos: {}, emBranco: [], falhas: grupo } as any;
@@ -335,7 +335,13 @@ class Gerente {
       const getter = fontes[a]?.arquivo, ini = fontes[a]?.paginaInicial || 1;
       const file = getter ? await getter().catch(() => null) : null;
       if (!file) { job.ocr.falhas += alvo.length; job.etapa = "OCR: o arquivo original não está mais disponível nesta sessão (as páginas sem texto seguem sem leitura)."; continue; }
+      job.etapa = `OCR: abrindo o arquivo ${arq.nome} (pode levar alguns minutos em arquivos grandes)…`; this.avisar();
+      let doc: any;
+      try { doc = await abrirPdf(file); }
+      catch (e: any) { job.ocr.falhas += alvo.length; job.ocr.motivo = `não foi possível abrir ${arq.nome} (${e?.message || e})`; job.etapa = `OCR cancelado: ${job.ocr.motivo}. A leitura segue só com as páginas que têm texto.`; await this.gravar(job); continue; }
       const restantes: number[] = [];
+      let seguidasSemResultado = 0;
+      try {
       for (let i = 0; i < alvo.length; i += 5) {
         if (this.sinais.has(id)) { interrompido = true; restantes.push(...alvo.slice(i)); break; }
         if (this.pularOcrDe.has(id)) { restantes.push(...alvo.slice(i)); continue; }
@@ -343,7 +349,15 @@ class Gerente {
         if (this.sinais.has(id)) { interrompido = true; restantes.push(...alvo.slice(i)); break; }
         const grupo = alvo.slice(i, i + 5);
         job.etapa = `OCR por IA das páginas sem texto: ${job.ocr.feitas} de ${job.ocr.total}…`; this.avisar();
-        const r = await this.ocrDaPagina(job, file, grupo);
+        const r = await this.ocrDaPagina(job, doc, grupo);
+        if (Object.keys(r.textos).length + r.emBranco.length === 0) {
+          seguidasSemResultado++; job.ocr.motivo = r.motivo || "sem resposta da IA";
+          if (seguidasSemResultado >= 2) {   // falhou duas vezes seguidas: não adianta insistir em 200 lotes
+            restantes.push(...alvo.slice(i)); job.ocr.falhas += alvo.length - i;
+            job.etapa = `OCR interrompido: ${job.ocr.motivo}. A leitura segue só com as páginas que têm texto; refaça depois pelo botão de leitura visual.`;
+            await this.gravar(job); break;
+          }
+        } else seguidasSemResultado = 0;
         const novas: PaginaGig[] = [];
         for (const pg of grupo) {
           const txt = r.textos[pg];
@@ -354,6 +368,7 @@ class Gerente {
         if (novas.length) await salvarPaginas(novas);
         job.ocr.feitas += grupo.length; job.progresso = { feitas: job.ocr.feitas, total: job.ocr.total }; await this.gravar(job);
       }
+      } finally { try { await doc.destroy(); } catch { /* ignora */ } }
       arq.semTexto = restantes;
     }
     if (interrompido) return;
