@@ -881,6 +881,20 @@ export default function App() {
       }
     }
 
+    // Texto colado/da esteira (a extensão envia o texto do PDF) com autos gigantes: mesma leitura em lotes em segundo plano (só no modo automático)
+    if (inputMode !== "pdf" && effectiveText && effectiveText.length > 1_400_000 && document.documentElement.dataset.assessorAuto === "1") {
+      let paginasTxt = 0; try { for (const m of effectiveText.matchAll(/\[Página (\d+)(?: de \d+)?\]/g)) paginasTxt = Math.max(paginasTxt, Number(m[1])); } catch { /* sem marcadores */ }
+      if (!paginasTxt) paginasTxt = Math.ceil(effectiveText.length / 3500);
+      const dadosTxt = [{ nome: processNumber && !/extrair/i.test(processNumber) ? `Autos ${processNumber}` : "Autos (texto enviado pela esteira)", texto: effectiveText, pageCount: paginasTxt }];
+      if (paginasTxt > LIMITE_PAGINAS_GIGANTE) await gerenteGigantes.iniciarPartes(dadosTxt, { ...montarConfigGigante(), uniaoAutomatica: true });
+      else await gerenteGigantes.iniciarComTextos(dadosTxt, montarConfigGigante());
+      window.dispatchEvent(new CustomEvent("gigantes:abrir"));
+      toast("Autos gigantes recebidos como texto: leitura em lotes em segundo plano. Acompanhe pelo selo “Gigantes”.", { duration: 8000, icon: "📚" });
+      return;
+    }
+
+    // esteira da extensão: não deixa o resultado do processo anterior na tela (a esteira o confundia com o do processo que está começando)
+    try { if (document.documentElement.dataset.assessorAuto === "1" && generationResult) { setGenerationResult(null); setCurrentAnalysisId(null); setCurrentChatMessages([]); } } catch { /* sem dataset */ }
     setIsLoading(true);
     setErrorMessage(null);
     let coberturaImagens: any[] = [];

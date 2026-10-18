@@ -7,7 +7,7 @@ export interface ParteDosAutos {
   fontes: { nome: string; texto: string; pageCount: number; semTexto: number[]; naoLidas: number[]; totalOriginal: number; origem: number; paginaInicial: number }[];
 }
 
-const PAGINA = /\[Página (\d+) de (\d+)\]\n?/g;
+const PAGINA = /\[Página (\d+)(?: de (\d+))?\]\n?/g;
 
 function paginasDoTexto(texto: string): { n: number; texto: string }[] {
   const marcas: { i: number; fim: number; n: number }[] = []; let m: RegExpExecArray | null;

@@ -561,7 +561,7 @@ class Gerente {
 }
 
 function dividirPaginas(texto: string, total: number): { pagina: number; texto: string }[] {
-  const rx = /\[Página (\d+) de (\d+)\]\n?/g; const marcas: { i: number; fim: number; p: number }[] = []; let m: RegExpExecArray | null;
+  const rx = /\[Página (\d+)(?: de (\d+))?\]\n?/g; const marcas: { i: number; fim: number; p: number }[] = []; let m: RegExpExecArray | null;
   while ((m = rx.exec(texto))) marcas.push({ i: m.index, fim: m.index + m[0].length, p: Number(m[1]) });
   if (marcas.length === 0) {
     const out: { pagina: number; texto: string }[] = []; const t = texto.trim();

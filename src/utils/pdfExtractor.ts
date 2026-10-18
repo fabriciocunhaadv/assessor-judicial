@@ -30,6 +30,8 @@ export interface ExtractedPdfResult {
   paginasSemTexto?: number[];
   /** páginas que não puderam ser lidas (erro do leitor) */
   paginasNaoLidas?: number[];
+  /** a leitura foi interrompida antes do fim (ex.: o leitor de PDF parou de responder por falta de memória) */
+  erro?: string;
 }
 
 interface TextItemInfo {
@@ -175,9 +177,12 @@ export async function extractTextFromPdf(
     const paginasSemTexto: number[] = [];
     const paginasNaoLidas: number[] = [];
 
-    let vaziasSeguidas = 0;
+    let vaziasSeguidas = 0, falhasSeguidas = 0, erroLeitura = "";
     for (let idx = 0; idx < pagesToRead.length; idx++) {
       const i = pagesToRead[idx];
+      if (erroLeitura) { for (let r = i; r <= numPages; r++) paginasNaoLidas.push(r); break; }
+      // libera a memória do leitor de tempos em tempos (arquivos de centenas de MB enchiam o navegador e a leitura parava na mesma página)
+      if (idx > 0 && idx % 100 === 0) { try { await pdf.cleanup(); } catch { /* sem limpeza */ } }
       // PDF com dezenas de milhares de páginas "fantasma": depois de 3.000 vazias seguidas, o resto é dado como sem texto sem abrir uma a uma
       if (numPages > 20000 && vaziasSeguidas >= 3000) { for (let r = i; r <= numPages; r++) paginasSemTexto.push(r); break; }
 
@@ -193,7 +198,7 @@ export async function extractTextFromPdf(
       try {
         // prazo por página: uma página pesada não pode parar a leitura das outras milhares
         const prazo = (pr: Promise<any>): Promise<any> => Promise.race([pr, new Promise<never>((_, no) => setTimeout(() => no(new Error("página demorou mais de 40 s")), 40000))]);
-        page = await prazo(pdf.getPage(i));
+        page = await prazo(pdf.getPage(i)); falhasSeguidas = 0;
         const viewport = page.getViewport ? page.getViewport({ scale: 1.0 }) : { width: 595, height: 842 };
         const textContent = await prazo(page.getTextContent());
         const styles = textContent.styles || {};
@@ -415,6 +420,7 @@ export async function extractTextFromPdf(
       } catch (pageErr) {
         console.warn(`Erro ao ler página ${i}:`, pageErr);
         paginasNaoLidas.push(i);
+        if (++falhasSeguidas >= 6) erroLeitura = `O leitor de PDF parou de responder na página ${i} (${falhasSeguidas} páginas seguidas sem leitura), provavelmente por falta de memória com um arquivo tão grande. As páginas ${i} em diante ficaram sem leitura.`;
       } finally {
         if (page && typeof page.cleanup === "function") {
           try {
@@ -445,6 +451,7 @@ export async function extractTextFromPdf(
       hasText: cleanedText.length > 30,
       paginasSemTexto,
       paginasNaoLidas,
+      erro: erroLeitura || undefined,
     };
   } catch (error) {
     if (urlGrande) { try { URL.revokeObjectURL(urlGrande); } catch {} }

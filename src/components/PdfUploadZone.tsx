@@ -1,3 +1,4 @@
+import toast from "react-hot-toast";
 import React, { useState, useRef } from "react";
 import {
   FileText,
@@ -63,6 +64,8 @@ export const PdfUploadZone: React.FC<PdfUploadZoneProps> = ({
       const extraction = await extractTextFromPdf(file, (current, total) => {
         setExtractionProgress({ current, total, fileName: file.name });
       });
+
+      if (extraction.erro) { try { toast.error(extraction.erro, { duration: 20000 }); } catch { /* sem toast */ } }
 
       // 2. Read base64 ONLY if extraction has NO text (scanned PDF fallback) and file is under 28MB
       // This prevents sending huge base64 payloads over the wire when text is already extracted!
