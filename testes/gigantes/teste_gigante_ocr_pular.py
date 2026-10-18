@@ -15,7 +15,7 @@ def log_(): return json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PM}/__l
 
 def main():
     n = int(os.environ.get("N", "150"))
-    pdf = "/tmp/claude-0/work/mob/gigante_teste.pdf"; open(pdf, "wb").write(processo(n))
+    pdf = "/tmp/claude-0/work/mob/gigante_teste.pdf"; open(pdf, "wb").write(processo(n, vazias=tuple(range(200, 260))))
     procs = []
     try:
         mock = subprocess.Popen([sys.executable, os.path.join(AQUI, "mock_gemini.py"), str(PM), "250000", "60000"], start_new_session=True); procs.append(mock)
@@ -54,10 +54,10 @@ def main():
             print("injeção:", job["injecao"]["total"], [a.get("pagina") for a in job["injecao"]["achados"]], "| sem texto:", job["arquivos"][0]["semTexto"])
             if job["status"] != "concluido": print("LOG:", [(x.get("p"), x["tok"], x["res"], x.get("chars")) for x in log_()][-14:])
             assert job["status"] == "concluido", job["erro"]
-            assert job["totalPaginas"] >= n - 5 and len(job["lotes"]) >= 2
+            assert job["totalPaginas"] >= n - 70 and len(job["lotes"]) >= 2
             assert job["triagem"]["repetidas"] >= 5 and job["triagem"]["dispensaveis"] >= 1
             assert job["injecao"]["total"] >= 1 and 120 in [a.get("pagina") for a in job["injecao"]["achados"]], "injeção da pág. 120 não foi agregada"
-            assert pulou and job["arquivos"][0]["semTexto"] == [200, 201, 202, 203, 204]
+            assert pulou and job["arquivos"][0]["semTexto"] == list(range(200, 260)), job["arquivos"][0]["semTexto"][:12]
             assert time.time() - t0 < 120, "pular o OCR deve ter efeito imediato"
             print("OK"); return
             # B) minuta final: tem de conter os 4 fatos plantados em páginas distantes (nada se perdeu nos lotes/fusões)

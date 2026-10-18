@@ -165,8 +165,11 @@ export async function extractTextFromPdf(
     const paginasSemTexto: number[] = [];
     const paginasNaoLidas: number[] = [];
 
+    let vaziasSeguidas = 0;
     for (let idx = 0; idx < pagesToRead.length; idx++) {
       const i = pagesToRead[idx];
+      // PDF com dezenas de milhares de páginas "fantasma": depois de 3.000 vazias seguidas, o resto é dado como sem texto sem abrir uma a uma
+      if (numPages > 20000 && vaziasSeguidas >= 3000) { for (let r = i; r <= numPages; r++) paginasSemTexto.push(r); break; }
 
       // Yield event loop every 5 pages to keep UI fluid and responsive
       if (idx % 5 === 0) {
@@ -269,9 +272,10 @@ export async function extractTextFromPdf(
         }
 
         if (items.length === 0) {
-          paginasSemTexto.push(i);
+          paginasSemTexto.push(i); vaziasSeguidas++;
           continue;
         }
+        vaziasSeguidas = 0;
 
         // Calculate average / base left margin of the page to detect indented quotes (recuo de 4cm / citações / ementas)
         const leftPositions = items

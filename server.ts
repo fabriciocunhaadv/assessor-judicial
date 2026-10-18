@@ -275,7 +275,7 @@ function montarCobertura(body: any, textoCortado: boolean, cortes: CorteArquivo[
             return out.join(", ");
         };
         const arquivos: any[] = Array.isArray(cob?.arquivos) ? cob.arquivos : [];
-        const lacunas = arquivos.map((a: any) => ({ arquivo: String(a?.nome || "arquivo"), total: Number(a?.totalPaginas) || 0, paginas: faixa([...(a?.semTexto || []), ...(a?.naoLidas || [])]), qtd: (Array.isArray(a?.semTexto) ? a.semTexto.length : 0) + (Array.isArray(a?.naoLidas) ? a.naoLidas.length : 0) })).filter((l: any) => l.qtd > 0);
+        const lacunas = arquivos.map((a: any) => ({ arquivo: String(a?.nome || "arquivo"), total: Number(a?.totalPaginas) || 0, paginas: faixa([...(a?.semTexto || []), ...(a?.naoLidas || [])]), qtd: Math.max(Number(a?.semTextoTotal) || 0, Array.isArray(a?.semTexto) ? a.semTexto.length : 0) + Math.max(Number(a?.naoLidasTotal) || 0, Array.isArray(a?.naoLidas) ? a.naoLidas.length : 0) })).filter((l: any) => l.qtd > 0);
         const imagens: any[] = Array.isArray(body?.paginasImagens) ? body.paginasImagens.slice(0, 40) : [];
         let nImagens = 0;
         for (const im of imagens) {

@@ -123,7 +123,10 @@ class Gerente {
         const ex = await fontes[a].ler((c, t) => { job.progresso = { feitas: c, total: t }; this.avisar(); });
         const pags = dividirPaginas(ex.text, ex.pageCount);
         const baseN = job.arquivos.reduce((t, x) => t + (x.paginas || 0), 0), ini = fontes[a].paginaInicial || 1;       // numeração = posição física da página no processo
-        if (job.config.ocr !== false && fontes[a].arquivo) ocrTotal += ex.semTexto.length;
+        if (job.config.ocr !== false && fontes[a].arquivo) {
+          if (ex.semTexto.length > LIMITE_OCR_AUTO) job.ocrIgnorado = `${fontes[a].nome}: ${ex.semTexto.length.toLocaleString("pt-BR")} páginas sem texto (acima de ${LIMITE_OCR_AUTO.toLocaleString("pt-BR")}); o OCR automático não foi feito. Se o PDF não tem tantas páginas escaneadas, ele pode estar com defeito: reexporte-o ou divida-o e envie de novo.`;
+          else ocrTotal += ex.semTexto.length;
+        }
         job.arquivos.push({ nome: fontes[a].nome, paginas: ex.pageCount || pags.length, semTexto: ex.semTexto, naoLidas: ex.naoLidas, totalOriginal: fontes[a].totalOriginal });
         const cls = classificarTodas(pags);
         pags.forEach((p, i) => { const n = baseN + (p.pagina - ini + 1); todas.push({ chave: chavePagina(id, n), jobId: id, n, arquivo: a, pagina: p.pagina, texto: p.texto, tipo: cls[i].tipo, rotuloTipo: cls[i].rotuloTipo }); });
@@ -405,13 +408,13 @@ class Gerente {
       try {
       for (let i = 0; i < alvo.length; i += 5) {
         if (this.sinais.has(id)) { interrompido = true; restantes.push(...alvo.slice(i)); break; }
-        if (this.pularOcrDe.has(id)) { restantes.push(...alvo.slice(i)); continue; }
+        if (this.pularOcrDe.has(id)) { restantes.push(...alvo.slice(i)); break; }
         await this.aguardarVez(id, INTERVALO_OCR_MS);
         if (this.sinais.has(id)) { interrompido = true; restantes.push(...alvo.slice(i)); break; }
         const grupo = alvo.slice(i, i + 5);
         job.etapa = `OCR por IA das páginas sem texto: ${job.ocr.feitas} de ${job.ocr.total}…`; this.avisar();
         const rr = await this.ouPular(id, this.ocrDaPagina(job, doc, grupo));
-        if (rr === PULOU) { restantes.push(...alvo.slice(i)); continue; }
+        if (rr === PULOU) { restantes.push(...alvo.slice(i)); break; }
         const r = rr as Awaited<ReturnType<typeof this.ocrDaPagina>>;
         if (Object.keys(r.textos).length + r.emBranco.length === 0) {
           seguidasSemResultado++; job.ocr.motivo = r.motivo || "sem resposta da IA";
@@ -432,7 +435,7 @@ class Gerente {
         job.ocr.feitas += grupo.length; job.progresso = { feitas: job.ocr.feitas, total: job.ocr.total }; await this.gravar(job);
       }
       } finally { try { await doc.destroy(); } catch { /* ignora */ } }
-      arq.semTexto = restantes;
+      arq.semTexto = Array.from(new Set(restantes)).sort((x, y) => x - y);
     }
     if (interrompido) return;
     // reconstrói os lotes com as páginas lidas por OCR
@@ -488,7 +491,7 @@ class Gerente {
     return {
       texto: d.processText, jobId: job.id, numeroProcesso: job.numeroProcesso || "",
       info: { paginas: job.totalPaginas, lotes: job.lotes.length, niveis: job.nivelAtual, essenciaisIntegra: d.escolhidas.length, dossieAbreviado: d.dossieAbreviado },
-      arquivos: job.arquivos.map((a) => ({ nome: a.nome, totalPaginas: a.paginas, semTexto: a.semTexto, naoLidas: a.naoLidas })),
+      arquivos: job.arquivos.map((a) => arquivoParaServidor(a)),
       injecao: job.injecao,
     };
   }
@@ -520,7 +523,7 @@ class Gerente {
       paradigmModelText: cfg.paradigmText || "", paradigmModelTitle: cfg.paradigmTitle || "", isParadigmEnabled: Boolean(cfg.paradigmText),
       proceduralPhase: "conhecimento", actType: cfg.actType || "auto", specificInstructions: [cfg.instrucao, regra].filter(Boolean).join("\n\n"),
       processInfo: { processNumber: job.numeroProcesso || cfg.processNumber || "Extrair automaticamente dos autos", comarca: cfg.unitName ? `Comarca de ${cfg.unitName.split("/")[0].trim()} - TJGO` : "", vara: cfg.unitName ? (cfg.unitName.split("/")[1]?.trim() || cfg.unitName) : "", juiz: "Juiz(a) de Direito" },
-      coberturaLeitura: { escolha: "gigante", paginasOcr: 0, arquivos: job.arquivos.map((a) => ({ nome: a.nome, totalPaginas: a.paginas, semTexto: a.semTexto, naoLidas: a.naoLidas })) },
+      coberturaLeitura: { escolha: "gigante", paginasOcr: 0, arquivos: job.arquivos.map((a) => arquivoParaServidor(a)) },
     };
     const data = await this.chamar(job.id, "/api/generate-minute", corpo);
     if (!data?.minute) throw new Error("A IA não devolveu uma minuta válida a partir do dossiê.");
@@ -580,6 +583,12 @@ function somarInjecao(job: JobGig, r: any) {
   if (Array.isArray(r.achados)) a.achados = [...a.achados, ...r.achados].slice(0, 30);
 }
 
+const LIMITE_OCR_AUTO = 3000;
+/** Listas de páginas sem leitura podem ter centenas de milhares de números: só vão ao servidor as primeiras, com o total à parte. */
+function arquivoParaServidor(a: JobGig["arquivos"][number]) {
+  const corta = (v: number[]) => (v.length > 2000 ? v.slice(0, 2000) : v);
+  return { nome: a.nome, totalPaginas: a.paginas, semTexto: corta(a.semTexto), naoLidas: corta(a.naoLidas), semTextoTotal: a.semTexto.length, naoLidasTotal: a.naoLidas.length };
+}
 const PULOU = Symbol("pulou");
 export const gerenteGigantes = new Gerente();
 export { ALVO_LOTE_CHARS };

@@ -43,6 +43,7 @@ export interface JobGig {
   /** OCR por IA das páginas sem texto, feito em lotes antes da leitura */
   ocr?: { total: number; feitas: number; falhas: number; motivo?: string };
   ocrFeito?: boolean;
+  ocrIgnorado?: string;
   erro?: string;
   historicoId?: string;
   fim?: number;
