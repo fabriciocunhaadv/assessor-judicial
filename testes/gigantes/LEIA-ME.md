@@ -28,6 +28,7 @@ Fase 1: até 3.000 páginas, com a aba do app aberta.
 - **Conferência de “ausência de prova”:** depois da minuta, o sistema acha frases como “não foi juntado laudo pericial” e procura o termo no índice completo; se achar, mostra um aviso âmbar com as páginas.
 - **Esteira (extensão 1.0.23):** Turbo e análise principal com processo gigante viram o estado “processo gigante”; a fila segue e a minuta é pega no Histórico quando fica pronta.
 - **Esteira (auto):** acima de 3.000 págs a esteira divide em partes que só geram dossiê e o sistema une tudo numa minuta única sozinho (`teste_gigante_auto_partes.py`).
+- **PDF enorme (>120 MB):** o leitor não carrega o arquivo inteiro na memória (busca só os trechos necessários); `teste_modo_leve.py` força esse modo.
 - **Unir as partes:** quando todas as partes de um processo terminam, a última mostra “Unir as partes numa só minuta” (reaproveita fichas e páginas, sem reler; teste D3 em `teste_gigante_app.py`).
 - OCR: o PDF é aberto uma só vez, cada etapa tem prazo, e se a IA falha 2 lotes seguidos o OCR é interrompido com o motivo visível (`teste_gigante_ocr_falha.py`).
 - Testes: `teste_gigante.py` (OCR, pesquisa, conferência), `teste_gigante_modulos.py [turbo|lupa|mesa]`.

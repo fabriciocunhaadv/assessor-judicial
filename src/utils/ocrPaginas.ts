@@ -33,6 +33,12 @@ function comPrazo<T>(p: Promise<T>, ms: number, oque: string): Promise<T> {
 
 /** Abre o PDF uma única vez (arquivos grandes demoram); o chamador deve fechar com pdf.destroy(). */
 export async function abrirPdf(file: File): Promise<any> {
+  if (file.size > (Number((globalThis as any).__PDF_LIMITE_MB) || 120) * 1024 * 1024) {      // arquivo enorme: o leitor busca só os trechos de que precisa
+    const url = URL.createObjectURL(file);
+    const doc: any = await comPrazo<any>((pdfjsLib as any).getDocument({ url, disableAutoFetch: true, rangeChunkSize: 1 << 20, useSystemFonts: true, disableFontFace: true, stopAtErrors: false }).promise, 180_000, "A abertura do PDF");
+    const fechar = doc.destroy?.bind(doc); doc.destroy = async () => { try { await fechar?.(); } finally { URL.revokeObjectURL(url); } };
+    return doc;
+  }
   const buf = await comPrazo(file.arrayBuffer(), 180_000, "A leitura do arquivo PDF");
   return comPrazo((pdfjsLib as any).getDocument({ data: new Uint8Array(buf), useSystemFonts: true, disableFontFace: true, stopAtErrors: false }).promise, 180_000, "A abertura do PDF");
 }

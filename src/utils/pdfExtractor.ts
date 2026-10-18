@@ -99,14 +99,23 @@ async function extractViaServer(file: File): Promise<ExtractedPdfResult | null> 
   }
 }
 
+/** Acima disto o PDF não é carregado inteiro na memória: o leitor busca só os trechos de que precisa (arquivos de centenas de MB derrubavam a aba). */
+export const limiteMemoriaPdf = (): number => (Number((globalThis as any).__PDF_LIMITE_MB) || 120) * 1024 * 1024;
+
 export async function extractTextFromPdf(
   file: File,
   onProgress?: (current: number, total: number) => void,
   options?: { fullSequential?: boolean }
 ): Promise<ExtractedPdfResult> {
   let pdf: any = null;
+  let urlGrande: string | null = null;
   try {
-    const arrayBuffer = await file.arrayBuffer();
+    const modoLeve = file.size > limiteMemoriaPdf();
+    if (modoLeve) urlGrande = URL.createObjectURL(file);
+    const arrayBuffer: ArrayBuffer = modoLeve ? new ArrayBuffer(0) : await file.arrayBuffer();
+    const fonte = (fontes: boolean, copia: boolean): any =>
+      modoLeve ? { url: urlGrande, disableAutoFetch: true, rangeChunkSize: 1 << 20, useSystemFonts: fontes, disableFontFace: true, stopAtErrors: false }
+               : { data: new Uint8Array(copia ? arrayBuffer.slice(0) : arrayBuffer), useSystemFonts: fontes, disableFontFace: true, stopAtErrors: false };
 
     // Helper with timeout to prevent hanging promises
     const loadWithTimeout = (promise: Promise<any>, ms: number = 60000) => {
@@ -117,22 +126,12 @@ export async function extractTextFromPdf(
     };
 
     try {
-      const loadingTask = pdfjsLib.getDocument({
-        data: new Uint8Array(arrayBuffer),
-        useSystemFonts: true,
-        disableFontFace: true, // Speeds up extraction by 5x-10x
-        stopAtErrors: false,
-      });
-      pdf = await loadWithTimeout(loadingTask.promise, 60000);
+      const loadingTask = pdfjsLib.getDocument(fonte(true, false));
+      pdf = await loadWithTimeout(loadingTask.promise, modoLeve ? 180000 : 60000);
     } catch (loadErr: any) {
       console.warn("PDF.js standard load failed or timed out, retrying fallback:", loadErr);
       try {
-        const fallbackTask = pdfjsLib.getDocument({
-          data: new Uint8Array(arrayBuffer.slice(0)),
-          useSystemFonts: false,
-          disableFontFace: true,
-          stopAtErrors: false,
-        });
+        const fallbackTask = pdfjsLib.getDocument(fonte(false, true));
         pdf = await loadWithTimeout(fallbackTask.promise, 45000);
       } catch (fbErr) {
         console.warn("PDF.js fallback also failed, proceeding to server extraction:", fbErr);
@@ -414,6 +413,7 @@ export async function extractTextFromPdf(
         await pdf.destroy();
       } catch {}
     }
+    if (urlGrande) { try { URL.revokeObjectURL(urlGrande); } catch {} urlGrande = null; }
 
     // Join all pages seamlessly without artificial page break headers
     const rawJoinedText = pageParagraphs.join("\n\n");
@@ -427,6 +427,7 @@ export async function extractTextFromPdf(
       paginasNaoLidas,
     };
   } catch (error) {
+    if (urlGrande) { try { URL.revokeObjectURL(urlGrande); } catch {} }
     console.error("PDF Extraction failed:", error);
     return {
       text: "",
