@@ -829,6 +829,8 @@ export default function App() {
       return;
     }
 
+    // esteira da extensão: não deixa o resultado do processo anterior na tela (a esteira o confundia com o do processo que está começando)
+    try { if (document.documentElement.dataset.assessorAuto === "1" && generationResult) { setGenerationResult(null); setCurrentAnalysisId(null); setCurrentChatMessages([]); } } catch { /* sem dataset */ }
     setIsLoading(true);
     setErrorMessage(null);
     let coberturaImagens: any[] = [];
