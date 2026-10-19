@@ -111,7 +111,8 @@ class H(BaseHTTPRequestHandler):
             texto = "DOSSIÊ DA PARTE. Fatos registrados: " + ", ".join(fatos) + ". " + ("Movimento relevante com transcrição literal \"...\" (Mov. 1, Arq. 1, Pág. 1). " * 12)
         else:
             par = "\n\n".join([f"Parágrafo {i} da fundamentação, com análise do confronto probatório e citação (Mov. {i}, Arq. 1, Pág. {i}). " + "Texto de análise. " * 40 for i in range(1, 12)])
-            texto = json.dumps({"processNumber": "5530114-61.2025.8.09.0166", "author": "AUTOR TESTE", "defendant": "RÉU TESTE", "judicialUnit": "Vara Teste", "pendingMatter": "Sentença",
+            mnum = re.search(r"\d{7}-\d{2}\.\d{4}\.8\.09\.\d{4}", txt)
+            texto = json.dumps({"processNumber": mnum.group(0) if mnum else "5530114-61.2025.8.09.0166", "author": "AUTOR TESTE", "defendant": "RÉU TESTE", "judicialUnit": "Vara Teste", "pendingMatter": "Sentença",
                 "actType": "SENTENÇA", "relatorio": "Relatório com os fatos: " + ", ".join(fatos) + ". " + "Narrativa do processo. " * 120 + " O autor não juntou laudo pericial aos autos. ",
                 "fundamentacao": par, "dispositivo": "Dispositivo operacional completo. " * 20})
         import os

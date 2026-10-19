@@ -224,6 +224,8 @@ export default function App() {
   const [extractedMetadata, setExtractedMetadata] = useState<JudicialExtractedMetadata | null>(null);
   const [activeKnowledgeDocsCount, setActiveKnowledgeDocsCount] = useState<number>(0);
   const [processNumber, setProcessNumber] = useState<string>("");
+  // número do processo que ESTA execução deve usar: na esteira, o número que está nos autos enviados (o campo do app guarda o do processo anterior)
+  const numeroEntradaRef = useRef<string | null>(null);
   const [processNumber2ndGrau, setProcessNumber2ndGrau] = useState<string>("");
   const [processText, setProcessText] = useState<string>("");
 
@@ -826,7 +828,7 @@ export default function App() {
       actType: selectedActType !== "auto" ? selectedActType : (activePrompt?.actTypeHint || "auto"),
       unitId: activeUnit?.id, unitName: activeUnit?.name,
       paradigmText: isParadigmEnabled ? (par?.fullText || customParadigmText || "") : "", paradigmTitle: isParadigmEnabled ? (par?.title || "Minuta Paradigma") : "",
-      processNumber: processNumber || extractedMetadata?.processNumber || "",
+      processNumber: (numeroEntradaRef.current ?? processNumber) || extractedMetadata?.processNumber || "",
       userUid: user?.uid, userName: user?.displayName || user?.email?.split("@")[0] || "Assessor", userEmail: user?.email || "",
     };
   };
@@ -843,6 +845,16 @@ export default function App() {
     const effectivePdfFiles = pdfFiles && pdfFiles.length > 0 ? pdfFiles : [];
     const effectiveText = processText ? processText.trim() : "";
     const hasPromptDirectives = Boolean(activePrompt && activePrompt.promptText && activePrompt.promptText.trim().length > 0);
+    // esteira: o campo "número do processo" do app guarda o do processo ANTERIOR (e a IA misturava os dados). Aqui vale o número que está nos autos desta execução.
+    numeroEntradaRef.current = null;
+    try {
+      if (document.documentElement.dataset.assessorAuto === "1") {
+        const cnj = /\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/;
+        const dosAutos = effectiveText.slice(0, 30000).match(cnj)?.[0] || effectivePdfFiles.map((p) => (p.extractedText || "").slice(0, 30000).match(cnj)?.[0]).find(Boolean) || "";
+        numeroEntradaRef.current = dosAutos;
+        setProcessNumber(dosAutos);
+      }
+    } catch { /* sem dataset */ }
 
     if (effectivePdfFiles.length === 0 && !effectiveText && !hasPromptDirectives) {
       setErrorMessage("Por favor, anexe o PDF dos autos, insira o texto processual ou selecione um prompt com diretrizes para executar.");
@@ -884,7 +896,7 @@ export default function App() {
     if (inputMode !== "pdf" && effectiveText && effectiveText.length > 1_400_000 && document.documentElement.dataset.assessorAuto === "1") {
       let paginasTxt = 0; try { for (const m of effectiveText.matchAll(/\[Página (\d+)(?: de \d+)?\]/g)) paginasTxt = Math.max(paginasTxt, Number(m[1])); } catch { /* sem marcadores */ }
       if (!paginasTxt) paginasTxt = Math.ceil(effectiveText.length / 3500);
-      const dadosTxt = [{ nome: processNumber && !/extrair/i.test(processNumber) ? `Autos ${processNumber}` : "Autos (texto enviado pela esteira)", texto: effectiveText, pageCount: paginasTxt }];
+      const numTxt = numeroEntradaRef.current ?? processNumber; const dadosTxt = [{ nome: numTxt && !/extrair/i.test(numTxt) ? `Autos ${numTxt}` : "Autos (texto enviado pela esteira)", texto: effectiveText, pageCount: paginasTxt }];
       if (paginasTxt > LIMITE_PAGINAS_GIGANTE) await gerenteGigantes.iniciarPartes(dadosTxt, { ...montarConfigGigante(), uniaoAutomatica: true });
       else await gerenteGigantes.iniciarComTextos(dadosTxt, montarConfigGigante());
       window.dispatchEvent(new CustomEvent("gigantes:abrir"));
@@ -1061,7 +1073,7 @@ export default function App() {
         isExpertModeEnabled,
         isGroundingEnabled: getIsGroundingEnabled(),
         processInfo: {
-          processNumber: processNumber || extractedMetadata?.processNumber || "Extrair automaticamente dos autos",
+          processNumber: (numeroEntradaRef.current ?? processNumber) || extractedMetadata?.processNumber || "Extrair automaticamente dos autos",
           comarca: activeUnit?.name ? `Comarca de ${activeUnit.name.split('/')[0].trim()} - TJGO` : (extractedMetadata?.judicialUnit || "Juizado Especial Cível e Criminal da Comarca de Mineiros - TJGO"),
           vara: activeUnit?.name ? (activeUnit.name.split('/')[1]?.trim() || activeUnit.name) : "Juizado Especial Cível e Criminal",
           juiz: "Juiz(a) de Direito",
