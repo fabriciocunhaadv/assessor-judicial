@@ -251,7 +251,7 @@ export const FloatingGuide: React.FC<FloatingGuideProps> = ({
       },
       {
         title: "Páginas escaneadas",
-        desc: "Se houver páginas sem texto, escolha 'Fazer OCR' (recomendado) ou a leitura visual. A minuta não decide por ausência de prova em página não lida.",
+        desc: "Páginas que são só imagem (escaneadas ou fotos) são lidas sozinhas por OCR antes da minuta, sem perguntar. Só se alguma continuar sem leitura aparece um aviso para conferir. A minuta nunca decide por ausência de prova em página não lida.",
       },
       {
         title: "Extensão do Chrome",

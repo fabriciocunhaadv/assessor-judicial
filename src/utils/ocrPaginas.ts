@@ -43,7 +43,7 @@ export async function abrirPdf(file: File): Promise<any> {
   return comPrazo((pdfjsLib as any).getDocument({ data: new Uint8Array(buf), useSystemFonts: true, disableFontFace: true, stopAtErrors: false }).promise, 180_000, "A abertura do PDF");
 }
 
-async function renderizar(pdf: any, numero: number, escala: number, qualidade: number): Promise<string> {
+async function renderizar(pdf: any, numero: number, escala: number, qualidade: number, medida?: { branco: boolean }): Promise<string> {
   const page = await pdf.getPage(numero);
   try {
     const viewport = page.getViewport({ scale: escala });
@@ -54,6 +54,13 @@ async function renderizar(pdf: any, numero: number, escala: number, qualidade: n
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    if (medida) {      // página em branco de verdade (quase nenhum pixel escuro): não precisa de OCR nem gasta cota
+      try {
+        const px = ctx.getImageData(0, 0, canvas.width, canvas.height).data; let escuros = 0;
+        for (let i = 0; i < px.length; i += 16) if (px[i] < 200 || px[i + 1] < 200 || px[i + 2] < 200) escuros++;
+        medida.branco = escuros / (px.length / 16) < 0.0003;
+      } catch { medida.branco = false; }
+    }
     const url = canvas.toDataURL("image/jpeg", qualidade);
     canvas.width = canvas.height = 0;
     return url.split("base64,")[1] || "";
@@ -106,8 +113,10 @@ export async function ocrPaginas(
       const imagens: PaginaImagem[] = [];
       for (const n of grupo) {
         try {
-          const data = await comPrazo(renderizar(pdf, n, 1.6, 0.7), 60_000, `A renderização da página ${n}`);
-          if (data) imagens.push({ pagina: n, data });
+          const medida = { branco: false };
+          const data = await comPrazo(renderizar(pdf, n, 1.6, 0.7, medida), 60_000, `A renderização da página ${n}`);
+          if (medida.branco) resultado.emBranco.push(n);
+          else if (data) imagens.push({ pagina: n, data });
           else resultado.falhas.push(n);
         } catch (e) {
           console.warn("Falha ao renderizar página", n, e);

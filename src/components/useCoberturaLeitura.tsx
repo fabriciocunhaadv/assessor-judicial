@@ -16,6 +16,11 @@ export interface ResultadoCobertura {
 const modoAutomatico = () => {
   try { return document.documentElement.dataset.assessorAuto === "1"; } catch { return false; }
 };
+// Por padrão o sistema também lê sozinho as páginas de imagem (OCR por IA), sem assustar com uma pergunta: a pergunta só aparece para quem
+// escolheu "perguntar antes" (localStorage assessor_cobertura_perguntar = "1").
+const preferePerguntar = () => {
+  try { return localStorage.getItem("assessor_cobertura_perguntar") === "1"; } catch { return false; }
+};
 
 /**
  * Cobertura da leitura dos autos: páginas sem texto (escaneadas/fotos) podem esconder provas.
@@ -45,7 +50,7 @@ export function useCoberturaLeitura() {
     if (qtd === 0) return { cancelado: false, cobertura: montar("", 0), imagens: [] };
     if (qtd < 3 && qtd / Math.max(1, totalPag) < 0.05) return { cancelado: false, cobertura: montar("pequena", 0), imagens: [] };
 
-    const automatico = modoAutomatico();
+    const automatico = modoAutomatico() || !preferePerguntar();
     const escolha: Escolha = automatico ? "ocr" : await new Promise<Escolha>((res) => setDlg({ lacunas, progresso: null, resolver: res }));
     const progresso = (feitas: number, total: number, etapa: string) => {
       setDlg((prev) => (prev ? { ...prev, progresso: { feitas, total, etapa } } : prev));

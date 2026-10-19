@@ -622,7 +622,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                   </p>
                   <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-6 mb-3">Páginas sem texto (escaneadas): OCR por IA</h3>
                   <p>
-                    Antes da leitura, o sistema transcreve por IA as páginas que só têm imagem, 5 por vez. Dá para <strong>pular o OCR</strong> a qualquer momento (botão no painel); as páginas ficam “sem leitura” e a minuta traz o aviso vermelho e <strong>não decide por ausência de prova</strong> nelas. Se a IA falhar em dois lotes seguidos, o OCR para sozinho e mostra o motivo. O OCR da extensão (feito no download) é gratuito e vem antes; o OCR por IA lê o que sobrou.
+                    Páginas que só têm imagem (escaneadas ou fotos) são transcritas <strong>automaticamente</strong> por IA antes da minuta, 5 por vez, sem perguntar e sem alarme; páginas realmente em branco são ignoradas. Só se alguma página continuar sem leitura depois disso aparece o aviso para conferir. Dá para <strong>pular o OCR</strong> a qualquer momento (botão no painel); as páginas ficam “sem leitura” e a minuta traz o aviso vermelho e <strong>não decide por ausência de prova</strong> nelas. Se a IA falhar em dois lotes seguidos, o OCR para sozinho e mostra o motivo. O OCR da extensão (feito no download) é gratuito e vem antes; o OCR por IA lê o que sobrou.
                   </p>
                   <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-6 mb-3">Pesquisa e conferência</h3>
                   <ul className="list-disc list-inside space-y-2">
@@ -1627,6 +1627,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                         <li>OCR por IA das páginas escaneadas (com opção de pular) e aviso de cobertura da leitura: a minuta não decide por ausência de prova em página não lida.</li>
                         <li>Histórico: o ato grande não some mais (cópia reduzida para a nuvem, aviso visível e reenvio automático).</li>
                         <li>Citações Mov./Arq./Pág. voltam a seguir o carimbo do PROJUDI.</li>
+                        <li>Páginas de imagem passam a ser lidas sozinhas por OCR (sem janela de alarme); falso alarme de “páginas sem texto” em PDFs já com OCR foi corrigido.</li>
                         <li>Painel do Super Admin: os tokens das leituras em lotes e do OCR passam a ser contados; a chave gratuita dos assessores não custa nem baixa o saldo; contadores à prova de gravações simultâneas.</li>
                         <li>Extensão pela Chrome Web Store (o botão das Configurações foi retirado) e tarja de instalação quando ela não está no navegador.</li>
                       </ul>

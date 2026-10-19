@@ -34,12 +34,12 @@ export function CoberturaLeituraDialog({ lacunas, progresso, onEscolha }: Props)
   return (
     <div className="fixed inset-0 z-[100000] flex items-center justify-center p-3 bg-black/60" data-testid="dialogo-cobertura">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto p-5 space-y-3 text-slate-800">
-        <h2 className="text-base font-black text-red-700">⚠️ {qtd} página(s) dos autos sem texto lido</h2>
+        <h2 className="text-base font-black text-slate-800">📄 {qtd} página(s) dos autos são imagem (escaneadas ou fotos)</h2>
         <p className="text-xs leading-relaxed">
-          O sistema leu o texto dos autos, mas <strong>{qtd} de {total} páginas</strong> são imagem (escaneadas, fotos ou em branco) e não puderam ser lidas.
-          Se a prova ou a defesa estiver nelas, a minuta pode afirmar por engano que “não há prova nos autos”.
+          O sistema leu o texto dos autos, mas <strong>{qtd} de {total} páginas</strong> são imagem (escaneadas ou fotos), sem texto para ler.
+          Para não perder nenhuma prova, o sistema pode transcrevê-las antes de minutar.
         </p>
-        <ul className="text-[11px] bg-red-50 border border-red-200 rounded-lg p-2 space-y-0.5 max-h-32 overflow-y-auto">
+        <ul className="text-[11px] bg-slate-50 border border-slate-200 rounded-lg p-2 space-y-0.5 max-h-32 overflow-y-auto">
           {lacunas.map((l, i) => (
             <li key={i}><strong>{l.nome}</strong>: págs. {faixa(l.paginas)} ({l.paginas.length} de {l.total})</li>
           ))}

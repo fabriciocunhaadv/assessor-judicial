@@ -17,10 +17,10 @@ export function AvisoCoberturaLeitura({ info }: { info: NonNullable<GenerationRe
   }
   return (
     <div className="max-w-4xl mx-auto px-4 py-3 bg-red-50 text-red-950 rounded-lg text-xs font-sans shadow-xs border-2 border-red-500" data-testid="aviso-cobertura-lacunas">
-      <div className="font-bold text-sm text-red-800 mb-1">🚨 Parte dos autos NÃO foi lida pelo sistema: confira antes de assinar</div>
+      <div className="font-bold text-sm text-red-800 mb-1">⚠️ Atenção: algumas páginas dos autos não puderam ser lidas — confira antes de assinar</div>
       {lacunas.length > 0 && (
         <p className="leading-relaxed">
-          Páginas sem texto lido (imagem/escaneado sem OCR):{" "}
+          Páginas que continuam sem texto, mesmo depois da tentativa de OCR (imagem/escaneado):{" "}
           {lacunas.map((l, i) => <span key={i}>{i > 0 ? "; " : ""}<strong>{l.arquivo}</strong>, págs. {l.paginas}</span>)}.
           Essas páginas podem conter provas, documentos ou a contestação. Qualquer afirmação da minuta de que “não há prova” ou “não foi juntado” precisa ser conferida nelas.
         </p>
