@@ -113,7 +113,7 @@ class H(BaseHTTPRequestHandler):
             par = "\n\n".join([f"Parágrafo {i} da fundamentação, com análise do confronto probatório e citação (Mov. {i}, Arq. 1, Pág. {i}). " + "Texto de análise. " * 40 for i in range(1, 12)])
             mnum = re.search(r"\d{7}-\d{2}\.\d{4}\.8\.09\.\d{4}", txt)
             texto = json.dumps({"processNumber": mnum.group(0) if mnum else "5530114-61.2025.8.09.0166", "author": "AUTOR TESTE", "defendant": "RÉU TESTE", "judicialUnit": "Vara Teste", "pendingMatter": "Sentença",
-                "actType": "SENTENÇA", "relatorio": "Relatório com os fatos: " + ", ".join(fatos) + ". " + "Narrativa do processo. " * 120 + " O autor não juntou laudo pericial aos autos. ",
+                "caseFactsSummary": "Resumo fático da lide extraído pela IA de teste. " * 6, "plaintiffClaims": "Fatos e provas do autor (teste).", "defendantClaims": "Contraprovas do réu (teste).", "counterClaim": "Não há pedido contraposto.", "actType": "SENTENÇA", "relatorio": "Relatório com os fatos: " + ", ".join(fatos) + ". " + "Narrativa do processo. " * 120 + " O autor não juntou laudo pericial aos autos. ",
                 "fundamentacao": par, "dispositivo": "Dispositivo operacional completo. " * 20})
         import os
         if os.environ.get("MOCK_ARRAY") and not eh_parte: texto = "[ " + texto + " ]"
