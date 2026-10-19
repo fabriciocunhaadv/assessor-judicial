@@ -18,7 +18,7 @@ try:
             pg.add_init_script("localStorage.setItem('assessor_tour_done','1');" + init)
             pg.goto(f"http://127.0.0.1:{PV}/"); return pg
         # 1) sem extensão: a tarja aparece depois de ~10 s
-        pg = abrir(); pg.wait_for_selector("[data-testid=aviso-extensao]", timeout=30000); print("1) sem extensão: tarja visível")
+        pg = abrir(); pg.wait_for_selector("[data-testid=aviso-extensao]", timeout=30000); href = pg.locator("[data-testid=aviso-extensao-instalar]").get_attribute("href"); assert "chromewebstore.google.com" in href and "ioiadaafdnannofgkoioefhejkpmlgpe" in href, href; print("1) sem extensão: tarja visível com o link da loja")
         pg.locator("[data-testid=aviso-extensao-depois]").dispatch_event("click"); pg.wait_for_timeout(500)
         assert pg.locator("[data-testid=aviso-extensao]").count() == 0
         pg.reload(); pg.wait_for_timeout(13000); assert pg.locator("[data-testid=aviso-extensao]").count() == 0, "depois de dispensada não volta por 7 dias"; print("   dispensada: não volta")
