@@ -4666,9 +4666,27 @@ const hasSaneamentoPendente = (
     combinedTextLower.includes("sem outras provas a produzir")
 );
 
-const userExplicitActType = (actType || "").toLowerCase().trim();
+const userExplicitActTypeBruto = (actType || "").toLowerCase().trim();
 const promptDirectives = ((customPromptText || "") + " " + (activePromptTitle || "")).toLowerCase();
-const isUserExplicitlyRequestingEmbargos = userExplicitActType.includes("embargo") || promptDirectives.includes("embargos de declaração") || promptDirectives.includes("aclaratórios");
+// EMBARGOS DE DECLARAÇÃO só valem quando há petição de embargos nos autos. Antes, qualquer prompt que apenas MENCIONASSE "embargos de declaração" (ou um tipo
+// "Embargos" esquecido na tela) forçava o ato para embargos e a IA inventava os embargos e os vícios alegados (caso do processo 5338524-63.2023).
+const evidenciaEmbargosNosAutos = hasEmbargosDeclaracao
+    || /movimenta[cç][aã]o\s+\d+\s*:[^\n]{0,80}embargos/i.test(combinedTextLower)
+    || /peti[cç][aã]o\s*[-–:]?\s*(?:de\s+)?embargos/i.test(combinedTextLower)
+    || /(?:opostos|oposi[cç][aã]o d[eo]s?)\s+embargos\s+(?:de\s+declara|declarat)/i.test(combinedTextLower);
+const embargosSemPeticao = userExplicitActTypeBruto.includes("embargo") && !evidenciaEmbargosNosAutos;
+if (embargosSemPeticao) console.log("[Assessor Judicial] Tipo 'Embargos' ignorado: não há petição de embargos de declaração nos autos. Seguindo no modo automático.");
+const userExplicitActType = embargosSemPeticao ? "auto" : userExplicitActTypeBruto;
+const tituloDoPrompt = (activePromptTitle || "").toLowerCase();
+const isUserExplicitlyRequestingEmbargos = userExplicitActType.includes("embargo") || ((tituloDoPrompt.includes("embargo") || tituloDoPrompt.includes("aclarat")) && evidenciaEmbargosNosAutos);
+// Certidão de decurso do prazo para o autor dar andamento "sob pena de extinção" e autos conclusos: o ato é a SENTENÇA de extinção (art. 485, III, § 1º, CPC)
+const hasAbandonoCertificado = (() => {
+    const rx = /certifico\s+que\s+(?:transcorreu|decorreu)[^.]{0,220}(?:nada\s+fez|n[aã]o\s+se\s+manifest|in\s+albis|inerte|quedou-se)/g;
+    let ultimo = -1, m: RegExpExecArray | null;
+    while ((m = rx.exec(combinedTextLower))) ultimo = m.index;
+    // a certidão tem de estar no final dos autos (nada importante aconteceu depois dela) e falar em extinção
+    return ultimo >= 0 && ultimo > combinedTextLower.length * 0.9 && /sob\s+pena\s+de\s+extin[cç][aã]o/.test(combinedTextLower.slice(Math.max(0, ultimo - 6000)));
+})();
 let isSaneamentoDecision = (hasSaneamentoPendente && !hasSentencaPrevia) || 
                              promptDirectives.includes("saneamento") || 
                              promptDirectives.includes("saneador") || 
@@ -4789,7 +4807,10 @@ if (isSuspeicaoTeseMatched) {
     console.log(`[Assessor Judicial] Prompt configurado para Embargos de Declaração. Enquadramento: EMBARGOS`);
 } else {
     // 2. MODO AUTO PRELIMINAR: ESTIMATIVA INICIAL (A SER REFINADA CASO A CASO NA ETAPA 1)
-    if (hasPendingUrgentDecision) {
+    if (hasAbandonoCertificado) {
+        resolvedActType = "sentenca";
+        console.log(`[Assessor Judicial] Auto-detecção preliminar: certidão de decurso do prazo para o autor dar andamento sob pena de extinção. Ato: SENTENÇA (art. 485, III, § 1º, CPC)`);
+    } else if (hasPendingUrgentDecision) {
         resolvedActType = "decisao";
         console.log(`[Assessor Judicial] Auto-detecção preliminar: Tutela provisória de urgência / pedidos pendentes não apreciados. Ato: DECISÃO INTERLOCUTÓRIA`);
     } else if (isOnlyInitialPetitionPresent) {
