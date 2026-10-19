@@ -10,6 +10,7 @@ import { GigantesPanel } from "./components/GigantesPanel";
 import { PainelProgresso } from "./components/PainelProgresso";
 import { GiganteDialog, EscolhaGigante } from "./components/GiganteDialog";
 import { gerenteGigantes, ConfigGigante, LIMITE_PAGINAS_GIGANTE } from "./utils/gigantes/gerente";
+import { AvisoExtensao } from "./components/AvisoExtensao";
 import { arquivoDoPdf } from "./utils/gigantes/arquivoDoPdf";
 import { descreverCorte, juntarComoServidor, CorteInfo } from "./utils/corteAutos";
 import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
@@ -1876,6 +1877,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f3f4f6] text-slate-900 font-sans selection:bg-slate-200">
+      <AvisoExtensao />
       <Toaster position="bottom-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ duration: 4000, style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' } }} />
       <SystemTour 
         runAppTour={!generationResult && !isHistoryModalOpen && !isPromptManagerOpen && !isTesesModalOpen && !isManualModalOpen} 
