@@ -5137,7 +5137,7 @@ if (isSuspeicaoTeseMatched || isStage1DispositivoSuspeicao) {
         resolvedActType = "sentenca";
         isSaneamentoDecision = false;
         console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): Processo maduro para SENTENÇA (${stage1Json.pendingMatter})`);
-    } else if (s1Act.includes("embargo") || s1Pending.includes("embargo")) {
+    } else if ((s1Act.includes("embargo") || s1Pending.includes("embargo")) && evidenciaEmbargosNosAutos) {
         resolvedActType = "embargos";
         isSaneamentoDecision = false;
         console.log(`[Assessor Judicial] Auto-detecção refinada pela Etapa 1 (Caso a Caso): EMBARGOS DE DECLARAÇÃO (${stage1Json.pendingMatter})`);
@@ -5167,7 +5167,7 @@ if (isSuspeicaoTeseMatched || isStage1DispositivoSuspeicao) {
 if (!(isSuspeicaoTeseMatched || isStage1DispositivoSuspeicao || isStage1DispositivoSentenca)) {
     const s1Tipo = String(stage1Json.actType || "").toLowerCase();
     let tipoEtapa1 = "";
-    if (s1Tipo.includes("embargo")) tipoEtapa1 = "embargos";
+    if (s1Tipo.includes("embargo")) tipoEtapa1 = evidenciaEmbargosNosAutos ? "embargos" : ""; // sem petição de embargos nos autos, a IA não pode inventar o ato
     else if (s1Tipo.includes("saneam")) { tipoEtapa1 = "decisao"; isSaneamentoDecision = true; }
     else if (s1Tipo.includes("decis")) { tipoEtapa1 = "decisao"; isSaneamentoDecision = false; }
     else if (s1Tipo.includes("despach")) tipoEtapa1 = "despacho";
