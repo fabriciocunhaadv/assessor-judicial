@@ -535,7 +535,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
         healthStatus = 'native';
       } else if (poolCount === 0) {
         healthStatus = 'no_key';
-      } else if (rotatedToday || rotationsCount > 0) {
+      } else if (rotatedToday) {      // troca por cota 429 HOJE (as trocas do mês continuam contadas à parte)
         healthStatus = 'rotated_today';
       } else if (poolCount === 1) {
         healthStatus = 'single_key';

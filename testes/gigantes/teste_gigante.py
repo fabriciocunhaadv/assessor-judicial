@@ -58,6 +58,9 @@ def main():
             assert job["ocr"]["feitas"] == 5 and job["ocr"]["falhas"] == 0, job["ocr"]
             # B) minuta final: tem de conter os 4 fatos plantados em páginas distantes (nada se perdeu nos lotes/fusões)
             hist = pg.evaluate("window.__setDocs || []"); print("gravações no histórico:", len(hist))
+            usos = [d for d in hist if __import__("re").match(r"^\d{4}-\d{2}$", str(d.get("id")))]
+            print("registros de uso de tokens (painel do super admin):", len(usos))
+            assert len(usos) >= 7, "cada chamada à IA do processo gigante (lotes, fusões, minuta final, OCR) deve entrar no painel de uso"
             L = log_(); fichas = [x for x in L if x.get("p") == "ficha"]; fus = [x for x in L if x.get("p") == "fusao"]; final = [x for x in L if x.get("p") not in ("ficha", "fusao", "classif")]
             print(f"chamadas: {len(fichas)} fichas, {len(fus)} fusões, {len(final)} finais | maior pedido: {max(x['tok'] for x in L)} tokens | 429: {len([x for x in L if x['res']==429])}")
             assert len(fichas) == len(job["lotes"]) and len(final) >= 1 and all(x["tok"] < 250000 for x in L if x["res"] == 200)

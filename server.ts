@@ -448,6 +448,8 @@ app.post("/api/ocr-paginas", async (req, res) => {
             paginas: lista
                 .map((x: any) => ({ pagina: Number(x?.pagina) || 0, texto: String(x?.texto || "").trim(), emBranco: Boolean(x?.emBranco) }))
                 .filter((x: any) => x.pagina > 0),
+            usage: (response as any).usageMetadata || {},
+            modelUsed: (response as any).modelVersion || "",
         });
     } catch (err: any) {
         console.error("Erro no ocr-paginas:", err);

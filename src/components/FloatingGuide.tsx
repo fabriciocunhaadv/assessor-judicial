@@ -116,7 +116,7 @@ export const FloatingGuide: React.FC<FloatingGuideProps> = ({
       },
       {
         title: "Aguarde a Minuta",
-        desc: "Em processos volumosos, isso pode levar alguns segundos para garantir precisão e segurança jurídica.",
+        desc: "Em processos volumosos, isso pode levar alguns segundos para garantir precisão e segurança jurídica. Autos gigantes seguem em segundo plano: veja o selo 📚 Gigantes.",
       }
     ];
   } 
@@ -244,6 +244,18 @@ export const FloatingGuide: React.FC<FloatingGuideProps> = ({
       {
         title: "4. Executar Análise",
         desc: "Clique no botão verde 'Gerar Análise Jurídica / Minuta' e acompanhe o resultado.",
+      },
+      {
+        title: "Processo muito grande?",
+        desc: "Acima do limite da análise normal, o sistema oferece a leitura em lotes em segundo plano (acima de 3.000 páginas, em partes que se unem numa minuta só). Acompanhe pelo selo 📚 Gigantes e continue trabalhando.",
+      },
+      {
+        title: "Páginas escaneadas",
+        desc: "Se houver páginas sem texto, escolha 'Fazer OCR' (recomendado) ou a leitura visual. A minuta não decide por ausência de prova em página não lida.",
+      },
+      {
+        title: "Extensão do Chrome",
+        desc: "Instale a extensão “Conclusões Projudi” (link na tarja do topo) para baixar processos com OCR e usar a esteira automática de minutas.",
       }
     ];
   }

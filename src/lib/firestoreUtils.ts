@@ -1,5 +1,5 @@
 import { db, auth } from './firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc, query, orderBy, limit, onSnapshot, where, increment } from 'firebase/firestore';
 import { CustomPrompt, GenerationResult, CabinetTesesData, ProjudiGuideData, UserProfile, UserRole, ChatMessage, MinuteData, SavedAnalysis, ApiUsageMetadata, SystemBroadcast, MinuteVersion, AuditedProcessRecord, CabinetCalendarSettings, SaaSTenant, CabinetBackupSnapshot, GlobalDatabaseSnapshot, CabinetFullPartitionData, CabinetMonthlyTokenUsage, ExecutionModuleType, ModuleTokenUsageStats } from '../types';
 import { JudgeParadigmModel } from '../data/defaultParadigms';
 import { SavedKnowledgeDoc } from '../utils/knowledgeDb';
@@ -4325,167 +4325,67 @@ export const recordTokenUsageToDb = async (usageData: {
     const todayStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
     const docRef = doc(db, 'gabinetes', tId, 'token_usage', monthKey);
     
-    const snap = await getDoc(docRef);
     const now = Date.now();
-    
     // Normalizar chave do usuário sem pontos e caracteres inválidos para o objeto
     const sanitizedEmailKey = email.toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_');
-    
-    let userDailyRequests = 1;
+    const moduleKey: ExecutionModuleType = usageData.module || 'outros';
+    const itemCostBrl = usageData.costBrl !== undefined
+      ? usageData.costBrl
+      : calculateTokenCostBRL(usageData.promptTokens, usageData.candidatesTokens, usageData.totalTokens).brlTotal;
+
+    // Lê só o que não é contador (dia da última requisição e rotações). Os contadores usam increment() do Firestore: várias execuções ao
+    // mesmo tempo (processo gigante, vários assessores) não se sobrescrevem mais, como acontecia quando cada uma regravava o total lido antes.
+    let userDailyRequests: any = 1;
     let prevRotations = usageData.rotationsCount || 0;
     let prevLastRotationAt: number | null = usageData.lastRotationAt || null;
     let prevLastRotationReason: string | null = usageData.lastRotationReason || null;
+    let dailyParaPerfil = 1;
+    try {
+      const snap = await getDoc(docRef);
+      const userStats = snap.exists() ? ((snap.data().users || {})[sanitizedEmailKey] || null) : null;
+      if (userStats) {
+        dailyParaPerfil = userStats.dailyDate === todayStr ? (userStats.dailyRequests || 0) + 1 : 1;
+        userDailyRequests = userStats.dailyDate === todayStr ? increment(1) : 1;
+        prevRotations = usageData.rotationsCount !== undefined ? usageData.rotationsCount : (userStats.rotationsCount || 0);
+        prevLastRotationAt = usageData.lastRotationAt || userStats.lastRotationAt || null;
+        prevLastRotationReason = usageData.lastRotationReason || userStats.lastRotationReason || null;
+      }
+    } catch { /* sem leitura: grava como primeira requisição do dia */ }
 
-    const moduleKey: ExecutionModuleType = usageData.module || 'outros';
-    const itemCostBrl = usageData.costBrl !== undefined 
-      ? usageData.costBrl 
-      : calculateTokenCostBRL(usageData.promptTokens, usageData.candidatesTokens, usageData.totalTokens).brlTotal;
-
-    if (snap.exists()) {
-      const existing = snap.data();
-      const existingUsers = existing.users || {};
-      const userStats = existingUsers[sanitizedEmailKey] || {
-        userEmail: email,
-        userName: name,
-        totalTokens: 0,
-        promptTokens: 0,
-        candidatesTokens: 0,
-        requestCount: 0,
-        lastUsedAt: 0,
-      };
-
-      userDailyRequests = userStats.dailyDate === todayStr ? (userStats.dailyRequests || 0) + 1 : 1;
-      prevRotations = usageData.rotationsCount !== undefined ? usageData.rotationsCount : (userStats.rotationsCount || 0);
-      prevLastRotationAt = usageData.lastRotationAt || userStats.lastRotationAt || null;
-      prevLastRotationReason = usageData.lastRotationReason || userStats.lastRotationReason || null;
-
-      // Atualizar estatísticas de módulos do usuário
-      const existingUserModules = userStats.modules || {};
-      const userMod = existingUserModules[moduleKey] || {
-        totalTokens: 0,
-        promptTokens: 0,
-        candidatesTokens: 0,
-        requestCount: 0,
-        costBrl: 0,
-      };
-      const updatedUserModules = {
-        ...existingUserModules,
-        [moduleKey]: {
-          totalTokens: (userMod.totalTokens || 0) + (usageData.totalTokens || 0),
-          promptTokens: (userMod.promptTokens || 0) + (usageData.promptTokens || 0),
-          candidatesTokens: (userMod.candidatesTokens || 0) + (usageData.candidatesTokens || 0),
-          requestCount: (userMod.requestCount || 0) + 1,
-          costBrl: Number(((userMod.costBrl || 0) + itemCostBrl).toFixed(4)),
-        }
-      };
-
-      // Atualizar estatísticas de módulos do gabinete
-      const existingCabModules = existing.modules || {};
-      const cabMod = existingCabModules[moduleKey] || {
-        totalTokens: 0,
-        promptTokens: 0,
-        candidatesTokens: 0,
-        requestCount: 0,
-        costBrl: 0,
-      };
-      const updatedCabModules = {
-        ...existingCabModules,
-        [moduleKey]: {
-          totalTokens: (cabMod.totalTokens || 0) + (usageData.totalTokens || 0),
-          promptTokens: (cabMod.promptTokens || 0) + (usageData.promptTokens || 0),
-          candidatesTokens: (cabMod.candidatesTokens || 0) + (usageData.candidatesTokens || 0),
-          requestCount: (cabMod.requestCount || 0) + 1,
-          costBrl: Number(((cabMod.costBrl || 0) + itemCostBrl).toFixed(4)),
-        }
-      };
-
-      const updatedUser = {
-        userEmail: email,
-        userName: name || userStats.userName,
-        totalTokens: (userStats.totalTokens || 0) + (usageData.totalTokens || 0),
-        promptTokens: (userStats.promptTokens || 0) + (usageData.promptTokens || 0),
-        candidatesTokens: (userStats.candidatesTokens || 0) + (usageData.candidatesTokens || 0),
-        requestCount: (userStats.requestCount || 0) + 1,
-        lastUsedAt: now,
-        keyMode: usageData.keyMode || userStats.keyMode || 'custom',
-        activeKeyLabel: usageData.activeKeyLabel || userStats.activeKeyLabel || 'Chave 1',
-        activeKeySnippet: usageData.activeKeySnippet || userStats.activeKeySnippet || '',
-        poolSize: usageData.poolSize !== undefined ? usageData.poolSize : (userStats.poolSize || 1),
-        rotationsCount: prevRotations,
-        dailyRequests: userDailyRequests,
-        dailyDate: todayStr,
-        lastRotationAt: prevLastRotationAt,
-        lastRotationReason: prevLastRotationReason,
-        modules: updatedUserModules,
-      };
-
-      const updatedDoc = cleanForFirestore({
-        monthKey,
-        tenantId: tId,
-        totalTokens: (existing.totalTokens || 0) + (usageData.totalTokens || 0),
-        promptTokens: (existing.promptTokens || 0) + (usageData.promptTokens || 0),
-        candidatesTokens: (existing.candidatesTokens || 0) + (usageData.candidatesTokens || 0),
-        requestCount: (existing.requestCount || 0) + 1,
-        lastUsedAt: now,
-        modules: updatedCabModules,
-        users: {
-          ...existingUsers,
-          [sanitizedEmailKey]: updatedUser
-        }
-      });
-
-      await setDoc(docRef, updatedDoc, { merge: true });
-    } else {
-      const initialDoc = cleanForFirestore({
-        monthKey,
-        tenantId: tId,
-        totalTokens: usageData.totalTokens || 0,
-        promptTokens: usageData.promptTokens || 0,
-        candidatesTokens: usageData.candidatesTokens || 0,
-        requestCount: 1,
-        lastUsedAt: now,
-        modules: {
-          [moduleKey]: {
-            totalTokens: usageData.totalTokens || 0,
-            promptTokens: usageData.promptTokens || 0,
-            candidatesTokens: usageData.candidatesTokens || 0,
-            requestCount: 1,
-            costBrl: Number(itemCostBrl.toFixed(4)),
-          }
+    const somar = () => ({
+      totalTokens: increment(usageData.totalTokens || 0),
+      promptTokens: increment(usageData.promptTokens || 0),
+      candidatesTokens: increment(usageData.candidatesTokens || 0),
+      requestCount: increment(1),
+      costBrl: increment(Number((itemCostBrl || 0).toFixed(6))),
+    });
+    const { costBrl: _c, ...somarSemCusto } = somar() as any;
+    await setDoc(docRef, {
+      monthKey,
+      tenantId: tId,
+      ...somarSemCusto,
+      lastUsedAt: now,
+      modules: { [moduleKey]: somar() },
+      users: {
+        [sanitizedEmailKey]: {
+          userEmail: email,
+          userName: name,
+          ...somarSemCusto,
+          lastUsedAt: now,
+          keyMode: usageData.keyMode || 'custom',
+          activeKeyLabel: usageData.activeKeyLabel || 'Chave 1',
+          activeKeySnippet: usageData.activeKeySnippet || '',
+          poolSize: usageData.poolSize !== undefined ? usageData.poolSize : 1,
+          rotationsCount: prevRotations,
+          dailyRequests: userDailyRequests,
+          dailyDate: todayStr,
+          lastRotationAt: prevLastRotationAt,
+          lastRotationReason: prevLastRotationReason,
+          modules: { [moduleKey]: somar() },
         },
-        users: {
-          [sanitizedEmailKey]: {
-            userEmail: email,
-            userName: name,
-            totalTokens: usageData.totalTokens || 0,
-            promptTokens: usageData.promptTokens || 0,
-            candidatesTokens: usageData.candidatesTokens || 0,
-            requestCount: 1,
-            lastUsedAt: now,
-            keyMode: usageData.keyMode || 'custom',
-            activeKeyLabel: usageData.activeKeyLabel || 'Chave 1',
-            activeKeySnippet: usageData.activeKeySnippet || '',
-            poolSize: usageData.poolSize !== undefined ? usageData.poolSize : 1,
-            rotationsCount: prevRotations,
-            dailyRequests: 1,
-            dailyDate: todayStr,
-            lastRotationAt: prevLastRotationAt,
-            lastRotationReason: prevLastRotationReason,
-            modules: {
-              [moduleKey]: {
-                totalTokens: usageData.totalTokens || 0,
-                promptTokens: usageData.promptTokens || 0,
-                candidatesTokens: usageData.candidatesTokens || 0,
-                requestCount: 1,
-                costBrl: Number(itemCostBrl.toFixed(4)),
-              }
-            }
-          }
-        }
-      });
-
-      await setDoc(docRef, initialDoc);
-    }
+      },
+    }, { merge: true });
+    const userDailyRequestsPerfil = dailyParaPerfil;
 
     // Sincronizar também no perfil individual do usuário em users/{uid}
     const uid = usageData.userId || auth.currentUser?.uid;
@@ -4498,7 +4398,7 @@ export const recordTokenUsageToDb = async (usageData: {
             activeKeySnippet: usageData.activeKeySnippet || '',
             poolSize: usageData.poolSize !== undefined ? usageData.poolSize : 1,
             rotationsCount: prevRotations,
-            dailyRequests: userDailyRequests,
+            dailyRequests: userDailyRequestsPerfil,
             dailyDate: todayStr,
             lastRotationAt: prevLastRotationAt,
             lastRotationReason: prevLastRotationReason,

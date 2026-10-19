@@ -34,7 +34,6 @@ import { MinuteAuditorModal } from "./components/MinuteAuditorModal";
 import { ApiKeyBanner } from "./components/ApiKeyBanner";
 import { ApiKeyConfigModal } from "./components/ApiKeyConfigModal";
 import { ProcessUnitSelector } from "./components/ProcessUnitSelector";
-import { ExtensionModal } from "./components/ExtensionModal";
 import { ExtensionImportModal } from "./components/ExtensionImportModal";
 import { AssessorWorkflowGuideModal } from "./components/AssessorWorkflowGuideModal";
 import { InitialPetitionPanel } from "./components/InitialPetitionPanel";
@@ -268,7 +267,6 @@ export default function App() {
   const [isUnitManagerModalOpen, setIsUnitManagerModalOpen] = useState<boolean>(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState<boolean>(false);
   const [isHearingWorkbenchModalOpen, setIsHearingWorkbenchModalOpen] = useState<boolean>(false);
-  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState<boolean>(false);
   const [isPetitionPanelOpen, setIsPetitionPanelOpen] = useState<boolean>(false);
   const [isTicketsModalOpen, setIsTicketsModalOpen] = useState<boolean>(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | undefined>(undefined);
@@ -1253,6 +1251,7 @@ export default function App() {
           outputTokens: data.usage.candidatesTokenCount,
           totalTokens: data.usage.totalTokenCount,
           module: 'minuta',
+          usedKey: (data as any).rotatedKey,
         }).catch((e) => console.warn("Failed to record api execution:", e));
       }
 
@@ -1930,7 +1929,6 @@ export default function App() {
         onOpenUserManager={() => setIsUserModalOpen(true)}
         onOpenPetitionPanel={() => setIsPetitionPanelOpen(true)}
         onOpenUnitManager={() => setIsUnitManagerModalOpen(true)}
-        onOpenExtension={() => setIsExtensionModalOpen(true)}
         onOpenTicketsModal={(ticketId) => {
           setSelectedTicketId(ticketId);
           setIsTicketsModalOpen(true);
@@ -2782,11 +2780,6 @@ export default function App() {
         isOpen={isHearingWorkbenchModalOpen}
         onClose={() => setIsHearingWorkbenchModalOpen(false)}
         onOpenHistory={() => setIsHistoryModalOpen(true)}
-      />
-
-      <ExtensionModal
-        isOpen={isExtensionModalOpen}
-        onClose={() => setIsExtensionModalOpen(false)}
       />
 
       <ExtensionImportModal

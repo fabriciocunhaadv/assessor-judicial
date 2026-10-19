@@ -134,6 +134,9 @@ export async function ocrPaginas(
           if (!(r.ok && Array.isArray(j.paginas))) resultado.motivo = `a IA não respondeu (${typeof j.error === "string" ? j.error.slice(0, 160) : "HTTP " + r.status})`;
           if (r.ok && Array.isArray(j.paginas)) {
             lido = true;
+            try {      // o OCR por IA também consome tokens: entra no painel de uso
+              const u = j.usage; if (u && (u.totalTokenCount || u.promptTokenCount)) void import("./apiUsageTracker").then((m) => m.recordApiExecution({ label: "OCR de páginas (leitura por IA)", model: j.modelUsed || undefined, promptTokens: u.promptTokenCount, outputTokens: u.candidatesTokenCount, totalTokens: u.totalTokenCount, module: "minuta" })).catch(() => {});
+            } catch { /* sem registro */ }
             const vistas = new Set<number>();
             for (const p of j.paginas) {
               vistas.add(p.pagina);

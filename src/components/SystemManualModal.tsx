@@ -1,3 +1,4 @@
+import { URL_EXTENSAO_CHROME_STORE } from "../config/extensao";
 import React, { useState } from "react";
 import { useAuth } from "../lib/AuthContext";
 import {
@@ -57,6 +58,7 @@ type TabType =
   | "pesquisa-legislativa"
   | "peticao-inicial"
   | "extensao-projudi"
+  | "processos-gigantes"
   | "super-admin-saas"
   | "agenda-gabinete"
   | "chave-api"
@@ -91,7 +93,8 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
     { id: "central-chamados", label: "Central de Chamados & Feedback (Novo)", icon: <MessageSquare className="w-4 h-4 text-amber-500" /> },
     { id: "pesquisa-legislativa", label: "Pesquisa Legislativa & Consectários (Novo)", icon: <BookOpen className="w-4 h-4 text-indigo-500" /> },
     { id: "peticao-inicial", label: "Módulo Petição & Defesa 360° (Exclusivo)", icon: <Scale className="w-4 h-4 text-indigo-400" />, requiresSuperAdmin: true },
-    { id: "extensao-projudi", label: "Extensão PROJUDI (Novo)", icon: <Zap className="w-4 h-4 text-indigo-500" /> },
+    { id: "extensao-projudi", label: "Extensão Conclusões Projudi (Chrome)", icon: <Zap className="w-4 h-4 text-indigo-500" /> },
+    { id: "processos-gigantes", label: "Processos Gigantes, OCR & Partes (Novo)", icon: <Layers className="w-4 h-4 text-sky-500" /> },
     { id: "super-admin-saas", label: "Painel Super Admin SaaS", icon: <Building2 className="w-4 h-4 text-indigo-500" />, requiresSuperAdmin: true },
     { id: "agenda-gabinete", label: "Agenda & Pautas do Google", icon: <Calendar className="w-4 h-4 text-amber-500" /> },
     { id: "chave-api", label: "Chave API Gratuita (Sem Custos)", icon: <Key className="w-4 h-4 text-emerald-500" /> },
@@ -547,78 +550,93 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-center gap-3 text-indigo-600 dark:text-indigo-400 mb-2">
                   <Zap className="w-8 h-8" />
-                  <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Extensão Oficial de Conexão ao PROJUDI</h1>
+                  <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Extensão “Conclusões Projudi” (Google Chrome)</h1>
                 </div>
 
                 <div className="prose prose-slate dark:prose-invert max-w-none">
                   <p className="text-slate-600 dark:text-slate-300">
-                    A extensão "Assessor IA & PROJUDI" é um módulo instalável no Google Chrome desenvolvido especificamente para eliminar o trabalho de baixar e subir PDFs manualmente.
+                    A extensão trabalha ao lado do Assessor Judicial: baixa os processos do PROJUDI com OCR, alimenta a <strong>esteira automática de minutas</strong> e leva a minuta pronta de volta ao PROJUDI, sem baixar e subir PDF à mão.
                   </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-6">
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
-                      <h4 className="font-semibold text-indigo-800 dark:text-indigo-300 flex items-center gap-2 mb-2">
-                        <FileUp className="w-5 h-5" />
-                        Sem limite de tamanho
-                      </h4>
-                      <p className="text-sm text-indigo-900/70 dark:text-indigo-200">
-                        Os downloads e transferências de processos com dezenas de milhares de páginas e até centenas de Megabytes acontecem integralmente de memória a memória, sem estourar limites do navegador.
-                      </p>
-                    </div>
-                    
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-5 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
-                      <h4 className="font-semibold text-indigo-800 dark:text-indigo-300 flex items-center gap-2 mb-2">
-                        <CheckCircle className="w-5 h-5" />
-                        Totalmente Autenticado
-                      </h4>
-                      <p className="text-sm text-indigo-900/70 dark:text-indigo-200">
-                        O sistema utiliza os seus cookies nativos do TJGO de forma segura, garantindo que o Tribunal não bloqueie o acesso (Erro 0 Bytes) ao baixar o Inteiro Teor do documento.
-                      </p>
-                    </div>
-                  </div>
 
                   <div className="my-6 p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
                     <div>
                       <h4 className="text-sm font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
                         <Globe className="w-4 h-4 text-indigo-500" />
-                        Repositório Nativo no GitHub (Pasta extensao)
+                        Instalação em um clique (Chrome ou Edge, no computador)
                       </h4>
                       <p className="text-xs text-indigo-900/70 dark:text-indigo-300/80 mt-0.5">
-                        Acesse a pasta nativa original da extensão diretamente no repositório do projeto:
+                        Abra a página da extensão na Chrome Web Store e clique em <strong>Adicionar ao Chrome</strong>. As atualizações chegam sozinhas.
                       </p>
-                      <span className="text-xs font-mono text-indigo-600 dark:text-indigo-400 font-semibold block mt-1">
-                        https://github.com/fabriciocunhaadv/projudi
-                      </span>
                     </div>
                     <a
-                      href="https://github.com/fabriciocunhaadv/projudi"
+                      href={URL_EXTENSAO_CHROME_STORE}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs shrink-0 shadow-sm transition"
                     >
-                      Acessar no GitHub
+                      Abrir na Chrome Web Store
                     </a>
                   </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    Se a extensão não estiver instalada neste navegador, o sistema mostra no alto da tela uma tarja com esse mesmo link (você pode dispensá-la por 7 dias). No celular a extensão não funciona.
+                  </p>
 
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-8 mb-4">Como instalar a Extensão?</h3>
-                  <ol className="list-decimal list-inside space-y-2 text-slate-600 dark:text-slate-300">
-                    <li>Clique no menu <strong>Configurações (engrenagem)</strong> superior direito ou no atalho <strong>Extensão PROJUDI</strong> no menu.</li>
-                    <li>Baixe o código-fonte via <strong>Download do Pacote</strong> ou clone/baixe o repositório nativo no GitHub (<a href="https://github.com/fabriciocunhaadv/projudi" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 underline font-semibold">https://github.com/fabriciocunhaadv/projudi</a>).</li>
-                    <li>Extraia a pasta <code>extensao</code> em um diretório local no seu computador.</li>
-                    <li>No Google Chrome, digite na barra de endereços: <code>chrome://extensions/</code></li>
-                    <li>Ative o <strong>Modo do Desenvolvedor</strong> (canto superior direito).</li>
-                    <li>Clique em <strong>Carregar sem compactação</strong> e selecione a pasta extraída.</li>
-                  </ol>
-
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-8 mb-4">Formas de Uso</h3>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-8 mb-4">O que ela faz</h3>
                   <ul className="list-disc list-inside space-y-2 text-slate-600 dark:text-slate-300">
-                    <li><strong>Baixando o Inteiro Teor:</strong> Abra um processo no PROJUDI e clique na opção que exibe todas as folhas juntas (Inteiro Teor). A extensão injetará um botão verde "⚡ ENVIAR PROCESSO COMPLETO". </li>
-                    <li><strong>Baixando Múltiplas Movimentações:</strong> Vá até a aba "Movimentações". Marque as caixinhas (checkbox) dos PDFs que você deseja ler e depois clique no botão superior direito da nossa extensão.</li>
+                    <li><strong>Baixar processos com OCR:</strong> no PROJUDI, baixa o Inteiro Teor ou as movimentações marcadas e já transforma as páginas escaneadas em texto pesquisável (arquivo “-OCR.pdf”), sem usar a cota da sua chave de IA.</li>
+                    <li><strong>Esteira de minutas:</strong> envia um processo por vez ao Assessor Judicial, espera a 1ª etapa e passa para o próximo. A minuta fica no Histórico do sistema.</li>
+                    <li><strong>Processos gigantes:</strong> quando o processo passa do limite da análise normal, o sistema lê tudo em lotes em segundo plano (e, acima de 3.000 páginas, em partes que se unem sozinhas numa minuta só). A esteira acompanha e segue a fila. Veja a aba “Processos Gigantes”.</li>
+                    <li><strong>Mesa de Audiência e pauta:</strong> baixa os processos da pauta e abre cada um como audiência nova na Mesa.</li>
                   </ul>
-                  
+
                   <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded-r-md">
                     <p className="text-amber-800 dark:text-amber-200 text-sm font-medium m-0">
-                      <strong>Dica de Segurança:</strong> Se você enfrentar qualquer falha ou travamento ("0 bytes" ou erro de CORS) ao enviar um processo gigante em Inteiro Teor, utilize o Plano B: A aba de movimentações individuais foi otimizada e garante total integridade ao transferir centenas de documentos fragmentados de uma vez.
+                      <strong>Importante:</strong> mantenha a aba do Assessor Judicial aberta e logada enquanto a esteira trabalha. Se algum processo não aparecer no Histórico, o card da esteira mostra o motivo (“NÃO foi gravada no Histórico”) e o sistema tenta gravar de novo sozinho.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: PROCESSOS GIGANTES */}
+            {activeTab === "processos-gigantes" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300" data-testid="manual-processos-gigantes">
+                <div className="flex items-center gap-3 text-sky-600 dark:text-sky-400 mb-2">
+                  <Layers className="w-8 h-8" />
+                  <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Processos Gigantes, OCR e Partes</h1>
+                </div>
+                <div className="prose prose-slate dark:prose-invert max-w-none text-slate-600 dark:text-slate-300">
+                  <p>
+                    Processos com milhares de páginas não cabem de uma vez na IA (principalmente com a chave gratuita). Em vez de cortar o final dos autos, o sistema <strong>lê todas as páginas em lotes, em segundo plano</strong>, e só depois redige a minuta.
+                  </p>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-6 mb-3">Como funciona</h3>
+                  <ol className="list-decimal list-inside space-y-2">
+                    <li>Ao gerar a minuta de um processo muito grande, o sistema pergunta se você quer a <strong>leitura em lotes</strong>. Ela segue em segundo plano: você pode continuar usando o sistema e até analisar processos menores (as análises normais têm prioridade).</li>
+                    <li>O selo <strong>📚 Gigantes</strong> (canto da tela) mostra cada trabalho, a etapa, a porcentagem e os botões Pausar, Retomar e Cancelar. Mantenha a aba aberta; se fechar, retome de onde parou.</li>
+                    <li>Cada trecho vira uma <em>ficha</em> (partes, pedidos, provas, decisões, valores, páginas). As fichas são fundidas e a minuta é redigida a partir delas e das peças essenciais na íntegra. O resultado vai para o Histórico com uma tarja azul de “processo gigante”.</li>
+                    <li>Só <strong>um processo gigante por vez</strong>: os outros ficam “Na fila (posição N)”.</li>
+                  </ol>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-6 mb-3">Acima de 3.000 páginas: partes</h3>
+                  <p>
+                    O sistema divide os autos em partes de até 3.000 páginas, lidas uma de cada vez. Quando a última termina, aparece o botão <strong>“Unir as partes numa só minuta do processo todo”</strong>, que gera uma minuta única sem reler nada. Na esteira da extensão isso acontece sozinho. Não é preciso juntar os PDFs antes: anexe todos de uma vez.
+                  </p>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-6 mb-3">Páginas sem texto (escaneadas): OCR por IA</h3>
+                  <p>
+                    Antes da leitura, o sistema transcreve por IA as páginas que só têm imagem, 5 por vez. Dá para <strong>pular o OCR</strong> a qualquer momento (botão no painel); as páginas ficam “sem leitura” e a minuta traz o aviso vermelho e <strong>não decide por ausência de prova</strong> nelas. Se a IA falhar em dois lotes seguidos, o OCR para sozinho e mostra o motivo. O OCR da extensão (feito no download) é gratuito e vem antes; o OCR por IA lê o que sobrou.
+                  </p>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-6 mb-3">Pesquisa e conferência</h3>
+                  <ul className="list-disc list-inside space-y-2">
+                    <li><strong>🔎 Pesquisar nos autos deste processo:</strong> busca em todas as páginas (sem diferenciar acentos) e mostra arquivo e página.</li>
+                    <li><strong>Conferência de “ausência de prova”:</strong> depois da minuta, frases como “não foi juntado laudo” são conferidas no índice completo; se o termo existir, aparece aviso âmbar com as páginas.</li>
+                    <li><strong>Lupa, Mesa e Turbo:</strong> quando os autos passam do limite do módulo, oferecem preparar o dossiê (mesma leitura em lotes, sem redigir minuta) e usam esse dossiê.</li>
+                  </ul>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mt-6 mb-3">Mov., Arq. e Pág.</h3>
+                  <p>
+                    As citações seguem o carimbo vermelho de cada página do PROJUDI: <strong>Mov.</strong> é a movimentação, <strong>Arq.</strong> é o arquivo dentro dela e <strong>Pág.</strong> é a página dentro desse arquivo (que recomeça em 1). A posição da página no PDF inteiro não é usada.
+                  </p>
+                  <div className="mt-6 p-4 bg-sky-50 dark:bg-sky-900/20 border-l-4 border-sky-500 rounded-r-md">
+                    <p className="text-sky-900 dark:text-sky-200 text-sm font-medium m-0">
+                      <strong>PDFs muito grandes (centenas de MB):</strong> a leitura pode demorar e depende da memória do computador. Se o leitor parar de responder, o sistema avisa e mantém o que já foi lido. Prefira o computador ao celular.
                     </p>
                   </div>
                 </div>
@@ -636,6 +654,9 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                   <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                     Gestão centralizada de inquilinos (gabinetes), monitoramento de métricas executivas, suspensão/ativação de acessos, transferências de membros e transmissão global de comunicados.
                   </p>
+                </div>
+                <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-sm text-slate-700 dark:text-slate-300" data-testid="manual-nota-uso-chaves">
+                  <strong>Como ler o uso das chaves:</strong> o <em>saldo</em> e o <em>custo em R$</em> são só da <strong>chave nativa corporativa</strong> (faturada). As chaves gratuitas dos assessores (BYOK) aparecem com os tokens e as requisições, mas com custo R$ 0,00 e sem baixar o saldo. “Troca de chave hoje” conta só as trocas por cota (429) feitas no dia; as do mês aparecem à parte. Processos gigantes e OCR também entram na conta (um registro por chamada à IA).
                 </div>
 
                 <div className="p-4 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-2 text-sm text-indigo-900 dark:text-indigo-300">
@@ -1588,6 +1609,30 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
 
                 <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
                   
+                  {/* Item: Processos gigantes, OCR, partes, histórico e painel de uso */}
+                  <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-sky-500 text-slate-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                      <Layers className="w-5 h-5 text-slate-950" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-sky-400 dark:border-sky-600 bg-sky-500/10 dark:bg-sky-950/40 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+                          <span>Processos Gigantes, OCR por IA e Partes</span>
+                          <span className="bg-sky-500 text-slate-950 text-[10px] px-1.5 py-0.5 rounded font-mono font-black">NOVO</span>
+                        </h3>
+                        <time className="text-xs font-mono text-sky-800 dark:text-sky-400 font-medium">Outubro 2026</time>
+                      </div>
+                      <ul className="text-sm text-slate-600 dark:text-slate-400 list-disc list-inside space-y-1">
+                        <li>Leitura em lotes, em segundo plano, de processos com milhares de páginas; acima de 3.000, em partes que se unem numa minuta só (aba “Processos Gigantes”).</li>
+                        <li>OCR por IA das páginas escaneadas (com opção de pular) e aviso de cobertura da leitura: a minuta não decide por ausência de prova em página não lida.</li>
+                        <li>Histórico: o ato grande não some mais (cópia reduzida para a nuvem, aviso visível e reenvio automático).</li>
+                        <li>Citações Mov./Arq./Pág. voltam a seguir o carimbo do PROJUDI.</li>
+                        <li>Painel do Super Admin: os tokens das leituras em lotes e do OCR passam a ser contados; a chave gratuita dos assessores não custa nem baixa o saldo; contadores à prova de gravações simultâneas.</li>
+                        <li>Extensão pela Chrome Web Store (o botão das Configurações foi retirado) e tarja de instalação quando ela não está no navegador.</li>
+                      </ul>
+                    </div>
+                  </div>
+
                   {/* Item: Otimização de Layout para Notebooks e Telas Menores */}
                   <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white dark:border-slate-900 bg-emerald-500 text-slate-950 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
@@ -4337,7 +4382,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                         <time className="text-xs font-mono text-indigo-600 dark:text-indigo-400 font-medium">Agosto 2026</time>
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-400">
-                        O botão e ponto de acesso da Extensão PROJUDI foram configurados para exibição restrita e exclusiva ao perfil <strong>Super Admin</strong>, mantendo a interface dos demais perfis do gabinete limpa e direcionada aos fluxos principais de análise via PDF e texto.
+                        (Substituído em Outubro 2026: o botão foi retirado das Configurações; a instalação agora é pelo link da Chrome Web Store, na aba da extensão e na tarja de instalação.) O botão e ponto de acesso da Extensão PROJUDI foram configurados para exibição restrita e exclusiva ao perfil <strong>Super Admin</strong>, mantendo a interface dos demais perfis do gabinete limpa e direcionada aos fluxos principais de análise via PDF e texto.
                       </p>
                     </div>
                   </div>
@@ -4721,7 +4766,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                         <time className="text-xs font-mono text-amber-600 dark:text-amber-400 font-medium">Agosto 2026</time>
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Sinalização informativa de <strong>Módulo em Construção</strong> no botão e modal da extensão satélite do PROJUDI, reforçando que o sistema opera de maneira completa e autônoma diretamente pelo navegador web.
+                        (Histórico: a extensão já é oficial e está na Chrome Web Store.) Sinalização informativa de <strong>Módulo em Construção</strong> no botão e modal da extensão satélite do PROJUDI, reforçando que o sistema opera de maneira completa e autônoma diretamente pelo navegador web.
                       </p>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import { extractTextFromPdf } from "../pdfExtractor";
 import { getApiHeaders } from "../apiKeyManager";
+import { recordApiExecution } from "../apiUsageTracker";
 import { getCabinetTeses } from "../tesesDb";
 import { saveToHistory } from "../historyDb";
 import type { SavedAnalysis } from "../historyDb";
@@ -254,6 +255,7 @@ class Gerente {
         try { const r = await fetch(rota, { method: "POST", headers: getApiHeaders(), body: JSON.stringify(corpo), signal: ctl.signal }); txt = await r.text(); } finally { clearTimeout(to); }
         let data: any; try { data = JSON.parse(txt.trim()); } catch { throw new Error("resposta do servidor incompleta"); }
         if (data?.error || data?.isError) throw new Error(typeof data.error === "string" ? data.error : "erro do servidor");
+        this.registrarUso(id, rota, data);
         return data;
       } catch (e: any) {
         ultimoErro = e;
@@ -264,6 +266,19 @@ class Gerente {
       }
     }
     throw ultimoErro;
+  }
+
+  /** Cada chamada à IA do processo gigante (lote, fusão, minuta final) entra no painel de uso de tokens, como as análises normais. */
+  private registrarUso(id: string, rota: string, data: any) {
+    try {
+      const u = data?.usage; if (!u || !(u.totalTokenCount || u.promptTokenCount)) return;
+      const j = this.jobs.get(id);
+      const parte = rota === "/api/gigante-lote" ? "leitura de trecho" : rota === "/api/gigante-fusao" ? "fusão das fichas" : "minuta final";
+      void recordApiExecution({
+        label: `Processo gigante — ${parte}`, processNumber: j?.numeroProcesso, model: data.modelUsed || data.modelVersion || undefined,
+        promptTokens: u.promptTokenCount, outputTokens: u.candidatesTokenCount, totalTokens: u.totalTokenCount, module: "minuta", usedKey: data.rotatedKey,
+      }).catch(() => {});
+    } catch { /* o registro de uso nunca pode derrubar a leitura */ }
   }
 
   // ---------- fila: um processo gigante por vez (os outros esperam a sua vez, na ordem em que chegaram) ----------

@@ -71,12 +71,16 @@ export const recordApiExecution = async (params: {
   outputTokens?: number;
   totalTokens?: number;
   module?: ExecutionModuleType;
+  /** chave realmente usada na resposta (quando o servidor trocou de chave por cota 429); sem ela vale a chave ativa */
+  usedKey?: string;
 }): Promise<{ log: LoggedExecution; stats: ApiUsageStats }> => {
   const promptTokens = params.promptTokens || 0;
   const outputTokens = params.outputTokens || 0;
   const totalTokens = params.totalTokens || (promptTokens + outputTokens);
   const model = params.model || "Gemini 3.8 Flash";
-  const costBrl = calculateCostBrl(promptTokens, outputTokens, model);
+  const nativeAllowed = isNativeKeyAllowed();
+  // só a chave nativa (corporativa, faturada) tem custo real e saldo pré-pago; as chaves gratuitas dos assessores (BYOK) não custam nem baixam o saldo
+  const costBrl = nativeAllowed ? calculateCostBrl(promptTokens, outputTokens, model) : 0;
 
   // Detecção inteligente do módulo se não informado explicitamente
   let detectedModule: ExecutionModuleType = params.module || 'outros';
@@ -97,10 +101,9 @@ export const recordApiExecution = async (params: {
     }
   }
 
-  const nativeAllowed = isNativeKeyAllowed();
   const uid = auth.currentUser?.uid || "anonymous";
   const allKeys = getAllCustomApiKeys(uid);
-  const activeKeyRaw = getCustomApiKey(uid) || "";
+  const activeKeyRaw = params.usedKey || getCustomApiKey(uid) || "";
   const activeKeyItem = allKeys.find(k => k.key === activeKeyRaw);
   const snippet = activeKeyRaw ? `...${activeKeyRaw.slice(-4)}` : '';
   const label = nativeAllowed
@@ -137,19 +140,19 @@ export const recordApiExecution = async (params: {
     console.warn(e);
   }
 
-  // Update stats
+  // Update stats (saldo e custo acumulado são da chave nativa: a execução com chave gratuita não mexe neles)
   const currentStats = getLocalUsageStats();
   const newTotalTokens = currentStats.totalTokens + totalTokens;
   const newTotalCost = Number((currentStats.totalCostBrl + costBrl).toFixed(4));
   const newBalance = Math.max(0, Number((currentStats.currentBalanceBrl - costBrl).toFixed(4)));
 
-  const updatedStats: ApiUsageStats = {
+  const updatedStats: ApiUsageStats = nativeAllowed ? {
     ...currentStats,
     totalTokens: newTotalTokens,
     totalCostBrl: newTotalCost,
     currentBalanceBrl: newBalance,
     lastUpdated: Date.now(),
-  };
+  } : currentStats;
 
   try {
     safeSetItem(USAGE_STATS_KEY, JSON.stringify(updatedStats));
@@ -160,7 +163,7 @@ export const recordApiExecution = async (params: {
   // Background persist to Firestore
   if (auth.currentUser) {
     saveUsageLogToDb(log).catch(() => {});
-    saveApiUsageStatsToDb(updatedStats).catch(() => {});
+    if (nativeAllowed) saveApiUsageStatsToDb(updatedStats).catch(() => {});
 
     // Telemetria Unificada: registra requisições, tokens e módulos tanto para Chave Nativa quanto para Chaves Gratuitas do Usuário
     recordTokenUsageToDb({

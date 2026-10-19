@@ -53,22 +53,10 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       placement: "bottom",
     },
     {
-      target: "#btn-header-extensao",
-      content: (
-        <div className="text-left font-sans space-y-1.5">
-          <h3 className="font-bold text-md text-amber-800">Passo 2: Extensão PROJUDI (Módulo em Construção) 🔨</h3>
-          <p className="text-sm text-slate-700 leading-relaxed">
-            Módulo satélite experimental para o Google Chrome em fase de engenharia. O Assessor Judicial Web opera de forma integral e independente pelo navegador.
-          </p>
-        </div>
-      ),
-      placement: "bottom",
-    },
-    {
       target: "#tour-input-panel",
       content: (
         <div className="text-left font-sans space-y-1.5">
-          <h3 className="font-bold text-md text-emerald-800">Passo 3: Seletor de Tipo de Minuta & Inserção dos Autos</h3>
+          <h3 className="font-bold text-md text-emerald-800">Passo 2: Seletor de Tipo de Minuta & Inserção dos Autos</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
             Utilize o seletor interativo para escolher o <strong>Tipo de Minuta (Auto-Detectar, Sentença, Decisão, Despacho ou Embargos)</strong>. No modo <em>Auto-Detectar</em>, a inteligência opera pelo <strong>Protocolo do Fio da Meada</strong> sem travas compulsórias, com leitura fidedigna dos fatos, relatos e provas do PDF e <strong>enfrentamento integral e circunstanciado de 100% dos pedidos preliminares ou urgentes pendentes de deliberação</strong> em qualquer ramo do direito (Família, Cível, Consumidor, Fazenda Pública, Saúde e Juizados). Articula dinamicamente a legislação de regência (CPC, CC, CDC, ECA, Lei 5.478/68 e microssistemas), as diretrizes do prompt ativo do gabinete e a jurisprudência vinculante (Súmulas e precedentes do TJGO, STJ e STF), com extração canônica de polos e vinculação soberana de TPU CNJ (códigos 25, 480, 26, 219, 220, 221 e 60). Todas as minutas seguem o <strong>Guia Simples e Fácil do TJGO</strong> e o Pacto pela Linguagem Simples (STF/CNJ): sem "latinórios" ou arcaísmos, com ordem direta e máxima densidade fundamentadora.
           </p>
@@ -94,7 +82,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       target: "#tour-paradigm-selector",
       content: (
         <div className="text-left font-sans space-y-1.5">
-          <h3 className="font-bold text-md text-amber-800">Passo 4: Minuta Paradigma & Limiar de 96% ⚡</h3>
+          <h3 className="font-bold text-md text-amber-800">Passo 3: Minuta Paradigma & Limiar de 96% ⚡</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
             O sistema afere a taxa de afinidade temática dos autos com os modelos do magistrado. Quando a taxa atinge <strong>96% ou mais</strong> (caso praticamente idêntico), o sistema <strong>recomenda e destaca com ênfase máxima</strong> o botão <em>⚡ Vincular e Aplicar este Paradigma</em>.
           </p>
@@ -106,7 +94,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       target: "#tour-prompt-selector",
       content: (
         <div className="text-left font-sans space-y-1.5">
-          <h3 className="font-bold text-md text-emerald-800">Passo 5: Tipo de Ato, Detecção Mandatória de Fase & Rigor Exaustivo ⚖️</h3>
+          <h3 className="font-bold text-md text-emerald-800">Passo 4: Tipo de Ato, Detecção Mandatória de Fase & Rigor Exaustivo ⚖️</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
             Selecione o tipo de ato ou use <strong>Auto-Detectar</strong>. Caso os autos contenham apenas a <strong>Petição Inicial</strong> (sem contestação ou instrução), o sistema ativa a <strong>Detecção Mandatória de Fase Inicial</strong>, impedindo sentenças de mérito extemporâneas e gerando <strong>Decisão Interlocutória</strong> (com exame exaustivo da tutela de urgência, probabilidade, perigo de dano, astreintes e prazo) ou <strong>Despacho</strong>, com tríplice citação (Mov., Arq. e Pág.) e transcrição literal de dispositivos legais e precedentes.
           </p>
@@ -303,7 +291,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       target: "#tour-execute-btn",
       content: (
         <div className="text-left font-sans space-y-1.5">
-          <h3 className="font-bold text-md text-emerald-800">Passo 6: Executar Minuta em Duas Etapas & Observância da Marcha ⚖️⚡</h3>
+          <h3 className="font-bold text-md text-emerald-800">Passo 5: Executar Minuta em Duas Etapas & Observância da Marcha ⚖️⚡</h3>
           <p className="text-sm text-slate-700 leading-relaxed">
             Clique em <strong>Gerar Minuta</strong> para acionar a esteira em duas fases com inteligência de marcha processual caso a caso e o <strong>Protocolo de Fidelidade Factual Estrita (Anti-Inferência na Inicial)</strong>. Por padrão, o sistema opera no <strong>Modo 2 Etapas com Parada Estratégica</strong>: processa e entrega primeiramente a <strong>Etapa 1 (Assessor Fático)</strong>, extraindo fidedignamente fatos, marcha e provas com tríplice localização (Mov., Arq. e Pág.) sob a <strong>Soberania Normativa Total de Todas as Teses do Gabinete</strong> (com cumprimento dinâmico de 100% das teses cadastradas, verificação fidedigna de requisitos e salvaguarda contra falsos positivos). Em seguida, com um simples clique no botão de avanço, a <strong>Etapa 2 (Juiz Revisor)</strong> consolida a fundamentação jurídica magistral com <strong>Súmulas</strong>, o <strong>Caderno de Teses</strong> e a <strong>Minuta Paradigma</strong>, gerando a minuta final (com os <strong>consectários da Lei 14.905/2024 liquidados no Dispositivo</strong>) e a <strong>Matriz de Auditoria Forense Completa</strong> com a <strong>Soberania Absoluta do Dispositivo</strong>.
           </p>
@@ -545,7 +533,6 @@ export const SystemTour: React.FC<SystemTourProps> = ({
     } else if (runAppTour) {
       if (!completed.includes("app_tour")) {
         const filteredAppSteps = appSteps.filter((step) => {
-          if (step.target === "#btn-header-extensao" && !isSuperAdmin) return false;
           if (step.target === "#btn-header-superadmin" && !isSuperAdmin) return false;
           if (step.target === "#btn-header-user-manager" && !isAdmin) return false;
           if (step.target === "#btn-header-minute-auditor" && !isSuperAdmin && !isJudge) return false;

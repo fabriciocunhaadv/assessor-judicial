@@ -23,7 +23,6 @@ import {
   Award,
   Gavel,
   Calendar,
-  Puzzle,
   Hammer,
   Settings,
   MapPin,
@@ -71,7 +70,6 @@ interface HeaderProps {
   onToggleGuide?: () => void;
   isGuideVisible?: boolean;
   onOpenPresentation?: () => void;
-  onOpenExtension?: () => void;
   onOpenHearingWorkbench?: () => void;
   onOpenLateralAgent?: () => void;
   onOpenTurboModule?: () => void;
@@ -95,7 +93,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenUnitManager,
   onOpenMinuteAuditor,
   onOpenPetitionPanel,
-  onOpenExtension,
   onOpenLateralAgent,
   onOpenTurboModule,
   onOpenTicketsModal,
@@ -409,22 +406,6 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 )}
 
-                {onOpenExtension && (
-                  <button
-                    id="btn-header-extensao"
-                    onClick={onOpenExtension}
-                    className="flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-slate-100 font-semibold text-xs transition cursor-pointer text-left w-full group"
-                    title="Extensão PROJUDI - Download e Repositório GitHub"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Puzzle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <span>Extensão PROJUDI</span>
-                    </div>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 flex items-center gap-1 shrink-0">
-                      GitHub
-                    </span>
-                  </button>
-                )}
 
                 <div className="h-[1px] w-full bg-slate-800 my-0.5" />
 
@@ -1096,20 +1077,6 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                   )}
 
-                  {onOpenExtension && (
-                    <button
-                      onClick={() => handleAction(onOpenExtension)}
-                      className="w-full p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-between border border-slate-700 transition"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Puzzle className="w-4 h-4 text-amber-400 shrink-0" />
-                        <span>Extensão PROJUDI</span>
-                      </div>
-                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 flex items-center gap-1 shrink-0">
-                        GitHub
-                      </span>
-                    </button>
-                  )}
 
                   {onOpenApiKeyConfig && (
                     <button
