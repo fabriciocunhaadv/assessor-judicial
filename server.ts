@@ -4557,7 +4557,10 @@ const promptDirectives = ((customPromptText || "") + " " + (activePromptTitle ||
 const evidenciaEmbargosNosAutos = hasEmbargosDeclaracao
     || /movimenta[cç][aã]o\s+\d+\s*:[^\n]{0,80}embargos/i.test(combinedTextLower)
     || /peti[cç][aã]o\s*[-–:]?\s*(?:de\s+)?embargos/i.test(combinedTextLower)
-    || /(?:opostos|oposi[cç][aã]o d[eo]s?)\s+embargos\s+(?:de\s+declara|declarat)/i.test(combinedTextLower);
+    || /(?:opostos|oposi[cç][aã]o d[eo]s?)\s+embargos\s+(?:de\s+declara|declarat)/i.test(combinedTextLower)
+    || /(?:opor|op[õo]e|opondo|oponho|interpor|interp[õo]e)\s+(?:os\s+presentes\s+)?embargos\s+(?:de\s+)?declara/i.test(combinedTextLower)
+    || /embargos\s+de\s+declara[cç][aã]o\s+com\s+pedido/i.test(combinedTextLower)
+    || /embargos[_\s-]*(?:de[_\s-]*)?declara[cç]/i.test(combinedTextLower);
 const embargosSemPeticao = userExplicitActTypeBruto.includes("embargo") && !evidenciaEmbargosNosAutos;
 if (embargosSemPeticao) console.log("[Assessor Judicial] Tipo 'Embargos' ignorado: não há petição de embargos de declaração nos autos. Seguindo no modo automático.");
 const userExplicitActType = embargosSemPeticao ? "auto" : userExplicitActTypeBruto;
@@ -4755,13 +4758,19 @@ function buildActTypeGuidance(targetActType: string, isSaneamento: boolean): str
      * Se a questão já foi resolvida com fundamentação lógica e coerente e o embargante busca apenas o reexame probatório, afastar a alegação fundamentando que os embargos não se prestam à rediscussão do mérito ou reforma do julgado por via inadequada (jurisprudência consolidada do TJGO e STJ);
      * Se houver efetiva omissão ou erro material involuntário, reconhecer motivadamente o ponto e integrar a fundamentação para sanar o vício;
      * Analisar se há ou não incidência de efeitos infringentes/modificativos.
+     * EXISTÊNCIA DO VÍCIO (TRAVA OBRIGATÓRIA): só há omissão (art. 1.022, II) quanto a ponto ou questão que o juiz DEVIA decidir, porque foi suscitado pelas partes no momento próprio ou é matéria de ofício. Tese, pedido, direito de terceiro ou fato NOVO, nunca deduzido antes (por exemplo, um direito de meação, um crédito ou uma alegação inédita trazida só nos embargos), NÃO é omissão: não conheça do vício nem o reconheça; fundamente que os embargos não servem para inovar o pedido e indique a via adequada (petição ou incidente próprio, com contraditório e prova).
+     * EFEITOS INFRINGENTES EXIGEM CONTRADITÓRIO PRÉVIO (art. 1.023, § 2º, do CPC): antes de acolher os embargos com efeito modificativo, a parte contrária deve ter sido intimada para se manifestar em 5 dias. Em procedimento sem parte contrária, ou que envolva incapaz, exija também a oitiva do Ministério Público (arts. 178, II, e 721 do CPC) e, havendo conflito de interesses entre o incapaz e quem o representa (por exemplo, o curador que pede para si parte do patrimônio do curatelado), a nomeação de curador especial (art. 72, I, do CPC). Se o contraditório ainda NÃO ocorreu, é PROIBIDO conceder efeito infringente: elabore a decisão que determina essas intimações, fixa o prazo e suspende o julgamento dos embargos, sem alterar o dispositivo da decisão embargada.
+     * NÃO PRESUMA FATOS PARA ACOLHER OS EMBARGOS: alegação do embargante não é prova. Data de aquisição, natureza onerosa, titularidade, união estável como estado reconhecido (e não apenas indício para legitimidade) e valores só podem ser tidos por provados se houver documento nos autos que os demonstre, com a localização (Mov., Arq., Pág.). Ano de fabricação do bem não prova data de aquisição.
+     * TEMPESTIVIDADE PELOS AUTOS: use a data de assinatura/protocolo da petição de embargos e a data da intimação que constam dos autos, e a certidão da serventia sobre a tempestividade, se houver. Não copie as datas e o cálculo de prazo do embargante e não invente data de protocolo; se algum dado faltar, diga qual.
      ### 3. DA APLICAÇÃO DE PRECEDENTES E TESES VINCULANTES
      * Aplicar enunciados do TJGO/STJ sobre cabimento estrito dos aclaratórios e rejeição de intuito protelatório.
+     * Cite jurisprudência ou súmula somente se constar dos autos ou da base fornecida, com identificação; é proibido afirmar "jurisprudência consolidada do TJGO" sem citar o precedente.
   3. III - DISPOSITIVO OPERACIONAL:
      * "Ante o exposto, CONHEÇO dos embargos de declaração opostos ${embargosMovimentacaoTexto ? `no ${embargosMovimentacaoTexto}` : "nos autos"} porquanto tempestivos, e, no mérito, REJEITO-OS, mantendo incólume a decisão embargada em todos os seus termos."
      * (OU se houver vício real: "CONHEÇO dos embargos de declaração e, no mérito, ACOLHO-OS (com/sem efeitos infringentes), para sanar a omissão/erro material apontado e declarar que...")
      * Consignar expressamente a interrupção do prazo para interposição de outros recursos (art. 1.026 do CPC).
-     * Determinar as intimações de estilo e prosseguimento do feito.`
+     * Determinar as intimações de estilo e prosseguimento do feito.
+     * FORMA DO DISPOSITIVO: o dispositivo dos embargos decide apenas os embargos e, se acolhidos, integra o ponto específico da decisão embargada (indicando o item alterado). NÃO reescreva toda a sentença, NÃO coloque "Determinações ao Cartório" antes do dispositivo e NÃO misture itens numerados dentro e fora de uma transcrição.`
   : (targetActType === "decisao" && isSaneamento)
   ? `DIRETRIZ MANDATÓRIA PARA DECISÃO DE SANEAMENTO E ORGANIZAÇÃO DO PROCESSO (ART. 357 E ART. 489 DO CPC):
 - O ato a ser proferido é uma DECISÃO DE SANEAMENTO E ORGANIZAÇÃO DO PROCESSO (ART. 357 DO CPC).
