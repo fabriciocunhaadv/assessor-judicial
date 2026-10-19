@@ -30,6 +30,7 @@ Fase 1: até 3.000 páginas, com a aba do app aberta.
 - **Esteira (auto):** acima de 3.000 págs a esteira divide em partes que só geram dossiê e o sistema une tudo numa minuta única sozinho (`teste_gigante_auto_partes.py`).
 - **Esteira com autos gigantes em texto:** o texto enviado pela extensão (>1,4 mi caracteres) vira trabalho gigante (`teste_texto_gigante.py`).
 - **Páginas de imagem:** o OCR por IA roda sozinho (sem janela de alarme); página realmente em branco não vai ao OCR (`teste_ocr_automatico.py`, `teste_pagina_branca.py`). Páginas que continuam a frase da anterior não viram “sem texto” (`teste_fusao_paginas.py`).
+- **Esteira em sequência no app:** três processos seguidos, cada um com o seu número (`teste_esteira_app.py`; o mock devolve o número que está nos autos).
 - **PDF enorme (>120 MB):** o leitor não carrega o arquivo inteiro na memória (busca só os trechos necessários); `teste_modo_leve.py` força esse modo.
 - **Unir as partes:** quando todas as partes de um processo terminam, a última mostra “Unir as partes numa só minuta” (reaproveita fichas e páginas, sem reler; teste D3 em `teste_gigante_app.py`).
 - OCR: o PDF é aberto uma só vez, cada etapa tem prazo, e se a IA falha 2 lotes seguidos o OCR é interrompido com o motivo visível (`teste_gigante_ocr_falha.py`).
