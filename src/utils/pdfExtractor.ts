@@ -390,6 +390,7 @@ export async function extractTextFromPdf(
           pageTextBlocks.push(currentPara.trim());
         }
 
+        let paginaFundida = false;
         if (pageTextBlocks.length > 0) {
           // If the last paragraph of previous page was incomplete (e.g. ended with comma or no terminal punctuation)
           // and current page starts with continuation (lowercase or continuation sentence), fuse them!
@@ -405,15 +406,21 @@ export async function extractTextFromPdf(
               !/^(?:\*\*|\*|#)*(?:RELAT[OÓ]RIO|FUNDAMENTA[CÇ][AÃ]O|DISPOSITIVO|DECIS[AÃ]O|SENTEN[CÇ]A|DESPACHO)/i.test(firstParaOfCurrentPage);
 
             if (endsWithOpenClause && startsWithContinuation) {
-              pageParagraphs[pageParagraphs.length - 1] = `${lastPageText} ${firstParaOfCurrentPage}`;
+              // a frase continua na página seguinte: junta o trecho ao parágrafo anterior, MAS mantém o marcador desta página no meio do texto
+              // (sem ele a página sumia do índice e, quando era uma página de um bloco só, ficava marcada como "sem texto lido")
+              pageParagraphs[pageParagraphs.length - 1] = `${lastPageText}\n[Página ${i} de ${numPages}]\n${firstParaOfCurrentPage}`;
               pageTextBlocks.shift(); // removed fused first block
+              paginaFundida = true;
+              if (firstParaOfCurrentPage.replace(/\s+/g, "").length < 15) paginasSemTexto.push(i);
             }
           }
 
-          if (pageTextBlocks.length > 0) {
+          if (pageTextBlocks.length > 0 && paginaFundida) {
+            pageParagraphs[pageParagraphs.length - 1] += "\n\n" + pageTextBlocks.join("\n\n");      // o marcador desta página já foi posto na junção
+          } else if (pageTextBlocks.length > 0) {
             pageParagraphs.push(`[Página ${i} de ${numPages}]\n` + pageTextBlocks.join("\n\n"));
             if (pageTextBlocks.join("").replace(/\s+/g, "").length < 15) paginasSemTexto.push(i);
-          } else {
+          } else if (!paginaFundida) {
             paginasSemTexto.push(i);
           }
         }
