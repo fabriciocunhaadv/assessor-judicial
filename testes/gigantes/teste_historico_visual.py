@@ -41,6 +41,17 @@ try:
         # padrão: só os a lançar (24 de 30 não lançados)
         assert pg.evaluate("[...document.querySelectorAll('[data-testid=btn-lancado-projudi]')].filter(b => b.innerText.trim() === 'Lançado').length") == 0, "por padrão só aparecem os a lançar"
         assert pg.locator("[data-testid=painel-filtros]").count() == 0, "filtros começam recolhidos"
+        # marcar como lançado: a linha NÃO pode sumir na hora do clique (ficou à vista até trocar o filtro)
+        antes = pg.locator("[data-testid=dossie-linha]").count()
+        pg.locator("[data-testid=btn-lancado-projudi]").first.dispatch_event("click"); pg.wait_for_timeout(800)
+        depois = pg.locator("[data-testid=dossie-linha]").count()
+        assert depois == antes, f"o processo sumiu ao marcar como lançado ({antes} -> {depois})"
+        assert pg.evaluate("[...document.querySelectorAll('[data-testid=btn-lancado-projudi]')].filter(b => b.innerText.trim() === 'Lançado').length") == 1, "a marcação não apareceu"
+        pg.locator("text=/^Lançados \\(/").first.dispatch_event("click"); pg.wait_for_timeout(500)
+        pg.locator("text=/^A lançar \\(/").first.dispatch_event("click"); pg.wait_for_timeout(500)
+        marcado = pg.evaluate("[...document.querySelectorAll('[data-testid=btn-lancado-projudi]')].filter(b => b.innerText.trim() === 'Lançado').length")
+        assert marcado == 0, "ao voltar ao filtro 'A lançar' o marcado deveria sair da lista"
+        print("marcar lançado: ficou à vista e saiu da lista só ao trocar de filtro")
         pg.locator("[data-testid=btn-filtros]").dispatch_event("click"); pg.wait_for_selector("[data-testid=painel-filtros]")
         pg.locator("text=Todos").first.dispatch_event("click"); pg.wait_for_timeout(500)
         pg.set_viewport_size({"width": 390, "height": 800}); pg.wait_for_timeout(600)

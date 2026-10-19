@@ -125,6 +125,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const [scopeFilter, setScopeFilter] = useState<"todos" | "meus">("todos");
   const [viewMode, setViewMode] = useState<"dossiers" | "flat">("dossiers");
   const [lancFilter, setLancFilter] = useState<"todos" | "pendentes" | "lancados">("pendentes");      // o que interessa no dia a dia: o que ainda falta lançar
+  const [recemMarcados, setRecemMarcados] = useState<Set<string>>(new Set()); // atos que acabei de marcar: ficam à vista até trocar o filtro, para não "sumirem" na hora do clique
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<SavedAnalysis | null>(null);
@@ -303,10 +304,11 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const alternarLancado = async (ato: SavedAnalysis, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const quando = ato.lancadoProjudi ? null : Date.now();
+    setRecemMarcados((prev) => new Set(prev).add(ato.id));
     setHistory((prev) => prev.map((it) => (it.id === ato.id ? { ...it, lancadoProjudi: quando } : it)));
     try {
       await marcarLancadoProjudi(ato.id, quando);
-      showFeedback(quando ? `Processo ${ato.processNumber} marcado como LANÇADO no Projudi.` : `Marcação de lançamento removida (${ato.processNumber}).`);
+      showFeedback(quando ? `Processo ${ato.processNumber} marcado como LANÇADO no Projudi (agora está em "Lançados").` : `Marcação de lançamento removida (${ato.processNumber}).`);
     } catch {
       showFeedback("Não consegui gravar a marcação agora; tente de novo.");
     }
@@ -329,8 +331,8 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
     if (!matchesTerm) return false;
 
-    if (lancFilter === "pendentes" && item.lancadoProjudi) return false;
-    if (lancFilter === "lancados" && !item.lancadoProjudi) return false;
+    if (lancFilter === "pendentes" && item.lancadoProjudi && !recemMarcados.has(item.id)) return false;
+    if (lancFilter === "lancados" && !item.lancadoProjudi && !recemMarcados.has(item.id)) return false;
 
     if (scopeFilter === "meus") {
       if (currentUid && item.createdBy !== currentUid) return false;
@@ -472,7 +474,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-none text-xs" data-testid="filtro-lancamento">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-slate-500" />Projudi:</span>
             {([["pendentes", `A lançar (${qtdPendentes})`], ["lancados", `Lançados (${qtdLancados})`], ["todos", "Todos"]] as const).map(([id, label]) => (
-              <button key={id} onClick={() => { setLancFilter(id); setCurrentPage(1); }}
+              <button key={id} onClick={() => { setLancFilter(id); setRecemMarcados(new Set()); setCurrentPage(1); }}
                 className={`px-2 py-0.5 rounded-md font-bold text-[11px] transition cursor-pointer whitespace-nowrap shrink-0 ${lancFilter === id ? (id === "lancados" ? "bg-emerald-600 text-white shadow-xs" : "bg-indigo-600 text-white shadow-xs") : "bg-slate-100 hover:bg-slate-200 text-slate-700"}`}>
                 {label}
               </button>
