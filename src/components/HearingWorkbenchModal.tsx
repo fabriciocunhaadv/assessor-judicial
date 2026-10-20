@@ -76,6 +76,13 @@ import { PainelDossie } from './PainelDossie';
 
 // acima disso a Mesa não lê os autos de uma vez com segurança: usa o dossiê preparado em lotes
 const LIMITE_CHARS_MESA = 1_000_000;
+// Texto bruto guardado na audiência (Firestore): no máximo 300 mil caracteres, mas guardando o INÍCIO e o FIM dos autos (as movimentações recentes ficam no fim)
+const limitarTextoBruto = (t: string, max = 300000): string => {
+  const x = String(t || '');
+  if (x.length <= max) return x;
+  const m = Math.floor(max / 2);
+  return x.slice(0, m) + '\n\n[... trecho do meio omitido: texto bruto limitado a ' + Math.round(max / 1000) + ' mil caracteres ...]\n\n' + x.slice(x.length - m);
+};
 import { montarTermoTexto, termoTextoParaBlocos } from '../templates/termoAudiencia';
 import { blocosParaHtml, blocosParaTexto, htmlParaBlocos } from '../templates/ataPreliminarModelo';
 import { useAuth } from '../lib/AuthContext';
@@ -408,7 +415,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
           keyQuestions: Array.isArray(data.keyQuestions) ? data.keyQuestions : currentHearing.keyQuestions,
           alertsAndTraps: Array.isArray(data.alertsAndTraps) ? data.alertsAndTraps : currentHearing.alertsAndTraps,
           uploadedPdfNames: extraPayload.uploadedPdfNames || currentHearing.uploadedPdfNames,
-          rawSourceText: extraPayload.caseText || currentHearing.rawSourceText,
+          rawSourceText: limitarTextoBruto(extraPayload.caseText || '') || currentHearing.rawSourceText,
         };
         setActiveHearing(updated);
         await handleSaveActiveHearing(updated);
@@ -680,7 +687,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
       const preparedTarget: HearingRecord = {
         ...target,
         uploadedPdfNames: Array.from(new Set([...(target.uploadedPdfNames || []), ...fileNames])),
-        rawSourceText: combinedText.slice(0, 300000),
+        rawSourceText: limitarTextoBruto(combinedText),
         ...(dossieJobIdNovo ? { dossieJobId: dossieJobIdNovo, dossieAplicado: false } : {}),
       };
       setActiveHearing(preparedTarget);
@@ -715,7 +722,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     dossieEmUsoRef.current.add(alvo.dossieJobId);       // o aviso de “dossiê pronto” pode chegar mais de uma vez: roda o briefing só uma
     try {
       const d = await gerenteGigantes.obterDossie(alvo.dossieJobId);
-      const preparado: HearingRecord = { ...alvo, dossieAplicado: true, rawSourceText: d.texto.slice(0, 300000) };
+      const preparado: HearingRecord = { ...alvo, dossieAplicado: true, rawSourceText: limitarTextoBruto(d.texto) };
       setActiveHearing(preparado);
       setCaseInputText(d.texto);
       await handleSaveActiveHearing(preparado);
@@ -977,6 +984,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                     <div
                       key={h.id}
                       onClick={() => {
+                        setCaseInputText('');      // o texto bruto mostrado é o DESTA audiência (antes ficava o do último processo analisado)
                         setActiveHearing(h);
                         setMobileView('workbench');
                       }}
