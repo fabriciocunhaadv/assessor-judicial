@@ -136,6 +136,8 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
   onOpenCopilot,
 }) => {
   const { user, userProfile } = useAuth();
+  // quem rodou a auditoria (aparece na lista de Processos Auditados e no histórico)
+  const nomeDoUsuario = user?.displayName || userProfile?.name || user?.email?.split("@")[0] || "";
   
   const [selectedPrompt, setSelectedPrompt] = useState<CustomPrompt | null>(initialActivePrompt || (prompts.length > 0 ? prompts[0] : null));
   const [systemGeneratedMinute, setSystemGeneratedMinute] = useState<string>("");
@@ -881,7 +883,7 @@ ${specificInstructions}`
         "Processo TJGO";
 
       const detectedAssessor =
-        assessorNameInput.trim() || "Assessor(a) do Gabinete";
+        assessorNameInput.trim() || nomeDoUsuario || "Assessor(a) do Gabinete";
 
       // Check existing versions for this process number to unify in history
       const existingGroup = groupedProcessRecords.find(
@@ -895,6 +897,9 @@ ${specificInstructions}`
         id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         processNumber: detectedProcNum,
         assessorName: detectedAssessor,
+        createdBy: user?.uid || "anonymous",
+        creatorName: nomeDoUsuario || "Assessor",
+        creatorEmail: user?.email || "",
         date: Date.now(),
         score: data.score,
         verdict: data.verdict,
@@ -1215,6 +1220,9 @@ ${specificInstructions}`
         id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         processNumber: finalProcNum || reAuditProcNum || reAuditSourceRecord.processNumber,
         assessorName: reAuditAssessor || reAuditSourceRecord.assessorName,
+        createdBy: user?.uid || reAuditSourceRecord.createdBy || "anonymous",
+        creatorName: nomeDoUsuario || reAuditSourceRecord.creatorName || "Assessor",
+        creatorEmail: user?.email || reAuditSourceRecord.creatorEmail || "",
         date: Date.now(),
         score: data.score,
         verdict: data.verdict,
@@ -2363,6 +2371,10 @@ ${reAuditNotes}`
                               <span className="flex items-center gap-1 text-slate-300">
                                 <User className="w-3.5 h-3.5 text-amber-400" />
                                 {group.assessorName}
+                              </span>
+                              <span className="flex items-center gap-1 text-slate-300" data-testid="lupa-analisado-por" title="Usuário que rodou a análise no sistema">
+                                <User className="w-3.5 h-3.5 text-indigo-300" />
+                                Analisado por: <strong className="text-slate-100">{latest.creatorName || latest.creatorEmail?.split("@")[0] || "—"}</strong>
                               </span>
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3.5 h-3.5 text-slate-500" />

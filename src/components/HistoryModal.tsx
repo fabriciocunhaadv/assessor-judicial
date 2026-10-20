@@ -577,7 +577,10 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                       <p className="text-xs font-bold text-slate-900 truncate flex-1 min-w-[150px]" title={`${toSafeString(dossier.parties?.author, "Parte Autora")} vs ${toSafeString(dossier.parties?.defendant, "Parte Ré")}`}>
                         {toSafeString(dossier.parties?.author, "Parte Autora")} <span className="text-indigo-600 font-semibold">vs</span> {toSafeString(dossier.parties?.defendant, "Parte Ré")}
                       </p>
-                      <span className="ml-auto flex items-center gap-1 text-[10px] text-slate-400 whitespace-nowrap" title={dossier.creators.join(", ")}>
+                      <span className="ml-auto flex items-center gap-1 text-[10px] text-slate-500 font-medium whitespace-nowrap max-w-[220px]" data-testid="historico-analisado-por" title={`Analisado por: ${dossier.creators.join(", ")}`}>
+                        <User className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="truncate">{latestAct?.creatorName || latestAct?.creatorEmail?.split("@")[0] || "Gabinete"}</span>
+                        <span className="text-slate-300">·</span>
                         <Clock className="w-3 h-3" />{new Date(dossier.lastDate).toLocaleDateString()} {new Date(dossier.lastDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       <button onClick={(e) => handleOpenDeleteDossier(dossier, e)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition shrink-0 cursor-pointer" title="Excluir dossiê do processo do histórico">
