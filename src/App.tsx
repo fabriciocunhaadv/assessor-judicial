@@ -834,20 +834,23 @@ export default function App() {
   };
 
   // Falha passageira (503 / cota): manda o mesmo PDF/texto para a fila em segundo plano (que insiste sozinha) e libera o painel para outro processo
-  const erroPassageiro = !!errorMessage && /alta demanda|503|Overloaded|cota|Quota|Rate Limit|interrompida momentaneamente|demorou mais que o esperado/i.test(errorMessage);
-  const enviarSegundoPlano = async () => {
+  const ehPassageiro = (m: string | null) => !!m && /alta demanda|503|Overloaded|cota|Quota|Rate Limit|interrompida momentaneamente|demorou mais que o esperado/i.test(m);
+  const erroPassageiro = ehPassageiro(errorMessage);
+  // silencioso = esteira da extensão: o trabalho entra na fila "Gigantes" e a extensão o acompanha por lá (mesmo protocolo dos processos gigantes)
+  const enviarSegundoPlano = async (silencioso = false): Promise<boolean> => {
     const pdfsOk = inputMode === "pdf" ? pdfFiles : [];
     const texto = inputMode !== "pdf" ? processText.trim() : "";
-    if (pdfsOk.length === 0 && !texto) { toast("Não há PDF nem texto no painel para enviar ao segundo plano.", { icon: "⚠️" }); return; }
+    if (pdfsOk.length === 0 && !texto) { if (!silencioso) toast("Não há PDF nem texto no painel para enviar ao segundo plano.", { icon: "⚠️" }); return false; }
     const cfg = montarConfigGigante();
     try {
       if (pdfsOk.length > 0) await gerenteGigantes.iniciarComTextos(pdfsOk.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas, arquivo: () => arquivoDoPdf(p) })), cfg);
       else await gerenteGigantes.iniciarComTextos([{ nome: cfg.processNumber && !/extrair/i.test(cfg.processNumber) ? `Autos ${cfg.processNumber}` : "Autos (texto colado)", texto, pageCount: Math.max(1, Math.ceil(texto.length / 3500)) }], cfg);
-    } catch (e: any) { toast(`Não foi possível enviar ao segundo plano: ${e?.message || e}`, { icon: "⚠️" }); return; }
+    } catch (e: any) { if (!silencioso) toast(`Não foi possível enviar ao segundo plano: ${e?.message || e}`, { icon: "⚠️" }); return false; }
     setErrorMessage(null);
     if (pdfsOk.length > 0) handleClearPdfs(); else setProcessText("");
     window.dispatchEvent(new CustomEvent("gigantes:abrir"));
-    toast("Enviado ao segundo plano: o sistema insiste sozinho até a IA responder e salva a minuta no Histórico. O painel está livre para outro processo.", { duration: 9000, icon: "🔁" });
+    toast(silencioso ? "A IA do Google está instável: este processo foi para o segundo plano e será refeito sozinho. A esteira segue para o próximo." : "Enviado ao segundo plano: o sistema insiste sozinho até a IA responder e salva a minuta no Histórico. O painel está livre para outro processo.", { duration: 9000, icon: "🔁" });
+    return true;
   };
 
   const handleExecutePrompt = async () => {
@@ -1360,6 +1363,10 @@ export default function App() {
         ) {
           errorMsg = "Os servidores de inteligência artificial do Google estão enfrentando um pico temporário de alta demanda global. Por favor, aguarde alguns instantes e clique em 'Tentar Novamente'.";
         }
+
+        // esteira da extensão: falha passageira (503/cota) não trava a fila; vai para o segundo plano e a extensão segue para o próximo
+        let automatico503 = false; try { automatico503 = document.documentElement.dataset.assessorAuto === "1"; } catch { /* sem dataset */ }
+        if (automatico503 && ehPassageiro(errorMsg) && await enviarSegundoPlano(true)) return;
 
         setErrorMessage(errorMsg);
         
@@ -2114,7 +2121,7 @@ export default function App() {
             <div className="flex items-center gap-2 self-end sm:self-auto">
               {erroPassageiro && (
                 <button
-                  onClick={enviarSegundoPlano}
+                  onClick={() => enviarSegundoPlano()}
                   disabled={isLoading}
                   title="Mantém o PDF/texto numa fila que tenta de novo sozinha e libera o painel para outro processo"
                   className="px-3 py-1.5 bg-white hover:bg-rose-100 text-rose-800 border border-rose-400 font-bold rounded-lg transition cursor-pointer shadow-xs flex items-center gap-1.5"
