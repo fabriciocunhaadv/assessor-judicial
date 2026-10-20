@@ -833,6 +833,23 @@ export default function App() {
     };
   };
 
+  // Falha passageira (503 / cota): manda o mesmo PDF/texto para a fila em segundo plano (que insiste sozinha) e libera o painel para outro processo
+  const erroPassageiro = !!errorMessage && /alta demanda|503|Overloaded|cota|Quota|Rate Limit|interrompida momentaneamente|demorou mais que o esperado/i.test(errorMessage);
+  const enviarSegundoPlano = async () => {
+    const pdfsOk = inputMode === "pdf" ? pdfFiles : [];
+    const texto = inputMode !== "pdf" ? processText.trim() : "";
+    if (pdfsOk.length === 0 && !texto) { toast("Não há PDF nem texto no painel para enviar ao segundo plano.", { icon: "⚠️" }); return; }
+    const cfg = montarConfigGigante();
+    try {
+      if (pdfsOk.length > 0) await gerenteGigantes.iniciarComTextos(pdfsOk.map((p) => ({ nome: p.name, texto: p.extractedText || "", pageCount: p.pageCount || 0, semTexto: p.paginasSemTexto, naoLidas: p.paginasNaoLidas, arquivo: () => arquivoDoPdf(p) })), cfg);
+      else await gerenteGigantes.iniciarComTextos([{ nome: cfg.processNumber && !/extrair/i.test(cfg.processNumber) ? `Autos ${cfg.processNumber}` : "Autos (texto colado)", texto, pageCount: Math.max(1, Math.ceil(texto.length / 3500)) }], cfg);
+    } catch (e: any) { toast(`Não foi possível enviar ao segundo plano: ${e?.message || e}`, { icon: "⚠️" }); return; }
+    setErrorMessage(null);
+    if (pdfsOk.length > 0) handleClearPdfs(); else setProcessText("");
+    window.dispatchEvent(new CustomEvent("gigantes:abrir"));
+    toast("Enviado ao segundo plano: o sistema insiste sozinho até a IA responder e salva a minuta no Histórico. O painel está livre para outro processo.", { duration: 9000, icon: "🔁" });
+  };
+
   const handleExecutePrompt = async () => {
     const access = checkUserAiAccess(userProfile, user?.email);
     if (!access.canExecute) {
@@ -2095,6 +2112,16 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-2 self-end sm:self-auto">
+              {erroPassageiro && (
+                <button
+                  onClick={enviarSegundoPlano}
+                  disabled={isLoading}
+                  title="Mantém o PDF/texto numa fila que tenta de novo sozinha e libera o painel para outro processo"
+                  className="px-3 py-1.5 bg-white hover:bg-rose-100 text-rose-800 border border-rose-400 font-bold rounded-lg transition cursor-pointer shadow-xs flex items-center gap-1.5"
+                >
+                  <span>Tentar em segundo plano</span>
+                </button>
+              )}
               <button
                 onClick={handleExecutePrompt}
                 disabled={isLoading}

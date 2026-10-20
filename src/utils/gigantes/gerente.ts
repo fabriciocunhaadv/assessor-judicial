@@ -247,7 +247,7 @@ class Gerente {
 
   private async chamar(id: string, rota: string, corpo: any): Promise<any> {
     let ultimoErro: any;
-    for (let t = 0; t < 4; t++) {
+    for (let t = 0; t < 6; t++) {
       if (this.sinais.has(id)) throw new Error("__parar__");
       try {
         const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 14 * 60000);
@@ -260,8 +260,8 @@ class Gerente {
       } catch (e: any) {
         ultimoErro = e;
         if (e?.message === "__parar__") throw e;
-        if (!/incompleta|503|indispon|429|cota|quota|rate|Failed to fetch|Network|aborted|timeout/i.test(String(e?.message || e)) || t === 3) throw e;
-        const j = this.jobs.get(id); if (j) { j.etapa = `Aguardando a cota da IA renovar (tentativa ${t + 2}/4)…`; this.avisar(); }
+        if (!/incompleta|503|indispon|429|cota|quota|rate|Failed to fetch|Network|aborted|timeout/i.test(String(e?.message || e)) || t === 5) throw e;
+        const j = this.jobs.get(id); if (j) { j.etapa = `Aguardando a cota da IA renovar (tentativa ${t + 2}/6)…`; this.avisar(); }
         await dorme(70000);
       }
     }

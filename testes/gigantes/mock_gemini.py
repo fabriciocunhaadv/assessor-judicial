@@ -5,12 +5,15 @@ LIM = int(sys.argv[2]) if len(sys.argv) > 2 else 250000
 JAN = {}          # (modelo) -> [(t, tokens)]
 LOG = []
 lock = threading.Lock()
+FORA = {'on': False}      # /__503?on=1: o Google responde 503 (alta demanda) a tudo
 def tokens(body): return int(len(body) / 3.5)
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
         if self.path == '/__reset':
             JAN.clear(); LOG.clear(); self.send_response(200); self.end_headers(); return
+        if self.path.startswith("/__503"):
+            FORA['on'] = 'on=1' in self.path; self.send_response(200); self.end_headers(); return
         if self.path == "/__log":
             self.send_response(200); self.end_headers(); self.wfile.write(json.dumps(LOG).encode()); return
         self.send_response(404); self.end_headers()
@@ -19,6 +22,10 @@ class H(BaseHTTPRequestHandler):
         m = re.search(r"models/([^:/]+):generateContent", self.path)
         modelo = m.group(1) if m else "?"
         n = tokens(raw)
+        if FORA['on']:
+            LOG.append({"t": time.time(), "modelo": modelo, "tok": n, "res": 503})
+            b = json.dumps({"error": {"code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary.", "status": "UNAVAILABLE"}}).encode()
+            self.send_response(503); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
         j = json.loads(raw)
         sist = json.dumps(j.get("systemInstruction") or j.get("config", {}).get("systemInstruction") or "", ensure_ascii=False)
         eh_parte = "DOSSIÊ FÁTICO-PROBATÓRIO DESTA PARTE" in sist
