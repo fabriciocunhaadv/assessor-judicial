@@ -209,6 +209,8 @@ export interface GenerationResult {
     medio: number;
     achados: { nivel: "alto" | "medio"; categoria: string; trecho: string; pagina?: number; movimentacao?: number; arquivo?: number; documento?: string; posicao: number }[];
   };
+  /** Movimentações citadas na minuta que não constam dos carimbos dos autos (conferência automática, sem IA). */
+  avisoLocalizacao?: { movsInexistentes: number[]; conferidas: number };
   autosReduzidos?: {
     tokensOriginais: number;
     paginasTotal: number;

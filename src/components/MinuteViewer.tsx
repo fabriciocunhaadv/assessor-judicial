@@ -1602,6 +1602,11 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
             {result?.gigante && <AvisoGigante info={result.gigante} />}
             {result?.autosReduzidos && <AvisoAutosReduzidos info={result.autosReduzidos} />}
             {result?.coberturaLeitura && <AvisoCoberturaLeitura info={result.coberturaLeitura} />}
+            {result?.avisoLocalizacao && result.avisoLocalizacao.movsInexistentes.length > 0 && (
+              <div data-testid="aviso-localizacao" className="max-w-4xl mx-auto rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <strong>Conferir localização:</strong> a minuta cita {result.avisoLocalizacao.movsInexistentes.map((n) => `Mov. ${n}`).join(", ")}, que não aparece(m) nos carimbos dos autos enviados. Confira antes de usar.
+              </div>
+            )}
 
             {/* Automatic Pre-Audit Security Seal & Certificate */}
             {result?.auditAnalysis && (

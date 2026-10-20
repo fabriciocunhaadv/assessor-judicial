@@ -35,6 +35,19 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 // de Mov./Arq./Pág.; os marcadores "[Página X de Y]" / "[Página X]" que o sistema insere são só a posição física no PDF consolidado.
 const REGRA_LOCALIZACAO_AUTOS = `LOCALIZAÇÃO Mov./Arq./Pág. (REGRA MANDATÓRIA): cada página dos autos do Projudi traz um carimbo vermelho no topo, no formato "Movimentacao N : <tipo> Arquivo M: <nome>.pdf - Pag.K/T". Use SEMPRE esse carimbo: Mov. = N (a movimentação), Arq. = M (o arquivo DENTRO daquela movimentação) e Pág. = K (a página DENTRO daquele arquivo, de 1 a T). Cada movimentação tem os seus arquivos e cada arquivo tem as suas páginas, que reiniciam em 1. NUNCA use como "Pág." o número do marcador "[Página X de Y]" nem "[Página X]" (é só a posição física da página no PDF consolidado, em que a contagem continua entre as movimentações); esses marcadores servem apenas para indicar páginas não lidas. Para um intervalo, repita o arquivo (ex.: "Mov. 134, Arq. 1, Págs. 1 a 3"). Se uma página não tiver o carimbo legível, escreva "Pág. não identificada" em vez de usar o número do marcador.`;
 
+// Verificação determinística (sem IA) das localizações: toda "Mov. N" citada na minuta tem de existir como carimbo "Movimentacao N" nos autos fornecidos.
+// Devolve as movimentações citadas que não aparecem (possível localização inventada); null quando os autos não trazem carimbos para conferir.
+function verificarLocalizacoes(minuta: any, autos: string): { movsInexistentes: number[]; conferidas: number } | null {
+    const carimbos = new Set<number>();
+    for (const m of String(autos || "").matchAll(/Movimenta[cç][aã]o\s+(\d{1,4})\s*:/gi)) carimbos.add(Number(m[1]));
+    if (carimbos.size < 3) return null;
+    let corpo = ""; try { corpo = JSON.stringify(minuta || {}); } catch { return null; }
+    const citadas = new Set<number>();
+    for (const m of corpo.matchAll(/\bMov(?:imenta[cç][aã]o|imentos)?s?\.?\s*(\d{1,4})((?:\s*(?:,|e|a)\s*\d{1,4})*)/gi)) { citadas.add(Number(m[1])); for (const n of (m[2] || "").match(/\d{1,4}/g) || []) citadas.add(Number(n)); }
+    const movsInexistentes = [...citadas].filter((n) => !carimbos.has(n)).sort((a, b) => a - b);
+    return { movsInexistentes, conferidas: citadas.size };
+}
+
 const SYSTEM_INSTRUCTION_FABRICIO = `Você é um Magistrado e Assessor Judicial sênior de altíssima performance no Poder Judiciário.
 Sua função é elaborar minutas judiciais oficiais (Despachos, Decisões Interlocutórias e Sentenças) estruturadas, profundas, precisas, exaustivas e com rigor forense impecável, baseadas estritamente nos autos do processo e nas normas vigentes (CPC, Código Civil, CDC, Leis especiais, Súmulas e Jurisprudência do TJGO e Tribunais Superiores).
 
@@ -6264,6 +6277,10 @@ if (wasRotated && rotatedKey) {
     if ((stage1Response as any)?.autosReduzidos) parsed.autosReduzidos = (stage1Response as any).autosReduzidos;
     if (alertaInjecao) parsed.alertaInjecao = alertaInjecao;
     if (coberturaLeitura) parsed.coberturaLeitura = coberturaLeitura;
+    try {
+        const vl = verificarLocalizacoes(parsed?.minute || parsed, (accumulatedPdfText || "") + "\n" + (safeProcessText || ""));
+        if (vl && vl.movsInexistentes.length > 0) parsed.avisoLocalizacao = vl;
+    } catch { /* a conferência nunca derruba a minuta */ }
     if (keepAliveInterval) {
         clearInterval(keepAliveInterval);
         keepAliveInterval = null;
