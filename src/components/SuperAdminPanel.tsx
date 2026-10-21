@@ -55,6 +55,7 @@ import {
   RotateCcw,
   Activity,
   Zap,
+  Bug,
   Coins,
   BarChart3,
   PieChart,
@@ -64,6 +65,7 @@ import {
   Bot
 } from 'lucide-react';
 import { collection, getDocs, setDoc, doc, deleteDoc } from 'firebase/firestore';
+import { MonitorErrosPanel } from './MonitorErrosPanel';
 import { db } from '../lib/firebase';
 import { 
   getAllTenantsWithMetrics, 
@@ -124,7 +126,7 @@ interface SuperAdminPanelProps {
 
 export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClose, onOpenTicketsModal }) => {
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'tenants' | 'users' | 'snapshots' | 'broadcast' | 'migration' | 'tokens'>('tenants');
+  const [activeTab, setActiveTab] = useState<'tenants' | 'users' | 'snapshots' | 'broadcast' | 'migration' | 'tokens' | 'erros'>('tenants');
 
   // Snapshots & Healing State
   const [snapshots, setSnapshots] = useState<GlobalDatabaseSnapshot[]>([]);
@@ -1802,6 +1804,19 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
             <span className="sm:hidden">Uso de Tokens</span>
             <span className="hidden sm:inline">Uso da Chave Nativa (Tokens)</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('erros')}
+            data-testid="aba-monitor-erros"
+            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+              activeTab === 'erros'
+                ? 'border-rose-500 text-rose-400 bg-rose-500/10'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Bug className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-rose-400" />
+            <span>Monitor de erros</span>
+          </button>
         </div>
 
         {/* Tab Content Body */}
@@ -3213,6 +3228,8 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
           {/* ============================================================== */}
           {/* TAB 6: USO DA CHAVE NATIVA (TOKENS)                             */}
           {/* ============================================================== */}
+          {activeTab === 'erros' && <MonitorErrosPanel />}
+
           {activeTab === 'tokens' && (
             <div className="space-y-6">
               {/* Header Card */}

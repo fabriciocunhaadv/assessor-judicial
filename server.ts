@@ -15,6 +15,16 @@ import { detectarInjecao, instrucaoDefesaInjecao } from './src/utils/promptInjec
 import { descreverCorte, textoDoCorte, CorteArquivo } from './src/utils/corteAutos';
 import { textoOcultoDeDocumento, blocoTextoOculto } from './src/utils/pdfTextoOculto';
 import fs from 'fs';
+// Abertura padrão do relatório de TODA minuta (pedido do magistrado). Vale para qualquer área e ato; entra nas etapas 1 e 2 e no Turbo.
+const REGRA_ABERTURA_RELATORIO = `
+
+[ABERTURA DO RELATÓRIO — OBRIGATÓRIA EM TODA MINUTA]
+O campo "relatorio" DEVE começar, já na primeira frase, assim: "Trata-se de [natureza da ação ou do incidente], movida por [AUTOR / EXEQUENTE / REQUERENTE], em face de [RÉU / EXECUTADO / REQUERIDO], [objeto resumido: o que se pede ou o que se discute]." Somente depois dessa frase narre a marcha processual.
+1. Comece sempre por "Trata-se de". Não use "Cuida-se de", "Versam os autos", "Cuidam os autos", "Tratam os autos" nem "Cuida-se".
+2. Os nomes das partes vêm dos autos, por extenso; incapazes por iniciais. Com vários autores ou réus: "movida por A e B, em face de C e D". Concorde o particípio com a natureza: "movida" (ação), "movido" (cumprimento de sentença, incidente, procedimento), "ajuizada" ou "ajuizado" quando for mais natural.
+3. Em cumprimento de sentença, embargos, tutela, execução ou outro incidente, use a natureza real: "Trata-se de cumprimento de sentença de obrigação de prestar alimentos, movido por ..., em face de ...".
+4. Esta abertura vale mesmo que o prompt do gabinete sugira outra forma de iniciar o relatório. Se faltar o nome de uma parte nos autos, escreva "[informar parte]" em vez de inventar.`;
+
 // Dispositivo escrito para a ESCRIVANIA cumprir sem interpretação (pedido do magistrado: "o óbvio deve ser dito sempre"). Entra nas instruções de todas as minutas (Etapa 1, Etapa 2 e Turbo).
 const REGRA_DISPOSITIVO_CARTORIO = `
 
@@ -1249,7 +1259,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
                 { role: "user", parts: [{ text: userPrompt }, ...cobT.partes] }
             ],
             config: {
-                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + cobT.regra + defesaInjecaoT,
+                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + cobT.regra + defesaInjecaoT,
                 temperature: 0.1,
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
@@ -1481,6 +1491,46 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
         }
     }
 });
+// ====== MONITOR DE ERROS: diagnóstico por IA (o super admin decide se aceita; nada é aplicado sozinho) ======
+const MAPA_DO_SISTEMA = `MAPA DO SISTEMA assessor-judicial (aplicativo web de minutas judiciais do TJGO + extensão Chrome "Conclusões Projudi"):
+- Módulos: análise normal (/api/generate-minute, 2 etapas: assessor fático e juiz revisor), Turbo (/api/generate-minute-turbo), Lupa do Magistrado (/api/audit-assessor-draft), Mesa de Audiência (/api/hearing-copilot), Mutirão previdenciário (/api/mutirao-*), chat e copiloto (/api/chat-agaia, /api/lateral-agent-chat), petição inicial (/api/advogado-peticao), processos gigantes lidos em lotes (/api/gigante-lote, /api/gigante-fusao), OCR de páginas (/api/ocr-paginas), leitura de PDF (/api/extract-pdf-text).
+- IA: Google Gemini, fila de modelos com troca automática quando um modelo dá 503 (alta demanda) ou 429 (cota); modelo em resfriamento de 45 s a 10 min; até 2 a 3 ciclos; pool de chaves por usuário e chave nativa corporativa. 503 e 429 do Google são passageiros: o que ajuda é tentar de novo mais tarde (existe fila em segundo plano "Gigantes" e botão "Tentar em segundo plano").
+- Causas comuns: PDF escaneado sem camada de texto (precisa de OCR); autos acima do limite de leitura (dossiê em lotes); resposta da IA em JSON incompleto; chave inválida ou sem cota; rede do usuário instável; navegador sem espaço para guardar o histórico; permissões do Firestore; extensão desatualizada ou aba do Studio recarregada.
+- Dados: Firestore em gabinetes/{gabinete}/..., histórico, prompts, teses, auditorias. O monitor nunca recebe texto de processo.`;
+app.post("/api/monitor/diagnosticar", async (req, res) => {
+    try {
+        const apiKey = extractApiKey(req);
+        if (!apiKey) return res.status(401).json({ error: "Chave da API Gemini ausente." });
+        const e = req.body?.erro || {};
+        const cortar = (v: any, n: number) => String(v ?? "").slice(0, n);
+        const dados = { modulo: cortar(e.modulo, 60), origem: cortar(e.origem, 20), tipo: cortar(e.tipo, 20), statusHttp: Number(e.status) || 0, mensagem: cortar(e.mensagem, 500), ocorrencias: Number(e.contagem) || 1, usuariosAfetados: Number(e.usuarios) || 1, primeiraVez: cortar(e.primeiraEm, 40), ultimaVez: cortar(e.ultimaEm, 40), contexto: e.contexto && typeof e.contexto === "object" ? e.contexto : {} };
+        const prompt = `Você é o monitor de erros do sistema abaixo. Receba UM grupo de erros repetidos e devolva um diagnóstico para o SUPER ADMIN, que decidirá se aceita ou recusa cada ajuste. Você NÃO aplica nada.
+${MAPA_DO_SISTEMA}
+
+REGRAS:
+1. Baseie-se só nos dados do erro e no mapa. Não invente nomes de arquivos, funções ou fatos; quando não souber a área exata, diga "área provável: ..." de forma geral.
+2. Separe o que é problema do sistema do que é passageiro do Google, da rede, do usuário ou dos dados do processo.
+3. Cada sugestão deve ser concreta e pequena, com risco e esforço. Se for só orientação ao usuário ou tentar de novo, diga isso e marque precisa_desenvolvedor como false.
+4. Diga a confiança do diagnóstico (alta, media, baixa). Com poucas ocorrências ou mensagem vaga, a confiança é baixa.
+5. Responda SOMENTE com JSON válido: {"resumo":"1 a 2 frases","causa_provavel":"...","gravidade":"alta|media|baixa","origem_provavel":"google_ia|usuario|dados_do_processo|sistema|rede|navegador|configuracao","acao_para_usuario":"o que o usuário deve fazer agora","sugestoes":[{"tipo":"codigo|prompt|configuracao|infraestrutura|orientacao","titulo":"...","descricao":"...","onde":"área provável","risco":"baixo|medio|alto","esforco":"pequeno|medio|grande"}],"precisa_desenvolvedor":true,"confianca":"alta|media|baixa"}
+
+ERRO:
+${JSON.stringify(dados, null, 2)}`;
+        const response = await generateWithFallbackAndRetry({
+            apiKey, keyPool: extractApiKeyPool(req), isNativeAllowed: isRequestNativeAllowed(req), res,
+            primaryModel: "gemini-3.6-flash", fallbackModel: "gemini-3.8-flash",
+            customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
+            timeoutMs: 60000, maxCycles: 1,
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            config: { systemInstruction: "Você é um engenheiro de confiabilidade cuidadoso. Responda apenas com JSON válido.", responseMimeType: "application/json", temperature: 0.2 },
+        });
+        const j: any = safeParseObj(response.text || "{}") || {};
+        const lista = (Array.isArray(j.sugestoes) ? j.sugestoes : []).slice(0, 6).map((x: any) => ({ tipo: cortar(x?.tipo, 24), titulo: cortar(x?.titulo, 140), descricao: cortar(x?.descricao, 600), onde: cortar(x?.onde, 160), risco: cortar(x?.risco, 12), esforco: cortar(x?.esforco, 12) }));
+        return res.json({ diagnostico: { resumo: cortar(j.resumo, 400), causa_provavel: cortar(j.causa_provavel, 600), gravidade: ["alta", "media", "baixa"].includes(j.gravidade) ? j.gravidade : "media", origem_provavel: cortar(j.origem_provavel, 40), acao_para_usuario: cortar(j.acao_para_usuario, 400), sugestoes: lista, precisa_desenvolvedor: j.precisa_desenvolvedor === true, confianca: cortar(j.confianca, 12) || "baixa" } });
+    } catch (err: any) {
+        return res.status(500).json({ error: formatGeminiError(err) || "Falha ao diagnosticar o erro." });
+    }
+});
 app.post("/api/audit-assessor-draft", async (req, res) => {
     try {
         const apiKey = extractApiKey(req);
@@ -1595,6 +1645,7 @@ CALIBRAGEM DO AUDITOR (VALE PARA QUALQUER PROCESSO E QUALQUER ÁREA):
 6. IDENTIDADE: confira o número do processo e as partes da minuta e dos autos. Se não coincidirem, emita um único alerta bloqueante: "autos não correspondem à minuta".
 7. NOTA: parta de 100 e reduza apenas por erro demonstrado (alerta com prova): forte para bloqueante, leve para atenção. Sem alertas com prova, a nota fica entre 90 e 100 ("Aprovada sem Ressalvas").
 8. TOM: objetivo e construtivo. No campo "summary", a primeira frase é a conclusão (aprovar / aprovar com ajuste / devolver), depois no máximo 3 pontos.
+9. ABERTURA DO RELATÓRIO: o relatório da minuta deve começar com "Trata-se de [natureza], movida por [autor], em face de [réu], [objeto]". Se não começar assim, emita um alerta de atenção (pilar "redacao_clareza") com o trecho inicial real e a abertura sugerida; não reduza a nota por isso além do peso de um alerta de atenção.
 
 Você deve responder ESTRITAMENTE em formato JSON com o seguinte schema obrigatório:
 {
@@ -5149,7 +5200,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
     setProg(progId, "Etapa 1 — assessor fático: extraindo partes, fatos e provas dos autos…", 12, 56);
-    stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + regraCobertura;
+    stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + regraCobertura;
     const stage1StartTimer = Date.now();
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 3000);      // maior para autos grandes
     stage1Response = await gerarComAutosGrandes(generateWithFallbackAndRetry, {
@@ -5770,7 +5821,7 @@ let stage2ErrorMsg = "";
 
 try {
     const stage2StartTimer = Date.now();
-    stage2SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + regraCobertura;
+    stage2SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + regraCobertura;
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage2Prompt, stage2SystemInstruction) / 10000) * 3000);
     response = await generateWithFallbackAndRetry({
         apiKey: stage2KeyPool[0] || userApiKey,

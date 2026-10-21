@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { registrarErro } from "../utils/monitorErros";
 
 interface Props {
   children: ReactNode;
@@ -24,6 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("[ErrorBoundary Assessor Judicial] Erro não tratado capturado:", error, errorInfo);
+    void registrarErro({ origem: "tela", modulo: "interface", mensagem: `${error?.message || error} | ${String(errorInfo?.componentStack || "").trim().split("\n")[0]?.trim() || ""}` });
     this.setState({ errorInfo });
   }
 

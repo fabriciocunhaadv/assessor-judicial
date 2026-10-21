@@ -49,6 +49,11 @@ class H(BaseHTTPRequestHandler):
         LOG[-1]["fatos"] = fatos
         if "FATO-803" in txt and "CLASSIFICADOR DE RELEVÂNCIA" not in sist:
             k = txt.find("FATO-803"); open("/tmp/claude-0/work/teste/ctx803.txt", "a").write(f"--- {len(txt)} ---\n" + txt[max(0, k-600):k+200] + "\n")
+        if "Você é o monitor de erros do sistema" in txt:
+            LOG[-1]["p"] = "monitor"
+            dg = {"resumo": "O Google respondeu 503 em alta demanda.", "causa_provavel": "Pico de demanda no cluster do Gemini; passageiro.", "gravidade": "media", "origem_provavel": "google_ia", "acao_para_usuario": "Tentar de novo em alguns minutos ou usar o segundo plano.", "sugestoes": [{"tipo": "configuracao", "titulo": "Aumentar a espera entre ciclos", "descricao": "Subir o intervalo de resfriamento do modelo.", "onde": "fila de modelos do servidor", "risco": "baixo", "esforco": "pequeno"}], "precisa_desenvolvedor": False, "confianca": "media"}
+            b = json.dumps({"candidates": [{"content": {"role": "model", "parts": [{"text": json.dumps(dg, ensure_ascii=False)}]}, "finishReason": "STOP", "index": 0}], "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 10, "totalTokenCount": 20}}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
         if "leitor de documentos judiciais (OCR)" in txt:
             nums = [int(x) for x in re.findall(r"PÁGINA (\d+):", txt)]
             paginas = [{"pagina": nn, "texto": f"CONTESTAÇÃO lida por OCR. FATO-{500 + nn % 100} registrado na página {nn}. O réu junta o comprovante.", "emBranco": False} for nn in nums]
