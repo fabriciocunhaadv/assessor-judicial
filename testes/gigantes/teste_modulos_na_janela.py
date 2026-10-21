@@ -17,20 +17,23 @@ try:
         pg = b.new_context(viewport={"width": int(os.environ.get("LARG", 1500)), "height": int(os.environ.get("ALT", 900))}).new_page(); pg.set_default_timeout(30000)
         pg.add_init_script("localStorage.setItem('assessor_tour_done','1');")
         pg.goto(f"http://127.0.0.1:{PV}/"); pg.wait_for_timeout(4000); pg.add_style_tag(content="#react-joyride-portal{display:none!important}")
-        ref = pg.evaluate("() => ({ cab: document.querySelector('header').getBoundingClientRect().bottom, lat: document.getElementById('sidebar-principal').getBoundingClientRect().right })"); print("referências:", ref)
+        ref = pg.evaluate("() => { const r = document.querySelector('main').getBoundingClientRect(); return { cab: document.querySelector('header').getBoundingClientRect().bottom, lat: document.getElementById('sidebar-principal').getBoundingClientRect().right, mainL: r.left, mainW: r.width }; }"); print("referências:", ref)
         def caixa_lupa():
             return pg.evaluate("() => { const h = [...document.querySelectorAll('h2')].find((e) => /Lupa do Magistrado/.test(e.textContent)); const d = h && h.closest('div.fixed'); if (!d) return null; const r = d.getBoundingClientRect(); return { top: r.top, left: r.left, w: r.width, h: r.height, bg: getComputedStyle(d).backgroundColor }; }")
         pg.locator("#btn-sidebar-minute-auditor").click(); pg.wait_for_timeout(1500)
-        c = caixa_lupa(); print("Lupa:", c); assert c and abs(c["top"] - ref["cab"]) < 4 and abs(c["left"] - ref["lat"]) < 4 and c["w"] > 1000, c
+        c = caixa_lupa(); print("Lupa:", c)
+        dentro = pg.evaluate("() => { const h = [...document.querySelectorAll('h2')].find((e) => /Lupa do Magistrado/.test(e.textContent)); const d = h.closest('div.fixed'); return { noMain: !!d.closest('main'), pos: getComputedStyle(d).position, form: getComputedStyle(document.querySelector('main > div.grid, main > div.hidden')).display }; }"); print("   dentro do <main>:", dentro)
+        assert c and dentro["noMain"] and dentro["pos"] == "relative" and dentro["form"] == "none", (c, dentro)
+        assert abs(c["w"] - ref["mainW"] + 2 * (ref["mainW"] - c["w"]) / 2) >= 0 and c["w"] > 0.9 * (ref["mainW"] - 40), (c, ref)
         pg.screenshot(path="/tmp/claude-0/work/mob/lupa_na_janela.png")
         pg.locator("button:has-text('Fechar')").last.click(); pg.wait_for_timeout(600); assert caixa_lupa() is None
         # Mesa
         pg.locator("#btn-header-hearing-workbench-tools").first.dispatch_event("click"); pg.wait_for_timeout(1500)
-        m = pg.evaluate("() => { const d = document.querySelector('.mesa-escura'); if (!d) return null; const r = d.getBoundingClientRect(); return { top: r.top, left: r.left, w: r.width }; }"); print("Mesa:", m)
-        assert m and abs(m["top"] - ref["cab"]) < 4 and abs(m["left"] - ref["lat"]) < 4 and m["w"] > 1000, m
+        m = pg.evaluate("() => { const d = document.querySelector('.mesa-escura'); if (!d) return null; const r = d.getBoundingClientRect(); return { top: r.top, left: r.left, w: r.width, noMain: !!d.closest('main'), pos: getComputedStyle(d).position }; }"); print("Mesa:", m)
+        assert m and m["noMain"] and m["pos"] == "relative" and m["w"] > 0.9 * (ref["mainW"] - 40), (m, ref)
         pg.screenshot(path="/tmp/claude-0/work/mob/mesa_na_janela.png")
         pg.evaluate("localStorage.setItem('assessor_modulos_na_janela_v1','0'); window.dispatchEvent(new Event('assessor:modulos-janela'))"); pg.wait_for_timeout(900)
-        m2 = pg.evaluate("() => { const d = document.querySelector('.mesa-escura'); const r = d.getBoundingClientRect(); return { top: r.top, left: r.left }; }"); print("Mesa com preferência desligada:", m2); assert m2["top"] == 0 and m2["left"] == 0
+        m2 = pg.evaluate("() => { const d = document.querySelector('.mesa-escura'); const r = d.getBoundingClientRect(); return { top: r.top, left: r.left }; }"); print("Mesa com preferência desligada:", m2); assert m2["top"] == 0 and m2["left"] == 0, m2
         print("OK"); b.close()
 finally:
     os.killpg(vite.pid, 9)

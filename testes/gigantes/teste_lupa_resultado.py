@@ -67,7 +67,7 @@ def main():
             pg.screenshot(path="/tmp/claude-0/work/mob/lupa_resultado.png", full_page=False)
             # nota por regra: 100 - 25 (bloqueante com prova) - 8 (Mov. inexistente) = 67
             assert "67" in pg.locator("body").inner_text(), "nota calculada (67) não apareceu"
-            modal = pg.evaluate("() => { const h = [...document.querySelectorAll('h1,h2,h3')].find((e) => /Lupa do Magistrado/.test(e.textContent)); let m = h; while (m && getComputedStyle(m).position !== 'fixed') m = m.parentElement; return m ? m.innerText : ''; }")
+            modal = pg.evaluate("() => { const h = [...document.querySelectorAll('h1,h2,h3')].find((e) => /Lupa do Magistrado/.test(e.textContent)); const m = h && h.closest('div.fixed'); return m ? m.innerText : ''; }")
             assert "Lupa do Magistrado" in modal and len(modal) > 300
             for banido in ("Salvar Tese", "WhatsApp", "Paradigma"): assert banido not in modal, banido + " ainda aparece na Lupa"
             print("   sem 'Salvar Tese', 'WhatsApp' nem 'Paradigma'")

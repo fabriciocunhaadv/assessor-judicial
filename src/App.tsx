@@ -34,6 +34,7 @@ import { ApiKeyBanner } from "./components/ApiKeyBanner";
 import { ApiKeyConfigModal } from "./components/ApiKeyConfigModal";
 import { ProcessUnitSelector } from "./components/ProcessUnitSelector";
 import { ExtensionImportModal } from "./components/ExtensionImportModal";
+import { useModoJanela } from "./utils/areaPrincipal";
 import { AssessorWorkflowGuideModal } from "./components/AssessorWorkflowGuideModal";
 import { InitialPetitionPanel } from "./components/InitialPetitionPanel";
 import { SupportTicketsModal } from "./components/SupportTicketsModal";
@@ -268,6 +269,8 @@ export default function App() {
   const [isUnitManagerModalOpen, setIsUnitManagerModalOpen] = useState<boolean>(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState<boolean>(false);
   const [isHearingWorkbenchModalOpen, setIsHearingWorkbenchModalOpen] = useState<boolean>(false);
+  const modoJanela = useModoJanela(true);
+  const moduloAbertoNaJanela = modoJanela && (((isSuperAdmin || isJudge) && isMinuteAuditorOpen) || isHearingWorkbenchModalOpen);
   const [isPetitionPanelOpen, setIsPetitionPanelOpen] = useState<boolean>(false);
   const [isTicketsModalOpen, setIsTicketsModalOpen] = useState<boolean>(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | undefined>(undefined);
@@ -2104,7 +2107,7 @@ export default function App() {
         )}
 
         {/* Main Grid: Left Panel (Inputs & Prompts) vs Right Panel (Resultado & Análise) */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-5 items-start">
+        <div className={`${moduloAbertoNaJanela ? "hidden " : ""}grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-5 items-start`}>
           {/* LEFT COLUMN: Instructions, Area, Prompts & PDF */}
           {!isFormCollapsed && (
             <div className="xl:col-span-6 space-y-4">
@@ -2537,6 +2540,30 @@ export default function App() {
             />
           </div>
         </div>
+
+        {/* Lupa do Magistrado e Mesa de Audiência: dentro do corpo principal (ou flutuantes, se a preferência estiver desligada) */}
+      <MinuteAuditorModal
+        isOpen={(isSuperAdmin || isJudge) && isMinuteAuditorOpen}
+        onClose={() => {
+          setIsMinuteAuditorOpen(false);
+          setAuditorActiveProcessNumber("");
+          setAuditorActiveCaseSummary("");
+          setAuditorActiveMinuteSnippet("");
+          setAuditorAuditScore(undefined);
+          setAuditorAuditVerdict(undefined);
+          setAuditorInitialQuery("");
+        }}
+        initialProcessText={processText}
+        initialPdfs={pdfFiles}
+        prompts={prompts}
+        activePrompt={activePrompt}
+        onOpenCopilot={handleOpenCopilotFromAuditor}
+      />
+      <HearingWorkbenchModal
+        isOpen={isHearingWorkbenchModalOpen}
+        onClose={() => setIsHearingWorkbenchModalOpen(false)}
+        onOpenHistory={() => setIsHistoryModalOpen(true)}
+      />
       </main>
 
       {/* Clean Footer for Assessor Fabrício */}
@@ -2695,23 +2722,6 @@ export default function App() {
         onClose={() => setIsPresentationOpen(false)}
       />
 
-      <MinuteAuditorModal
-        isOpen={(isSuperAdmin || isJudge) && isMinuteAuditorOpen}
-        onClose={() => {
-          setIsMinuteAuditorOpen(false);
-          setAuditorActiveProcessNumber("");
-          setAuditorActiveCaseSummary("");
-          setAuditorActiveMinuteSnippet("");
-          setAuditorAuditScore(undefined);
-          setAuditorAuditVerdict(undefined);
-          setAuditorInitialQuery("");
-        }}
-        initialProcessText={processText}
-        initialPdfs={pdfFiles}
-        prompts={prompts}
-        activePrompt={activePrompt}
-        onOpenCopilot={handleOpenCopilotFromAuditor}
-      />
 
       <SystemManualModal
         isOpen={isManualModalOpen}
@@ -2761,11 +2771,6 @@ export default function App() {
         onClose={() => setIsCalendarModalOpen(false)}
       />
 
-      <HearingWorkbenchModal
-        isOpen={isHearingWorkbenchModalOpen}
-        onClose={() => setIsHearingWorkbenchModalOpen(false)}
-        onOpenHistory={() => setIsHistoryModalOpen(true)}
-      />
 
       <ExtensionImportModal
         isOpen={isExtensionImportModalOpen}
