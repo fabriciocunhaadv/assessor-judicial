@@ -561,7 +561,11 @@ class Gerente {
     const info = { paginas: job.totalPaginas, lotes: job.lotes.length, niveis: job.nivelAtual, essenciaisIntegra: escolhidas.length, omitidas: job.triagem.omitidas, abreviadas: job.triagem.abreviadas, dossieAbreviado, parte: cfg.parte, ocrPaginas: job.ocr ? job.ocr.feitas - job.ocr.falhas : 0, verificacaoAusencia };
     const alertaInjecao = job.injecao.verificado ? job.injecao : data.alertaInjecao;
     const analysisId = data.analysisId || (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `gig-${Date.now()}`);
-    const numero = (data.minute?.processNumber && !/extrair|n[ãa]o informado/i.test(data.minute.processNumber)) ? data.minute.processNumber : (job.numeroProcesso || cfg.processNumber || "Sem Número");
+    // O número do processo que vale é o dos AUTOS (lido do texto ao enviar), não o que a IA devolve: ela pode citar outro processo e a minuta ficaria arquivada sob o número errado (a esteira e o Histórico não a achariam).
+    const cnjValido = (x?: string) => !!x && /^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$/.test(x.trim());
+    const dosAutos = [job.numeroProcesso, cfg.processNumber].find((x) => cnjValido(x));
+    const numero = dosAutos ? (dosAutos as string).trim() : (data.minute?.processNumber && !/extrair|n[ãa]o informado/i.test(data.minute.processNumber)) ? data.minute.processNumber : (job.numeroProcesso || cfg.processNumber || "Sem Número");
+    if (dosAutos && data.minute) data.minute.processNumber = numero;
     const analise: SavedAnalysis = {
       id: analysisId, unitId: cfg.unitId || "montes_claros", promptTitle: cfg.promptTitle, promptId: cfg.promptId, promptCategory: cfg.promptCategory || "civel", promptScope: (cfg.promptScope as any) || "judicial",
       date: Date.now(), processNumber: numero,
