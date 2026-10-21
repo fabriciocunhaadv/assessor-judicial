@@ -18,7 +18,7 @@ def main():
         esperar_http(f"http://127.0.0.1:{PS}/api/native-key-info"); esperar_http(f"http://127.0.0.1:{PV}/")
         with sync_playwright() as p:
             b = p.chromium.launch(executable_path=glob.glob("/opt/pw-browsers/chromium-*/chrome-linux*/chrome")[0], args=["--no-sandbox"])
-            ctx = b.new_context(viewport={"width": 1400, "height": 1000})
+            ctx = b.new_context(viewport={"width": int(os.environ.get("LARG", 1400)), "height": 1000})
             ctx.route("**/api/**", lambda r: r.continue_(headers={**r.request.headers, "x-gemini-api-key": "AQ.Ab8-chave-um-aaaaaaaa", "x-gemini-api-key-pool": json.dumps(["AQ.Ab8-chave-um-aaaaaaaa"])}))
             pg = ctx.new_page(); pg.set_default_timeout(30000); falhas = []; pg.on("pageerror", lambda e: falhas.append(str(e)[:160]))
             pg.add_init_script("globalThis.__fsMem = Object.fromEntries([1,2,3,4,5,6].map(i => ['system_snapshots/snapshot_'+i, {id:'snapshot_'+i, timestamp: 1700000000000+i*1000, dateIso:'x', reason:'Motivo '+i, triggeredBy:'manual', authorEmail:'a@b.c', authorName:'A', summary:{}, isChunked:false}])); localStorage.setItem('assessor_tour_done','1'); localStorage.setItem('agaia_native_key_allowed_teste-uid','true'); window.__off = 0; const n0 = Date.now.bind(Date); Date.now = () => n0() + window.__off;")
@@ -52,6 +52,8 @@ def main():
             pg.locator("button[title='Atualizar lista']").click(); pg.wait_for_timeout(1000)
             pg.locator("button[title='Excluir este snapshot']").first.click(); pg.locator("[data-testid=btn-confirmar-exclusao]").click(); pg.wait_for_timeout(900)
             print("6) lixeira individual:", n()); assert n() == 2
+            vis = pg.evaluate("() => { const t = document.querySelector('[data-testid=abas-super-admin]'); const r = t.getBoundingClientRect(); return { larg: r.width, rolagem: t.scrollWidth > t.clientWidth + 1, abas: [...t.querySelectorAll('button')].map(x => { const q = x.getBoundingClientRect(); return q.right <= window.innerWidth + 1 && q.left >= -1; }) }; }")
+            print("7) abas:", vis); assert not vis["rolagem"] and all(vis["abas"]), vis
             pg.screenshot(path="/tmp/claude-0/work/mob/snapshots.png")
             print("OK"); b.close()
     finally:

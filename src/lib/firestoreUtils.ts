@@ -3328,7 +3328,7 @@ export const manterSomenteUltimoSnapshot = async (manterId?: string): Promise<nu
   let apagados = 0;
   for (const sn of lista) {
     if (sn.id === alvo) continue;
-    try { await deleteGlobalDatabaseSnapshot(sn.id); apagados++; } catch { /* segue com os demais */ }
+    try { await deleteGlobalDatabaseSnapshot(sn.id, sn as any); apagados++; } catch { /* segue com os demais */ }
   }
   return apagados;
 };
@@ -3372,13 +3372,15 @@ export const getGlobalDatabaseSnapshots = async (): Promise<GlobalDatabaseSnapsh
 /**
  * Deletes a snapshot document and its subcollection chunks from Firestore.
  */
-export const deleteGlobalDatabaseSnapshot = async (snapshotId: string): Promise<void> => {
+export const deleteGlobalDatabaseSnapshot = async (snapshotId: string, meta?: { isChunked?: boolean; totalChunks?: number }): Promise<void> => {
   try {
     try {
-      const chunksSnap = await getDocs(collection(db, `system_snapshots/${snapshotId}/chunks`));
-      for (const d of chunksSnap.docs) {
-        await deleteDoc(d.ref);
-      }
+      // Sem baixar os pedaços (cada um tem ~400KB): quando o snapshot diz quantos tem, apaga direto pelos nomes, em grupos paralelos.
+      let refs: any[] = [];
+      if (meta && meta.isChunked === false) refs = [];
+      else if (meta && typeof meta.totalChunks === "number" && meta.totalChunks > 0) refs = Array.from({ length: meta.totalChunks }, (_, i) => doc(db, `system_snapshots/${snapshotId}/chunks`, `chunk_${String(i).padStart(4, '0')}`));
+      else refs = (await getDocs(collection(db, `system_snapshots/${snapshotId}/chunks`))).docs.map((d) => d.ref);
+      for (let i = 0; i < refs.length; i += 25) await Promise.all(refs.slice(i, i + 25).map((r) => deleteDoc(r)));
     } catch (chunkErr) {
       console.warn("Notice: could not delete snapshot sub-chunks:", chunkErr);
     }

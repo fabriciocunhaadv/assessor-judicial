@@ -1219,11 +1219,16 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
   const excluirSnapshots = async (ids: string[]) => {
     setErroExclusao(''); setExcluindoSnaps({ feitos: 0, total: ids.length });
     let ok = 0, falhas = 0, primeiroErro = '';
-    for (const id of ids) {
-      try { await deleteGlobalDatabaseSnapshot(id); ok++; setSnapshots(prev => prev.filter(x => x.id !== id)); setSnapSel(prev => prev.filter(x => x !== id)); }
-      catch (e: any) { falhas++; if (!primeiroErro) primeiroErro = String(e?.message || e); }
-      setExcluindoSnaps({ feitos: ok + falhas, total: ids.length });
-    }
+    const fila = [...ids];
+    const trabalhador = async () => {      // 3 exclusões ao mesmo tempo
+      while (fila.length) {
+        const id = fila.shift() as string;
+        try { await deleteGlobalDatabaseSnapshot(id, snapshots.find(x => x.id === id) as any); ok++; setSnapshots(prev => prev.filter(x => x.id !== id)); setSnapSel(prev => prev.filter(x => x !== id)); }
+        catch (e: any) { falhas++; if (!primeiroErro) primeiroErro = String(e?.message || e); }
+        setExcluindoSnaps({ feitos: ok + falhas, total: ids.length });
+      }
+    };
+    await Promise.all([trabalhador(), trabalhador(), trabalhador()]);
     setExcluindoSnaps(null); setConfirmarExclusao(null);
     if (falhas) setErroExclusao(`${falhas} de ${ids.length} não foram excluídos. Motivo: ${primeiroErro}`);
     if (ok) showSuccessToast(`${ok} snapshot(s) excluído(s).`);
@@ -1753,7 +1758,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
         </div>
 
         {/* Tab Navigation com labels responsivas e scroll horizontal limpo */}
-        <div className="px-2.5 sm:px-5 border-b border-slate-800 bg-slate-950 flex items-center gap-1 shrink-0 overflow-x-auto scrollbar-none">
+        <div data-testid="abas-super-admin" className="px-2.5 sm:px-5 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center gap-x-1 gap-y-0 shrink-0">
           <button
             onClick={() => setActiveTab('erros')}
             data-testid="aba-monitor-erros"
@@ -2882,8 +2887,8 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
               <div className="bg-slate-900 border border-emerald-500/40 rounded-2xl p-6 shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
                 
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
-                  <div className="space-y-1.5 max-w-2xl">
+                <div className="flex flex-col gap-4 relative z-10">
+                  <div className="space-y-1.5 max-w-3xl min-w-0">
                     <div className="flex items-center gap-2">
                       <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
                         <ShieldCheck className="w-5 h-5" />
@@ -2898,7 +2903,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2.5 min-w-0">
                     <button
                       type="button"
                       onClick={handleRunDeepScan}
@@ -3154,7 +3159,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                     return (
                       <div
                         key={snap.id}
-                        className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 transition shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4"
+                        className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 transition shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-3"
                       >
                         <input
                           type="checkbox"
@@ -3213,7 +3218,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                         </div>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0 self-end md:self-center">
                           <button
                             type="button"
                             onClick={() => setSnapshotToRestore(snap)}
