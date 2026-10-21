@@ -1,5 +1,5 @@
 import { SavedAnalysis } from "../types";
-import { getHistoryFromDb, saveHistoryToDb, deleteHistoryFromDb, globalTenantId } from "../lib/firestoreUtils";
+import { getHistoryFromDb, saveHistoryToDb, deleteHistoryFromDb, conferirAtoNaNuvem, globalTenantId } from "../lib/firestoreUtils";
 import { auth } from "../lib/firebase";
 import { safeGetItem, safeSetItem, safeRemoveItem } from "./safeStorage";
 import { limitarAtoParaNuvem, semListasAninhadas, versaoMinimaDoAto } from "./historicoTamanho";
@@ -305,6 +305,10 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: bool
     await guardarPendenteNoDisco(analysis);
     try {
       await enviarHistoricoParaNuvem(analysis, 25000);
+      // conferência: lê de volta o que acabou de gravar (gravação "ok" sem o ato existir era o pior caso: o assessor acredita que está salvo)
+      const conf = await conferirAtoNaNuvem(analysis.id);
+      if (!conf.existe) throw new Error("gravação não confirmada: o ato não foi encontrado na nuvem logo depois de gravar");
+      if (conf.unitId && conf.unitId !== conf.unidadeAtiva) { try { toast(`O ato do processo ${analysis.processNumber || ""} foi gravado na unidade "${conf.unitId}", que não é a unidade ativa agora ("${conf.unidadeAtiva}"). Troque a unidade para vê-lo no Histórico.`, { duration: 15000, icon: "⚠️" }); } catch { /* sem toast */ } }
       pendentesHistorico.delete(analysis.id);
       await tirarPendenteDoDisco(analysis.id);
     } catch (err) {

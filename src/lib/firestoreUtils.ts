@@ -358,6 +358,16 @@ export const saveHistoryToDb = async (analysis: SavedAnalysis): Promise<void> =>
   await setDoc(refDoc, dataToSave);
 };
 
+/** Confere, depois de gravar, se o ato está mesmo na nuvem (e em qual unidade). Serve para nunca dar um ato por salvo sem estar. */
+export const conferirAtoNaNuvem = async (id: string): Promise<{ existe: boolean; unitId?: string; unidadeAtiva: string }> => {
+  const unidadeAtiva = getActiveUnitId();
+  try {
+    const ex = await getDoc(doc(db, getTenantPath('history'), id));
+    if (!ex.exists()) return { existe: false, unidadeAtiva };
+    return { existe: true, unitId: (ex.data() as any)?.unitId || "montes_claros", unidadeAtiva };
+  } catch { return { existe: true, unidadeAtiva }; }      // sem leitura (rede/permissão): não acusa falha sem prova
+};
+
 export const updateAnalysisChatAndMinute = async (
   analysisId: string,
   chatMessages: ChatMessage[],
