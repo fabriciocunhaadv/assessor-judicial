@@ -56,9 +56,23 @@ service cloud.firestore {
       }
     }
 
+    // MINUTAS DO HISTÓRICO: cada usuário só exclui a PRÓPRIA minuta. Um ato do Histórico é reconhecido pelo formato (tem "processNumber" e "result");
+    // ele só pode ser apagado por quem o gerou (createdBy == uid). Ato antigo sem dono registrado (createdBy ausente ou "anonymous") pode ser apagado por qualquer
+    // usuário do gabinete. Leitura, criação e edição continuam como antes. Os demais documentos do gabinete (prompts, teses, etc.) não mudam.
+    function ehAtoDoHistorico(dados) {
+      return ('processNumber' in dados) && ('result' in dados);
+    }
+    function podeApagarAto(dados) {
+      return !ehAtoDoHistorico(dados)
+        || !('createdBy' in dados)
+        || dados.createdBy == 'anonymous'
+        || dados.createdBy == request.auth.uid;
+    }
+
     match /gabinetes/{tenantId} {
       match /{allSubcollections=**} {
-        allow read, write, create, update, delete: if belongsToTenant(tenantId);
+        allow read, create, update: if belongsToTenant(tenantId);
+        allow delete: if belongsToTenant(tenantId) && podeApagarAto(resource.data);
       }
     }
     
@@ -89,7 +103,10 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin() || isSignedIn();
       }
     }
-    match /history/{docId} { allow read, write: if isSignedIn(); }
+    match /history/{docId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isSignedIn() && podeApagarAto(resource.data);
+    }
     match /prompts/{docId} { allow read, write: if isSignedIn(); }
     match /teses/{docId} { allow read, write: if isSignedIn(); }
     match /knowledge/{docId} { allow read, write: if isSignedIn(); }
