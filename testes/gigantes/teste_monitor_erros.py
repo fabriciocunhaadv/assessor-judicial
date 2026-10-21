@@ -46,7 +46,7 @@ def main():
             assert any(v["origem"] == "tela" for v in dados.values()) and any(v["origem"] == "promessa" for v in dados.values())
             print("2) captura, agrupamento (2×) e máscara de dados pessoais: ok")
             # painel do super admin
-            pg.evaluate("window.__off = 0"); pg.locator("button:has-text('SaaS Admin'):visible").first.click(); pg.wait_for_selector("[data-testid=aba-monitor-erros]")
+            pg.evaluate("window.__off = 0"); pg.locator("button:has-text('Configurações')").first.hover(); pg.wait_for_timeout(400); pg.locator("button:has-text('SaaS Admin'):visible").first.click(); pg.wait_for_selector("[data-testid=aba-monitor-erros]")
             pg.locator("[data-testid=aba-monitor-erros]").click(); pg.wait_for_selector("[data-testid=monitor-erros]")
             pg.wait_for_function("document.querySelectorAll('[data-testid=erro-item]').length >= 3")
             n_ocultando = pg.locator("[data-testid=erro-item]").count(); print("3) painel abre; itens com 'ocultar passageiros':", n_ocultando)
