@@ -35,7 +35,7 @@ import type { GenerationResult, UploadedPdf } from "../types";
 import { CustomPrompt, SavedAnalysis } from "../types";
 import { saveToHistory } from "../utils/historyDb";
 import { auth } from "../lib/firebase";
-import { getActiveUnitId } from "../lib/firestoreUtils";
+import { getActiveUnitId, globalTenantId } from "../lib/firestoreUtils";
 import { recordApiExecution } from "../utils/apiUsageTracker";
 import ReactMarkdown from "react-markdown";
 
@@ -66,6 +66,7 @@ interface TurboHistoryItem {
   parties: string;
   elapsedSeconds: string;
   userName?: string;
+  tenant?: string;
   minute: TurboMinute;
 }
 
@@ -121,14 +122,28 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
   const [activeTab, setActiveTab] = useState<"full" | "relatorio" | "fundamentacao" | "dispositivo">("full");
   const [isCopied, setIsCopied] = useState(false);
 
-  const [turboHistory, setTurboHistory] = useState<TurboHistoryItem[]>(() => {
+  // O histórico do Turbo é separado por GABINETE: cada gabinete só vê as minutas do próprio gabinete (mesmo no mesmo navegador).
+  const chaveHistorico = () => `assessor_turbo_history::${globalTenantId || "sem_gabinete"}`;
+  const lerHistorico = (): TurboHistoryItem[] => {
     try {
-      const saved = localStorage.getItem("assessor_turbo_history");
-      return saved ? JSON.parse(saved) : [];
+      const chave = chaveHistorico();
+      const saved = localStorage.getItem(chave);
+      if (saved) return (JSON.parse(saved) as TurboHistoryItem[]).filter((x) => !x.tenant || x.tenant === (globalTenantId || "sem_gabinete"));
+      // versão antiga: uma lista única para todos. Sem como saber de qual gabinete era cada minuta, ela é adotada UMA vez pelo primeiro gabinete que abrir o Turbo e some da lista geral.
+      const antigo = localStorage.getItem("assessor_turbo_history");
+      if (antigo) {
+        const lista = (JSON.parse(antigo) as TurboHistoryItem[]).map((x) => ({ ...x, tenant: globalTenantId || "sem_gabinete" }));
+        localStorage.setItem(chave, JSON.stringify(lista)); localStorage.removeItem("assessor_turbo_history");
+        return lista;
+      }
+      return [];
     } catch {
       return [];
     }
-  });
+  };
+  const [turboHistory, setTurboHistory] = useState<TurboHistoryItem[]>(lerHistorico);
+  // trocou de gabinete (ou de usuário) no mesmo navegador: recarrega a lista do gabinete atual
+  useEffect(() => { setTurboHistory(lerHistorico()); setMostrarTodosHistorico(false); }, [globalTenantId, user?.uid, isOpen]);
   const [viewHistoryItem, setViewHistoryItem] = useState<TurboHistoryItem | null>(null);
   const [mostrarTodosHistorico, setMostrarTodosHistorico] = useState(false);
 
@@ -138,7 +153,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
   useEffect(() => {
     // guarda até 100 (o mais recente primeiro); se o navegador ficar sem espaço, guarda menos
     for (const n of [100, 50, 25, 15]) {
-      try { localStorage.setItem("assessor_turbo_history", JSON.stringify(turboHistory.slice(0, n))); break; } catch { /* tenta com menos */ }
+      try { localStorage.setItem(chaveHistorico(), JSON.stringify(turboHistory.slice(0, n))); break; } catch { /* tenta com menos */ }
     }
   }, [turboHistory]);
 
@@ -421,6 +436,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
         title: generated.title || "Minuta Turbo",
         parties: `${generated.parties?.author || generated.author || "Parte Autora"} vs ${generated.parties?.defendant || generated.defendant || "Parte Ré"}`,
         elapsedSeconds: stats?.elapsedSeconds || "15",
+        tenant: globalTenantId || "sem_gabinete",
         userName: user?.displayName || auth.currentUser?.displayName || (user?.email || auth.currentUser?.email || "").split("@")[0] || "Assessor",
         minute: generated,
       };
@@ -977,7 +993,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
                     <button
                       onClick={() => {
                         setTurboHistory([]);
-                        localStorage.removeItem("assessor_turbo_history");
+                        localStorage.removeItem(chaveHistorico());
                         toast.success("Histórico do turbo limpo!");
                       }}
                       className="hover:text-rose-400 cursor-pointer"
