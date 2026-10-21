@@ -29,19 +29,35 @@ try:
                 l.first.dispatch_event("click"); pg.wait_for_timeout(1500)
                 if pg.locator("[data-testid=historico-barra]").count(): break
         pg.wait_for_selector("[data-testid=dossie-linha]", timeout=15000)
-        linhas = pg.locator("[data-testid=dossie-linha]")
-        res = {}
-        for i in range(linhas.count()):
-            t = linhas.nth(i).inner_text(); num = [x for x in ["5500001", "5500002", "5500003", "5500004"] if x in t]
-            res[num[0] if num else f"?{i}"] = linhas.nth(i).locator("button[title*='Excluir dossiê']").count()
-        print("botão excluir por processo (1=aparece):", res)
+        def botoes():
+            linhas = pg.locator("[data-testid=dossie-linha]"); res = {}
+            for i in range(linhas.count()):
+                t = linhas.nth(i).inner_text(); num = [x for x in ["5500001", "5500002", "5500003", "5500004"] if x in t]
+                res[num[0] if num else f"?{i}"] = linhas.nth(i).locator("button[title*='Excluir dossiê']").count()
+            return res
+        def abrir_historico():
+            for seletor in ["[title=\"Histórico Local\"]", "text=Histórico Local"]:
+                l = pg.locator(seletor)
+                if l.count():
+                    l.first.dispatch_event("click"); pg.wait_for_timeout(1500)
+                    if pg.locator("[data-testid=historico-barra]").count(): break
+            pg.wait_for_selector("[data-testid=dossie-linha]", timeout=15000)
+        # A) super admin (o usuário do teste é o super admin): o botão de excluir aparece em TODAS as minutas
+        res = botoes(); print("super admin, botão por processo:", res); assert all(v == 1 for v in res.values()) and len(res) == 4, res
+        # B) usuário comum: só nas próprias (e nas sem dono)
+        pg.evaluate("async () => { const f = await import('/src/lib/firestoreUtils.ts'); f.definirSuperAdminHistorico(false); }")
+        pg.locator("button[title='Fechar']").first.click(); pg.wait_for_timeout(600); abrir_historico()
+        res = botoes(); print("usuário comum, botão por processo:", res)
         assert res.get("5500001") == 1 and res.get("5500002") == 0 and res.get("5500003") == 1 and res.get("5500004") == 1, res
-        # camada de dados: recusa excluir minuta de outro usuário
         r = pg.evaluate("""async () => { const m = await import('/src/utils/historyDb.ts'); const out = {};
           try { await m.deleteFromHistory('h2'); out.outro = 'excluiu'; } catch (e) { out.outro = e.message; }
           try { await m.deleteFromHistory('h1'); out.meu = 'ok'; } catch (e) { out.meu = e.message; }
           return out; }""")
         print("camada de dados:", r); assert "Só quem gerou" in r["outro"] and r["meu"] == "ok", r
+        # super admin: exclui qualquer minuta e os botões aparecem
+        r2 = pg.evaluate("""async () => { const f = await import('/src/lib/firestoreUtils.ts'); const m = await import('/src/utils/historyDb.ts'); f.definirSuperAdminHistorico(true);
+          const out = {}; try { await m.deleteFromHistory('h5'); out.super = 'ok'; } catch (e) { out.super = e.message; } f.definirSuperAdminHistorico(false); return out; }""")
+        print("super admin:", r2); assert r2["super"] == "ok", r2
         assert not erros, erros
         print("OK"); b.close()
 finally:

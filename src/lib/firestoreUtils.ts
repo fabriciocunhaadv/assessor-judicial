@@ -605,9 +605,12 @@ export const lerCriadorDoAto = async (id: string): Promise<{ existe: boolean; cr
   return { existe: false };
 };
 
-/** Regra de dono: só quem gerou a minuta exclui. Ato sem dono registrado (legado/anônimo) pode ser excluído por qualquer usuário do gabinete. */
+/** Regra de dono: só quem gerou a minuta exclui (o super admin exclui qualquer uma). Ato sem dono registrado (legado/anônimo) pode ser excluído por qualquer usuário do gabinete. */
+let _superAdminAtivo = false;
+/** O super admin tem permissão para tudo (inclusive excluir minuta de qualquer usuário). O App informa aqui quem está logado. */
+export const definirSuperAdminHistorico = (v: boolean) => { _superAdminAtivo = !!v; };
 export const ehDonoDoAto = (createdBy: string | undefined | null, uid: string | undefined | null): boolean =>
-  !createdBy || createdBy === "anonymous" || (!!uid && createdBy === uid);
+  _superAdminAtivo || !createdBy || createdBy === "anonymous" || (!!uid && createdBy === uid);
 
 export const deleteHistoryFromDb = async (id: string, opcoes?: { forcar?: boolean }): Promise<void> => {
   if (!auth.currentUser || !id) return;

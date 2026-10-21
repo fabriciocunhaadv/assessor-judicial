@@ -57,13 +57,14 @@ service cloud.firestore {
     }
 
     // MINUTAS DO HISTÓRICO: cada usuário só exclui a PRÓPRIA minuta. Um ato do Histórico é reconhecido pelo formato (tem "processNumber" e "result");
-    // ele só pode ser apagado por quem o gerou (createdBy == uid). Ato antigo sem dono registrado (createdBy ausente ou "anonymous") pode ser apagado por qualquer
+    // ele só pode ser apagado por quem o gerou (createdBy == uid) ou pelo super admin (permissão total). Ato antigo sem dono registrado (createdBy ausente ou "anonymous") pode ser apagado por qualquer
     // usuário do gabinete. Leitura, criação e edição continuam como antes. Os demais documentos do gabinete (prompts, teses, etc.) não mudam.
     function ehAtoDoHistorico(dados) {
       return ('processNumber' in dados) && ('result' in dados);
     }
     function podeApagarAto(dados) {
-      return !ehAtoDoHistorico(dados)
+      return isSuperAdmin()
+        || !ehAtoDoHistorico(dados)
         || !('createdBy' in dados)
         || dados.createdBy == 'anonymous'
         || dados.createdBy == request.auth.uid;
