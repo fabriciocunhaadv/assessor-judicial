@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Scale,
   Sparkles,
@@ -72,6 +72,15 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
     "triple"
   );
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  // Responsivo à moldura onde a bancada está (e não à janela do navegador): estreita, mostra uma coluna por vez
+  const raizRef = useRef<HTMLDivElement>(null);
+  const [larg, setLarg] = useState(0);
+  const [colAtiva, setColAtiva] = useState<"pdf" | "resumo" | "minuta">("resumo");
+  useEffect(() => {
+    const el = raizRef.current; if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((es) => setLarg(Math.round(es[0].contentRect.width)));
+    ro.observe(el); return () => ro.disconnect();
+  }, []);
   const [isMobile, setIsMobile] = useState<boolean>(typeof window !== "undefined" && window.innerWidth < 768);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -118,32 +127,25 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
     }
   };
 
+  const compacto = larg > 0 && larg < 1100;
+  const mostra = (k: "pdf" | "resumo" | "minuta") => !compacto || layoutMode !== "triple" || colAtiva === k;
   const score = auditResult?.score ?? currentRecord?.score ?? 85;
   const isApproved = (currentRecord?.status || "pendente_correcao") === "aprovado";
 
   return (
-    <div className="flex flex-col h-full space-y-3">
+    <div ref={raizRef} className="flex flex-col h-full space-y-2">
       {/* BARRA SUPERIOR DE CONTROLES DA BANCADA DE CONFERÊNCIA */}
-      <div className="p-3 bg-gradient-to-r from-slate-950 via-slate-900 to-amber-950/40 border border-amber-500/40 rounded-2xl shadow-md flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <div className="px-2.5 py-1.5 bg-slate-900/80 border border-slate-700 rounded-xl flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0">
-            <Scale className="w-5 h-5 text-slate-950" />
+          <div className="w-6 h-6 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+            <Scale className="w-3.5 h-3.5" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-black uppercase tracking-wider text-amber-300">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
                 Bancada de Tripla Conferência
               </span>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold">
-                Auditoria Ouro do Juiz
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1">
-                🚧 Módulo em Construção
-              </span>
             </div>
-            <p className="hidden sm:block text-[11px] text-slate-300 mt-0.5">
-              Confronto simultâneo: <strong>PDF dos Autos</strong> ⟷ <strong>Minuta Gabarito do Sistema</strong> ⟷ <strong>Minuta Pré-Analisada do Assessor</strong>
-            </p>
           </div>
         </div>
 
@@ -222,11 +224,19 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
         </div>
       </div>
 
-      {/* ÁREA CENTRAL DE CONFERÊNCIA COM 3 COLUNAS */}
-      <div className={`flex-1 grid grid-cols-1 gap-3 ${isMobile ? "" : "min-h-[580px] overflow-hidden"}`}
+      {compacto && layoutMode === "triple" && (
+        <div data-testid="seletor-coluna" className="inline-flex self-start rounded-lg bg-slate-950 p-0.5 border border-slate-800 shrink-0">
+          {([["pdf", "1. Autos"], ["resumo", "2. Resumo e Análise"], ["minuta", "3. Minuta do Assessor"]] as const).map(([k, rot]) => (
+            <button key={k} type="button" onClick={() => setColAtiva(k)} className={`px-3 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${colAtiva === k ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-white"}`}>{rot}</button>
+          ))}
+        </div>
+      )}
+
+      {/* ÁREA CENTRAL DE CONFERÊNCIA COM 3 COLUNAS (1 coluna por vez quando a moldura é estreita) */}
+      <div className={`flex-1 grid grid-cols-1 gap-3 ${isMobile ? "" : compacto ? "min-h-[360px] overflow-hidden" : "min-h-[420px] overflow-hidden"}`}
         style={{
           gridTemplateColumns:
-            isMobile
+            isMobile || compacto
               ? "minmax(0, 1fr)"
               : layoutMode === "triple"
               ? "minmax(320px, 1fr) minmax(320px, 1fr) minmax(350px, 1.15fr)"
@@ -240,8 +250,8 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
         {/* ========================================================================= */}
         {/* COLUNA 1: LEITOR DE PDF & AUTOS DO PROCESSO                               */}
         {/* ========================================================================= */}
-        {(layoutMode === "triple" || layoutMode === "pdfVsAssessor" || layoutMode === "pdfFull") && (
-          <div className="h-full flex flex-col min-h-[520px]">
+        {(layoutMode === "triple" || layoutMode === "pdfVsAssessor" || layoutMode === "pdfFull") && mostra("pdf") && (
+          <div className="h-full flex flex-col min-h-[360px]">
             <PdfViewerPane
               pdfFiles={pdfFiles}
               fallbackText={processText}
@@ -253,8 +263,8 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
         {/* ========================================================================= */}
         {/* COLUNA 2: MINUTA GABARITO OFICIAL DO SISTEMA (IA & PARADIGMA DO JUIZ)     */}
         {/* ========================================================================= */}
-        {(layoutMode === "triple" || layoutMode === "gabaritoVsAssessor") && (
-          <div className="h-full flex flex-col bg-slate-900 border border-slate-700/80 rounded-2xl overflow-hidden shadow-lg min-h-[520px]">
+        {(layoutMode === "triple" || layoutMode === "gabaritoVsAssessor") && mostra("resumo") && (
+          <div className="h-full flex flex-col bg-slate-900 border border-slate-700/80 rounded-2xl overflow-hidden shadow-lg min-h-[360px]">
             {/* Header Coluna 2: resumo do resultado e análise */}
             <div className="px-3.5 py-2.5 bg-gradient-to-r from-amber-950/70 via-slate-900 to-slate-950 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
@@ -358,7 +368,8 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
         {/* ========================================================================= */}
         {/* COLUNA 3: MINUTA PRÉ-ANALISADA DO ASSESSOR + AUDITORIA OURO               */}
         {/* ========================================================================= */}
-        <div className="h-full flex flex-col bg-slate-900 border border-slate-700/80 rounded-2xl overflow-hidden shadow-lg min-h-[520px]">
+        {mostra("minuta") && (
+        <div className="h-full flex flex-col bg-slate-900 border border-slate-700/80 rounded-2xl overflow-hidden shadow-lg min-h-[360px]">
           {/* Header Coluna Assessor com Selo de Auditoria Ouro */}
           <div className="px-3.5 py-2.5 bg-gradient-to-r from-emerald-950/60 via-slate-900 to-slate-950 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2 min-w-0">
@@ -482,6 +493,7 @@ export const TripleConferenceBench: React.FC<TripleConferenceBenchProps> = ({
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* MODAL DE DEVOLUÇÃO COM PARECER / FEEDBACK AO ASSESSOR */}

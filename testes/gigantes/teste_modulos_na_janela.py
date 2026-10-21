@@ -14,7 +14,7 @@ try:
     esperar(f"http://127.0.0.1:{PV}/")
     with sync_playwright() as p:
         b = p.chromium.launch(executable_path=glob.glob("/opt/pw-browsers/chromium-*/chrome-linux*/chrome")[0], args=["--no-sandbox"])
-        pg = b.new_context(viewport={"width": 1500, "height": 900}).new_page(); pg.set_default_timeout(30000)
+        pg = b.new_context(viewport={"width": int(os.environ.get("LARG", 1500)), "height": int(os.environ.get("ALT", 900))}).new_page(); pg.set_default_timeout(30000)
         pg.add_init_script("localStorage.setItem('assessor_tour_done','1');")
         pg.goto(f"http://127.0.0.1:{PV}/"); pg.wait_for_timeout(4000); pg.add_style_tag(content="#react-joyride-portal{display:none!important}")
         ref = pg.evaluate("() => ({ cab: document.querySelector('header').getBoundingClientRect().bottom, lat: document.getElementById('sidebar-principal').getBoundingClientRect().right })"); print("referências:", ref)

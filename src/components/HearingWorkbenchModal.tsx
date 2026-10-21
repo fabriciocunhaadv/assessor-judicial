@@ -801,29 +801,29 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
         {/* ========================================================================= */}
         {/* BARRA SUPERIOR DO MÓDULO */}
         {/* ========================================================================= */}
-        <div className="bg-slate-950 border-b border-slate-800 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between shrink-0 gap-2">
+        <div className={areaPrincipal ? "bg-slate-950 border-b border-slate-800 px-3 py-1 flex items-center justify-between shrink-0 gap-2" : "bg-slate-950 border-b border-slate-800 px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between shrink-0 gap-2"}>
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white shadow-md shadow-amber-900/30 border border-amber-400/40 shrink-0">
-              <Gavel className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className={areaPrincipal ? "w-6 h-6 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0" : "w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white shadow-md shadow-amber-900/30 border border-amber-400/30 shrink-0"}>
+              <Gavel className={areaPrincipal ? "w-3.5 h-3.5" : "w-4 h-4 sm:w-5 sm:h-5"} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h2 className="text-sm sm:text-base font-black text-white tracking-tight truncate">
+                <h2 className={areaPrincipal ? "text-xs font-semibold text-slate-300 tracking-wide truncate" : "text-sm sm:text-base font-black text-white tracking-tight truncate"}>
                   Mesa de Audiências
                 </h2>
                 {isSuperAdmin && (
-                  <span className="hidden md:inline text-[10px] text-slate-400" title="Módulo em homologação (visível só para o super administrador)">
+                  <span className={areaPrincipal ? "hidden" : "hidden md:inline text-[10px] text-slate-400"} title="Módulo em homologação (visível só para o super administrador)">
                     homologação
                   </span>
                 )}
               </div>
-              <p className="text-[10px] sm:text-xs text-slate-400 truncate hidden md:block">
+              <p className={areaPrincipal ? "hidden" : "text-[10px] sm:text-xs text-slate-400 truncate hidden md:block"}>
                 Pauta, briefing dos autos, inquirição, acordos e sentenças
               </p>
             </div>
 
             {/* Switcher de Modo no Desktop */}
-            <div className="hidden md:flex bg-slate-900 rounded-lg border border-slate-700 p-0.5 overflow-hidden ml-2 lg:ml-4 shrink-0">
+            <div className={areaPrincipal ? "hidden md:flex bg-slate-900 rounded-md border border-slate-700 p-0.5 overflow-hidden ml-1 shrink-0 [&>button]:!py-0.5 [&>button]:!text-[11px]" : "hidden md:flex bg-slate-900 rounded-lg border border-slate-700 p-0.5 overflow-hidden ml-2 lg:ml-4 shrink-0"}>
               <button 
                 onClick={() => setViewMode('normal')}
                 className={`px-3 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${viewMode === 'normal' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800'}`}
@@ -843,7 +843,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
             {activeHearing && viewMode === 'normal' && (
               <button
                 onClick={() => handleSaveActiveHearing()}
-                className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border shadow-sm cursor-pointer ${
+                className={`px-2.5 sm:px-3.5 ${areaPrincipal ? 'py-0.5' : 'py-1.5'} rounded-lg text-xs font-bold transition flex items-center gap-1.5 border shadow-sm cursor-pointer ${
                   saveStatus === 'saved'
                     ? 'bg-emerald-600 text-white border-emerald-500'
                     : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-emerald-900/20'
@@ -857,7 +857,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
 
             <button
               onClick={() => setIsFullScreen(!isFullScreen)}
-              className="hidden sm:flex p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer border border-slate-700"
+              className={areaPrincipal ? "hidden" : "hidden sm:flex p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer border border-slate-700"}
               title={isFullScreen ? 'Restaurar tamanho' : 'Expandir para tela cheia'}
             >
               {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -865,7 +865,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
 
             <button
               onClick={onClose}
-              className="min-w-[36px] min-h-[36px] p-2 rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 transition cursor-pointer border border-slate-700 flex items-center justify-center"
+              className={`${areaPrincipal ? "min-w-[28px] min-h-[28px] p-1" : "min-w-[36px] min-h-[36px] p-2"} rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 transition cursor-pointer border border-slate-700 flex items-center justify-center`}
               title="Fechar módulo"
             >
               <X className="w-4 h-4" />
