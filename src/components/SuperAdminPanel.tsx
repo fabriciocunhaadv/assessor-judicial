@@ -88,6 +88,7 @@ import {
   getPendingInvites,
   removeInvite,
   createGlobalDatabaseSnapshot,
+  manterSomenteUltimoSnapshot,
   autoPrePermissionChangeSnapshot,
   getGlobalDatabaseSnapshots,
   fetchFullGlobalDatabaseSnapshot,
@@ -369,6 +370,10 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
       setGlobalUsers(usersList);
       setAllInvites(invitesList);
       setSnapshots(snapshotsList);
+      if (snapshotsList.length > 1) {
+        // limpeza única: só o último snapshot fica no banco
+        manterSomenteUltimoSnapshot().then((n) => { if (n > 0) { getGlobalDatabaseSnapshots().then(setSnapshots).catch(() => {}); } }).catch(() => {});
+      }
       setTokenUsageList(tokensList);
       if (broadcast) {
         setGlobalBroadcast(broadcast);
@@ -1729,6 +1734,19 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
         {/* Tab Navigation com labels responsivas e scroll horizontal limpo */}
         <div className="px-2.5 sm:px-5 border-b border-slate-800 bg-slate-950 flex items-center gap-1 shrink-0 overflow-x-auto scrollbar-none">
           <button
+            onClick={() => setActiveTab('erros')}
+            data-testid="aba-monitor-erros"
+            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+              activeTab === 'erros'
+                ? 'border-rose-500 text-rose-400 bg-rose-500/10'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Bug className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-rose-400" />
+            <span>Monitor de erros</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('tenants')}
             className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
               activeTab === 'tenants'
@@ -1803,19 +1821,6 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
             <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-amber-400" />
             <span className="sm:hidden">Uso de Tokens</span>
             <span className="hidden sm:inline">Uso da Chave Nativa (Tokens)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('erros')}
-            data-testid="aba-monitor-erros"
-            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
-              activeTab === 'erros'
-                ? 'border-rose-500 text-rose-400 bg-rose-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Bug className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-rose-400" />
-            <span>Monitor de erros</span>
           </button>
         </div>
 

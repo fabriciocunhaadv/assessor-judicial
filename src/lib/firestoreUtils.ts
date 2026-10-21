@@ -3222,7 +3222,8 @@ export const fetchFullGlobalDatabaseSnapshot = async (
  */
 export const createGlobalDatabaseSnapshot = async (
   reason: string,
-  triggeredBy: "superadmin" | "permission_change" | "manual" | "migration" | "auto" = "manual"
+  triggeredBy: "superadmin" | "permission_change" | "manual" | "migration" | "auto" = "manual",
+  podarAnteriores = true
 ): Promise<GlobalDatabaseSnapshot | null> => {
   const user = auth.currentUser;
   const now = Date.now();
@@ -3307,11 +3308,29 @@ export const createGlobalDatabaseSnapshot = async (
       console.warn("Notice: Local storage metadata update skipped.", localErr);
     }
 
+    // Mantém só 1 snapshot no banco: o novo substitui todos os anteriores (evita encher o banco e pesar as telas).
+    if (podarAnteriores) { try { await manterSomenteUltimoSnapshot(snapshotId); } catch (e) { console.warn("Poda de snapshots antigos:", e); } }
+
     return snapshot;
   } catch (err) {
     console.error("Falha ao criar Snapshot Global do Banco de Dados:", err);
     return null;
   }
+};
+
+/**
+ * Apaga todos os snapshots (e os pedaços "chunks") menos o último. Sem o id, mantém o mais recente. Devolve quantos apagou.
+ */
+export const manterSomenteUltimoSnapshot = async (manterId?: string): Promise<number> => {
+  const lista = await getGlobalDatabaseSnapshots();
+  const alvo = manterId || lista[0]?.id;
+  if (!alvo) return 0;
+  let apagados = 0;
+  for (const sn of lista) {
+    if (sn.id === alvo) continue;
+    try { await deleteGlobalDatabaseSnapshot(sn.id); apagados++; } catch { /* segue com os demais */ }
+  }
+  return apagados;
 };
 
 /**
@@ -3385,7 +3404,7 @@ export const restoreGlobalDatabaseSnapshot = async (
 
   // Pre-snapshot before restoring, for maximum safety
   try {
-    await createGlobalDatabaseSnapshot(`Pré-Restauração do Ponto: ${snapshot.reason || snapshot.id}`, "auto");
+    await createGlobalDatabaseSnapshot(`Pré-Restauração do Ponto: ${snapshot.reason || snapshot.id}`, "auto", false);
   } catch (_) {}
 
   let restoredTenants = 0;
@@ -3729,7 +3748,7 @@ export const deepScanAndRescueAllCabinetData = async (): Promise<DeepScanRescueR
   let rescuedUnitsCount = 0;
 
   // 1. Criar Ponto de Restauração de Segurança antes da varredura
-  const preSnap = await createGlobalDatabaseSnapshot("Backup de Segurança Pré-Varredura Profunda e Resgate de Cadastros", "auto");
+  const preSnap = await createGlobalDatabaseSnapshot("Backup de Segurança Pré-Varredura Profunda e Resgate de Cadastros", "auto", false);
   const snapshotBeforeId = preSnap?.id || `snap_${Date.now()}`;
   details.push(`Backup de segurança prévio gerado com sucesso (ID: ${snapshotBeforeId})`);
 
