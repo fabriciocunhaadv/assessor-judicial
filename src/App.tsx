@@ -2047,66 +2047,6 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto p-3 sm:p-4 md:p-5 space-y-4">
-        {/* Noble Magistrado Premium Welcome & Actions Banner */}
-        {isJudge && (
-          <div className="p-3.5 bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/80 border-2 border-amber-400/80 rounded-2xl shadow-md text-white flex flex-col md:flex-row md:items-center justify-between gap-3 animate-in fade-in">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0 ring-2 ring-amber-300">
-                <Crown className="w-5 h-5 text-slate-950" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 shadow-2xs">
-                    Magistrado Titular • Cargo Nobre
-                  </span>
-                  <span className="text-xs text-amber-200/90 font-medium flex items-center gap-1">
-                    <Scale className="w-3 h-3 text-amber-400" />
-                    {activeUnit?.name || "Gabinete"}
-                  </span>
-                </div>
-                <h2 className="text-sm sm:text-base font-bold text-white mt-0.5">
-                  Sessão Oficial do Magistrado: {userProfile?.name || user?.displayName || "Exmo(a). Juiz(a)"}
-                </h2>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap self-end md:self-auto">
-              {(isSuperAdmin || isJudge) && (
-                <button
-                  type="button"
-                  id="btn-magistrado-banner-minute-auditor"
-                  onClick={() => setIsMinuteAuditorOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs transition cursor-pointer shadow-md border border-yellow-200 whitespace-nowrap"
-                  title="Auditar as minutas elaboradas pelos assessores cruzando com os autos (Lupa do Magistrado & Auditoria Ouro)"
-                >
-                  <ShieldCheck className="w-4 h-4 text-slate-950" />
-                  <span>Lupa do Juiz (Auditoria Ouro)</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setIsCalendarModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-white font-black text-xs transition cursor-pointer shadow-md border border-amber-300/60 whitespace-nowrap"
-                title="Visualizar Pautas de Audiências e Agenda Oficial da Vara"
-              >
-                <Crown className="w-3.5 h-3.5 text-amber-300" />
-                <span>Agenda & Pautas</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsTesesModalOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-200 font-bold text-xs transition cursor-pointer border border-amber-400/40 whitespace-nowrap"
-                title="Acessar Teses Normativas e Modelos Paradigmas do Juiz"
-              >
-                <Scale className="w-3.5 h-3.5 text-amber-400" />
-                <span>Teses & Paradigmas</span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Error Alert with Quick Retry */}
         {errorMessage && (
           <div className="p-4 bg-rose-50 border border-rose-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-rose-900 text-xs shadow-xs animate-in fade-in">
