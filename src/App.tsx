@@ -270,7 +270,6 @@ export default function App() {
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState<boolean>(false);
   const [isHearingWorkbenchModalOpen, setIsHearingWorkbenchModalOpen] = useState<boolean>(false);
   const modoJanela = useModoJanela(true);
-  const moduloAbertoNaJanela = modoJanela && (((isSuperAdmin || isJudge) && isMinuteAuditorOpen) || isHearingWorkbenchModalOpen);
   const [isPetitionPanelOpen, setIsPetitionPanelOpen] = useState<boolean>(false);
   const [isTicketsModalOpen, setIsTicketsModalOpen] = useState<boolean>(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | undefined>(undefined);
@@ -296,6 +295,7 @@ export default function App() {
   });
   const [isProceedingToStage2, setIsProceedingToStage2] = useState<boolean>(false);
   const [isTurboModalOpen, setIsTurboModalOpen] = useState<boolean>(false);
+  const moduloAbertoNaJanela = modoJanela && (((isSuperAdmin || isJudge) && isMinuteAuditorOpen) || isHearingWorkbenchModalOpen || isTurboModalOpen);
   const [turboActiveMinute, setTurboActiveMinute] = useState<any>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [showInstructionsBanner, setShowInstructionsBanner] = useState<boolean>(true);
@@ -2564,6 +2564,18 @@ export default function App() {
         onClose={() => setIsHearingWorkbenchModalOpen(false)}
         onOpenHistory={() => setIsHistoryModalOpen(true)}
       />
+      <TurboModuleModal
+        isOpen={isTurboModalOpen}
+        onClose={() => setIsTurboModalOpen(false)}
+        onLoadMinuteToEditor={handleLoadTurboMinute}
+        onOpenCopilot={handleOpenCopilotFromTurbo}
+        onResetTurboProcess={() => setTurboActiveMinute(null)}
+        activeUnitName={activeUnit?.name}
+        activeUnitId={activeUnit?.id}
+        prompts={prompts}
+        activePrompt={activePrompt}
+        user={user}
+      />
       </main>
 
       {/* Clean Footer for Assessor Fabrício */}
@@ -2834,18 +2846,6 @@ export default function App() {
         }}
       />
 
-      <TurboModuleModal
-        isOpen={isTurboModalOpen}
-        onClose={() => setIsTurboModalOpen(false)}
-        onLoadMinuteToEditor={handleLoadTurboMinute}
-        onOpenCopilot={handleOpenCopilotFromTurbo}
-        onResetTurboProcess={() => setTurboActiveMinute(null)}
-        activeUnitName={activeUnit?.name}
-        activeUnitId={activeUnit?.id}
-        prompts={prompts}
-        activePrompt={activePrompt}
-        user={user}
-      />
     </div>
     </div>
   );

@@ -33,8 +33,15 @@ try:
         m = pg.evaluate("() => { const d = document.querySelector('.mesa-escura'); if (!d) return null; const r = d.getBoundingClientRect(); return { top: r.top, left: r.left, w: r.width, noMain: !!d.closest('main'), pos: getComputedStyle(d).position }; }"); print("Mesa:", m)
         assert m and m["noMain"] and m["pos"] == "relative" and m["w"] > 0.9 * (ref["mainW"] - 40), (m, ref)
         pg.screenshot(path="/tmp/claude-0/work/mob/mesa_na_janela.png")
-        pg.evaluate("localStorage.setItem('assessor_modulos_na_janela_v1','0'); window.dispatchEvent(new Event('assessor:modulos-janela'))"); pg.wait_for_timeout(900)
-        m2 = pg.evaluate("() => { const d = document.querySelector('.mesa-escura'); const r = d.getBoundingClientRect(); return { top: r.top, left: r.left }; }"); print("Mesa com preferência desligada:", m2); assert m2["top"] == 0 and m2["left"] == 0, m2
+        # Turbo: também no corpo principal
+        pg.locator("button:has-text('Fechar')").last.click() if pg.locator("button:has-text('Fechar')").count() else None; pg.wait_for_timeout(500)
+        pg.locator("#btn-header-turbo-top").first.dispatch_event("click"); pg.wait_for_timeout(1500)
+        t = pg.evaluate("() => { const d = document.querySelector('[data-modulo-janela=turbo]'); if (!d) return null; const r = d.getBoundingClientRect(); return { w: r.width, noMain: !!d.closest('main'), pos: getComputedStyle(d).position }; }"); print("Turbo:", t)
+        assert t and t["noMain"] and t["pos"] == "relative" and t["w"] > 0.9 * (ref["mainW"] - 40), (t, ref)
+        # a preferência antiga (flutuante) é ignorada: não existe mais a opção
+        pg.evaluate("localStorage.setItem('assessor_modulos_na_janela_v1','0'); window.dispatchEvent(new Event('assessor:modulos-janela'))"); pg.wait_for_timeout(600)
+        assert pg.evaluate("() => !!document.querySelector('[data-modulo-janela=turbo]')"), "preferência antiga não pode voltar à janela flutuante"
+        assert pg.locator("[data-testid=btn-modulos-janela]").count() == 0
         print("OK"); b.close()
 finally:
     os.killpg(vite.pid, 9)

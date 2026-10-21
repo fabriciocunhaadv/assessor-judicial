@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useModoJanela } from "../utils/areaPrincipal";
 import {
   Zap,
   X,
@@ -153,6 +154,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
     };
   }, [isLoading]);
 
+  const areaPrincipal = useModoJanela(isOpen);
   if (!isOpen) return null;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -469,10 +471,10 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div style={areaPrincipal ? { position: "relative" } : undefined} data-modulo-janela={areaPrincipal ? "turbo" : undefined} className={areaPrincipal ? "fixed flex items-stretch justify-center p-0 bg-slate-950 w-full h-[84vh] rounded-xl border border-slate-800 overflow-hidden" : "fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"}>
       {dialogCobertura}
       {dlgGigante && <GiganteDialog paginas={dlgGigante.paginas} tokens={dlgGigante.tokens} corte={dlgGigante.corte} onEscolha={dlgGigante.resolver} />}
-      <div className="bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-slate-100">
+      <div className={areaPrincipal ? "bg-slate-900 border-0 w-full max-w-none h-full flex flex-col overflow-hidden text-slate-100" : "bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-slate-100"}>
         
         {/* TOPO / HEADER DO MÓDULO TURBO */}
         <div className="p-4 bg-gradient-to-r from-slate-950 via-amber-950/40 to-slate-950 border-b border-amber-500/20 flex items-center justify-between shrink-0">
