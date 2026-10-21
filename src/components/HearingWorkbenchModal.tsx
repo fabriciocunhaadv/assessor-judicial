@@ -1,4 +1,5 @@
 import { MutiraoPrevidenciarioView } from './MutiraoPrevidenciarioView';
+import { useAreaPrincipal } from "../utils/areaPrincipal";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Zap,
   X,
@@ -786,14 +787,15 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     );
   }, [hearings, searchFilter]);
 
+  const areaPrincipal = useAreaPrincipal(isOpen);
   if (!isOpen) return null;
 
   return (
-    <div className="mesa-escura fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-3 md:p-4 animate-in fade-in duration-200">
+    <div style={areaPrincipal || undefined} className={areaPrincipal ? "mesa-escura fixed z-40 flex items-stretch justify-center bg-slate-950 p-0" : "mesa-escura fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-3 md:p-4 animate-in fade-in duration-200"}>
       {dlgDossie && <ProcessoGrandeDialog modulo="mesa" paginas={dlgDossie.paginas} tokens={dlgDossie.tokens} corte={dlgDossie.corte} onEscolha={dlgDossie.resolver} />}
       <div
         className={`bg-slate-900 border-0 sm:border border-slate-700/80 rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100 transition-all duration-300 w-full ${
-          isFullScreen ? 'h-full rounded-none' : 'max-w-7xl h-full sm:h-[94vh]'
+          areaPrincipal ? 'h-full max-w-none sm:border-0 sm:rounded-none' : isFullScreen ? 'h-full rounded-none' : 'max-w-7xl h-full sm:h-[94vh]'
         }`}
       >
         {/* ========================================================================= */}

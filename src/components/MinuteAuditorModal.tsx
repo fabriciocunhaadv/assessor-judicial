@@ -93,6 +93,7 @@ import { useAuth } from "../lib/AuthContext";
 import { TripleConferenceBench } from "./TripleConferenceBench";
 import { PdfViewerPane } from "./PdfViewerPane";
 import { toast } from "react-hot-toast";
+import { useAreaPrincipal } from "../utils/areaPrincipal";
 
 export interface ProcessDossierGroup {
   normalizedProcessNumber: string;
@@ -1650,13 +1651,14 @@ ${reAuditNotes}`
     });
   }, [auditedRecords, searchQuery, filterVerdict, filterStatus]);
 
+  const areaPrincipal = useAreaPrincipal(isOpen);
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in">
+    <div style={areaPrincipal || undefined} className={areaPrincipal ? "fixed z-40 flex items-stretch justify-center p-0 bg-slate-950 overflow-y-auto" : "fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in"}>
       {dialogCobertura}
       {dlgDossie && <ProcessoGrandeDialog modulo="lupa" paginas={dlgDossie.paginas} tokens={dlgDossie.tokens} corte={dlgDossie.corte} onEscolha={dlgDossie.resolver} />}
-      <div className="bg-slate-900 border border-amber-500/40 sm:rounded-2xl w-full max-w-6xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
+      <div className={areaPrincipal ? "bg-slate-900 border-0 w-full max-w-none h-full flex flex-col overflow-hidden text-slate-100" : "bg-slate-900 border border-amber-500/40 sm:rounded-2xl w-full max-w-6xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"}>
         
         {/* MODAL HEADER: Gold Luxury Bar */}
         <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-amber-950 px-3 sm:px-5 py-2.5 sm:py-3.5 border-b border-amber-500/30 flex items-center justify-between gap-2 shrink-0">

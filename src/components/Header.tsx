@@ -1,4 +1,5 @@
 import { useExtensaoStatus, URL_EXTENSAO_CHROME_STORE } from "./AvisoExtensao";
+import { modulosNaJanela, definirModulosNaJanela } from "../utils/areaPrincipal";
 import React, { useState, useEffect } from "react";
 import {
   Server,
@@ -21,6 +22,7 @@ import {
   ShieldCheck,
   Key,
   Puzzle,
+  Layers,
   Crown,
   Award,
   Gavel,
@@ -127,6 +129,7 @@ export const Header: React.FC<HeaderProps> = ({
   } = useAuth();
   const currentUid = userProfile?.uid;
   const extStatus = useExtensaoStatus();
+  const [naJanela, setNaJanela] = useState<boolean>(() => modulosNaJanela());
   const [stats, setStats] = useState<ApiUsageStats | null>(null);
   const [hasApiKey, setHasApiKey] = useState<boolean>(() => hasCustomApiKey(currentUid));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -426,6 +429,17 @@ export const Header: React.FC<HeaderProps> = ({
 
 
                 <div className="h-[1px] w-full bg-slate-800 my-0.5" />
+
+                <button
+                  id="btn-header-modulos-janela"
+                  data-testid="btn-modulos-janela"
+                  onClick={() => { const v = !naJanela; definirModulosNaJanela(v); setNaJanela(v); }}
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-slate-100 font-semibold text-xs transition cursor-pointer text-left w-full"
+                  title="Escolha se a Lupa e a Mesa de Audiência abrem na janela principal (mais espaço) ou numa janela flutuante"
+                >
+                  <Layers className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Lupa e Mesa: {naJanela ? "janela principal" : "janela flutuante"}</span>
+                </button>
 
                 {URL_EXTENSAO_CHROME_STORE && (
                   <a

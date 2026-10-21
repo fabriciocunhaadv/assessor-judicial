@@ -54,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <div className={`transition-all duration-300 ease-in-out border-r border-slate-300/30 dark:border-slate-800 bg-white dark:bg-[#0b111a] flex flex-col h-screen ${isCollapsed ? 'w-16' : 'w-64'} shrink-0 z-40 hidden md:flex relative`}>
+    <div id="sidebar-principal" className={`transition-all duration-300 ease-in-out border-r border-slate-300/30 dark:border-slate-800 bg-white dark:bg-[#0b111a] flex flex-col h-screen ${isCollapsed ? 'w-16' : 'w-64'} shrink-0 z-40 hidden md:flex relative`}>
       {/* Collapse Toggle */}
       <button 
         onClick={toggleSidebar}
