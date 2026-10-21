@@ -66,6 +66,7 @@ import {
 } from 'lucide-react';
 import { collection, getDocs, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { MonitorErrosPanel } from './MonitorErrosPanel';
+import { MonitorOperacaoPanel } from './MonitorOperacaoPanel';
 import { db } from '../lib/firebase';
 import { 
   getAllTenantsWithMetrics, 
@@ -129,7 +130,7 @@ interface SuperAdminPanelProps {
 let limpezaSnapsFeita = false;
 export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClose, onOpenTicketsModal }) => {
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'tenants' | 'users' | 'snapshots' | 'broadcast' | 'migration' | 'tokens' | 'erros'>('tenants');
+  const [activeTab, setActiveTab] = useState<'tenants' | 'users' | 'snapshots' | 'broadcast' | 'migration' | 'tokens' | 'erros' | 'operacao'>('tenants');
 
   // Snapshots & Healing State
   const [snapshots, setSnapshots] = useState<GlobalDatabaseSnapshot[]>([]);
@@ -1760,6 +1761,20 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
         {/* Tab Navigation com labels responsivas e scroll horizontal limpo */}
         <div data-testid="abas-super-admin" className="px-2 sm:px-4 border-b border-slate-800 bg-slate-950 flex items-center gap-0.5 shrink-0 overflow-x-auto scrollbar-none">
           <button
+            onClick={() => setActiveTab('operacao')}
+            data-testid="aba-monitor-operacao"
+            title="Monitor de operação: o que cada usuário fez no Studio e na esteira"
+            className={`px-2.5 py-2.5 text-[11px] sm:text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+              activeTab === 'operacao'
+                ? 'border-sky-500 text-sky-400 bg-sky-500/10'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-sky-400" />
+            <span>Operação</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('erros')}
             title="Monitor de erros"
             data-testid="aba-monitor-erros"
@@ -3303,6 +3318,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
           {/* TAB 6: USO DA CHAVE NATIVA (TOKENS)                             */}
           {/* ============================================================== */}
           {activeTab === 'erros' && <MonitorErrosPanel />}
+          {activeTab === 'operacao' && <MonitorOperacaoPanel />}
 
           {activeTab === 'tokens' && (
             <div className="space-y-6">

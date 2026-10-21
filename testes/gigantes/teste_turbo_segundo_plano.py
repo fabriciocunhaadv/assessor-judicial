@@ -34,6 +34,8 @@ def main():
             r = pg.evaluate("window.__r"); print("turbo ->", r.get("ok"), (r.get("mensagem") or r.get("erro") or "")[:200].replace("\n", " "), "| minuta:", len(r.get("minuta") or ""))
             print("resultado:", {k: r.get(k) for k in ("ok", "gigante", "jobId", "erro", "mensagem")})
             assert r.get("ok") and r.get("gigante"), r
+            ops = pg.evaluate("(globalThis.__setDocs || []).filter(d => d.dados && d.dados.modulo).map(d => ({ modulo: d.dados.modulo, resultado: d.dados.resultado, anomalias: (d.dados.anomalias || []).map(a => a.codigo) }))"); print("operações registradas:", ops)
+            assert any(o["modulo"] == "turbo" and o["resultado"] == "segundo_plano" and "turbo_foi_para_segundo_plano" in o["anomalias"] for o in ops), ops
             urllib.request.urlopen(f"http://127.0.0.1:{PM}/__503?on=0")
             b.close()
         print("OK")

@@ -135,7 +135,7 @@ export function instalarMonitorDeErros() {
 }
 
 // ---------- leitura e decisão (super admin) ----------
-async function listaDeGabinetes(): Promise<string[]> {
+export async function listaDeGabinetes(): Promise<string[]> {
   const ids = new Set<string>(["gabinete_default", "gab_rafael_machado", globalTenantId || "gabinete_default"]);
   try { (await getDocs(collection(db, "tenants"))).docs.forEach((d) => ids.add(d.id)); } catch { /* sem acesso */ }
   try { (await getDocs(collection(db, "users"))).docs.forEach((d) => { const t = (d.data() as any)?.tenantId; if (t && t !== "unassigned") ids.add(t); }); } catch { /* sem acesso */ }

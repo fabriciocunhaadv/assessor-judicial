@@ -36,6 +36,7 @@ import { CustomPrompt, SavedAnalysis } from "../types";
 import { saveToHistory } from "../utils/historyDb";
 import { auth } from "../lib/firebase";
 import { getActiveUnitId, globalTenantId } from "../lib/firestoreUtils";
+import { registrarOperacao } from "../utils/monitorOperacao";
 import { recordApiExecution } from "../utils/apiUsageTracker";
 import ReactMarkdown from "react-markdown";
 
@@ -281,6 +282,9 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
       }
     }
 
+    const inicioOp = Date.now();
+    // dados da operação para o Monitor de operação
+    const dadosOp = () => ({ modulo: "turbo" as const, unitId: activeUnitId, unitName: activeUnitName, promptTitle: selectedPrompt?.title || "", promptCategory: selectedPrompt?.category || "", promptEhPadraoDaLista: !!prompts?.length && prompts[0]?.id === selectedPrompt?.id, duracaoMs: Date.now() - inicioOp });
     setIsLoading(true);
     setResultMinute(null);
     setResultStats(null);
@@ -441,6 +445,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
         minute: generated,
       };
       setTurboHistory((prev) => [historyEntry, ...prev.slice(0, 99)]);
+      void registrarOperacao({ ...dadosOp(), processo: generated.processNumber, resultado: "ok" });
     } catch (error: any) {
       clearTimeout(abortTimeout);
       console.error("Erro no Módulo Turbo:", error);
@@ -456,11 +461,13 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
           };
           await gerenteGigantes.iniciarComTextos([{ nome: pdfFile?.name || "Texto dos autos (colado)", texto: textoDosAutos, pageCount: paginasBg, semTexto: pdfFile?.paginasSemTexto, naoLidas: pdfFile?.paginasNaoLidas, arquivo: async () => pdfFile?.file || null }], config);
           window.dispatchEvent(new CustomEvent("gigantes:abrir"));
+          void registrarOperacao({ ...dadosOp(), processo: (textoDosAutos.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/) || [""])[0], resultado: "segundo_plano", erro: String(error?.message || error) });
           toast("Turbo indisponível agora: este processo foi para o segundo plano e será refeito pela análise normal. A minuta irá para o Histórico.", { icon: "🔁", duration: 12000 });
           setIsLoading(false);
           return;
         } catch (bgErr) { console.warn("Segundo plano do Turbo:", bgErr); }
       }
+      void registrarOperacao({ ...dadosOp(), processo: (textoDosAutos.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/) || [""])[0], resultado: "erro", erro: String(error?.message || error) });
       if (error.name === "AbortError") {
         toast.error("O processamento turbo demorou além do limite (timeout). Tente novamente.");
       } else {

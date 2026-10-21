@@ -3,6 +3,7 @@ import { getApiHeaders } from "../apiKeyManager";
 import { recordApiExecution } from "../apiUsageTracker";
 import { getCabinetTeses } from "../tesesDb";
 import { saveToHistory } from "../historyDb";
+import { registrarOperacao } from "../monitorOperacao";
 import type { SavedAnalysis } from "../historyDb";
 import { apagarJob, chavePagina, JobGig, lerJob, lerPaginas, listarJobs, PaginaGig, salvarJob, salvarPaginas } from "./db";
 import { classificarTodas } from "./triagem";
@@ -574,7 +575,8 @@ class Gerente {
       processTextContext: `[Processo gigante: ${job.arquivos.map((a) => a.nome).join(", ")} — ${job.totalPaginas} páginas lidas em lotes]`,
       createdBy: cfg.userUid || "anonymous", creatorName: cfg.userName || "Assessor", creatorEmail: cfg.userEmail || "", chatMessages: [],
     } as SavedAnalysis;
-    await saveToHistory(analise);
+    const salvo = await saveToHistory(analise);
+    void registrarOperacao({ modulo: "gigante", unitId: cfg.unitId, unitName: cfg.unitName, promptTitle: cfg.promptTitle, promptCategory: cfg.promptCategory, processo: numero, resultado: salvo.ok ? "ok" : "nao_gravado", erro: salvo.erro });
     job.historicoId = analysisId; job.numeroProcesso = numero;
   }
 }

@@ -59,6 +59,7 @@ import {
 import { subscribeToTickets, getLocalTickets, isTicketModuleEnabled } from "./utils/ticketsDb";
 import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
+import { registrarOperacao } from "./utils/monitorOperacao";
 import { retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
 import { findDossierForProcess, getProcessActsSummaryForPrompt } from "./utils/dossierUtils";
 import { ProcessTimelineModal } from "./components/ProcessTimelineModal";
@@ -879,6 +880,9 @@ export default function App() {
   };
 
   const handleExecutePrompt = async () => {
+    const inicioOp = Date.now();
+    // dados da operação para o Monitor de operação (quem rodou, com qual prompt, em qual unidade, de onde veio)
+    const dadosOp = () => ({ modulo: "normal" as const, unitId: activeUnit?.id, unitName: activeUnit?.name, promptTitle: activePrompt?.title, promptCategory: activePrompt?.category, promptEhPadraoDaLista: prompts.filter((p) => p.id !== "prompt-padrao" && p.title !== "Prompt Padrão")[0]?.id === activePrompt?.id, duracaoMs: Date.now() - inicioOp });
     const access = checkUserAiAccess(userProfile, user?.email);
     if (!access.canExecute) {
       setApiKeyModalMessage(access.message);
@@ -1343,6 +1347,7 @@ export default function App() {
         chatMessages: [],
       };
       const gravado = await saveToHistory(analysisToSave);
+      void registrarOperacao({ ...dadosOp(), processo: effectiveProcessNum, resultado: gravado.ok ? "ok" : "nao_gravado", erro: gravado.erro });
       // avisa a extensão (esteira) se o ato foi mesmo gravado no Histórico, para ela não seguir adiante antes disso nem dar o processo por salvo sem estar
       try { document.documentElement.dataset.historicoSalvo = JSON.stringify({ id: newAnalysisId, processo: effectiveProcessNum, ok: gravado.ok, erro: gravado.erro || "", t: Date.now() }); } catch { /* sem dataset */ }
 
@@ -1391,7 +1396,8 @@ export default function App() {
 
         // esteira da extensão: falha passageira (503/cota) não trava a fila; vai para o segundo plano e a extensão segue para o próximo
         let automatico503 = false; try { automatico503 = document.documentElement.dataset.assessorAuto === "1"; } catch { /* sem dataset */ }
-        if (automatico503 && ehPassageiro(errorMsg) && await enviarSegundoPlano(true)) return;
+        if (automatico503 && ehPassageiro(errorMsg) && await enviarSegundoPlano(true)) { void registrarOperacao({ ...dadosOp(), processo: processNumber, resultado: "segundo_plano", erro: errorMsg }); return; }
+        void registrarOperacao({ ...dadosOp(), processo: processNumber, resultado: "erro", erro: errorMsg });
 
         setErrorMessage(errorMsg);
         

@@ -35,6 +35,8 @@ def main():
             docs = pg.evaluate("(globalThis.__setDocs || []).map(d => ({ id: d.id, proc: d.dados && d.dados.processNumber, minuta: !!(d.dados && d.dados.result && d.dados.result.minute) }))")
             print("gravados:", [d for d in docs if not d["id"].startswith(("teste","fabricio","log-"))])
             novos = [d for d in docs if d["proc"] == "5530114-61.2025.8.09.0166" and d["id"] != "analysis-antigo" and d["id"].startswith("analysis-")]
+            ops = pg.evaluate("(globalThis.__setDocs || []).filter(d => d.dados && d.dados.modulo).map(d => ({ modulo: d.dados.modulo, origem: d.dados.origem, resultado: d.dados.resultado, processo: d.dados.processo, prompt: d.dados.promptTitle }))"); print("operações registradas:", ops)
+            assert any(o["modulo"] == "normal" and o["origem"] == "esteira" and o["resultado"] == "ok" and o["processo"] == "5530114-61.2025.8.09.0166" for o in ops), ops
             assert r.get("ok") and len(novos) >= 1 and all(d["minuta"] for d in novos), docs
             b.close()
         print("OK")
