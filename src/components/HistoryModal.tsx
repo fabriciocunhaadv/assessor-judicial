@@ -37,6 +37,7 @@ import {
   getHistory,
   deleteFromHistory,
   deleteDossierFromHistory,
+  podeExcluirAto,
   exportHistoryJson,
   importHistoryFromJson,
   isCorruptedHistoryItem,
@@ -179,18 +180,22 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
     }
   };
 
+  const AVISO_NAO_DONO = "Só quem gerou a minuta pode excluí-la. Esta minuta foi gerada por outro usuário do gabinete.";
   const handleOpenDelete = (item: SavedAnalysis, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!podeExcluirAto(item, currentUid)) { showFeedback(AVISO_NAO_DONO); return; }
     setItemToDelete(item);
   };
 
   const handleOpenDeleteDossier = (dossier: ProcessDossier, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!dossier.analyses.some((a) => podeExcluirAto(a, currentUid))) { showFeedback("Todas as minutas deste processo foram geradas por outros usuários: só quem gerou pode excluir."); return; }
     setDossierToDelete(dossier);
   };
 
   const handleDirectDeleteAnalysis = async (item: SavedAnalysis) => {
     if (!item) return;
+    if (!podeExcluirAto(item, currentUid)) { showFeedback(AVISO_NAO_DONO); return; }
     const id = item.id;
     setHistory((prev) => prev.filter((it) => it.id !== id));
     
@@ -223,9 +228,12 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
   const handleDirectDeleteDossier = async (dossier: ProcessDossier) => {
     if (!dossier) return;
-    const ids = dossier.analyses.map((a) => a.id);
+    // só as minutas do próprio usuário saem; as de outros usuários do gabinete permanecem
+    const ids = dossier.analyses.filter((a) => podeExcluirAto(a, currentUid)).map((a) => a.id);
+    const dosOutros = dossier.analyses.length - ids.length;
+    if (!ids.length) { showFeedback("Todas as minutas deste processo foram geradas por outros usuários: só quem gerou pode excluir."); return; }
     setHistory((prev) => prev.filter((item) => !ids.includes(item.id)));
-    if (activeTimelineDossier?.id === dossier.id) {
+    if (activeTimelineDossier?.id === dossier.id && !dosOutros) {
       setActiveTimelineDossier(null);
     }
     try {
@@ -236,7 +244,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
           onDeleteAnalysis(id, dossier.processNumber);
         }
       }
-      showFeedback(`Evolução cronológica do processo ${dossier.processNumber} (${ids.length} atos) excluída com sucesso de todos os dispositivos.`);
+      showFeedback(dosOutros ? `Suas ${ids.length} minuta(s) do processo ${dossier.processNumber} foram excluídas. ${dosOutros} minuta(s) de outros usuários permaneceram.` : `Evolução cronológica do processo ${dossier.processNumber} (${ids.length} atos) excluída com sucesso de todos os dispositivos.`);
     } catch (err: any) {
       showFeedback(`Erro ao remover dossiê: ${err.message}`);
       loadHistory();
@@ -531,7 +539,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
             <div id="tour-history-list" className="grid grid-cols-1 gap-1.5">
               {paginatedDossiers.map((dossier) => {
                 const latestAct = dossier.analyses[dossier.analyses.length - 1];
-                const canDelete = isAdmin || dossier.analyses.some(a => currentUid && a.createdBy === currentUid);
+                const canDelete = dossier.analyses.some(a => podeExcluirAto(a, currentUid));
                 const hasMultipleActs = dossier.totalActs > 1;
 
                 const cat = latestAct ? detectPromptCategory(latestAct) : null;
@@ -583,9 +591,9 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                         <span className="text-slate-300">·</span>
                         <Clock className="w-3 h-3" />{new Date(dossier.lastDate).toLocaleDateString()} {new Date(dossier.lastDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
-                      <button onClick={(e) => handleOpenDeleteDossier(dossier, e)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition shrink-0 cursor-pointer" title="Excluir dossiê do processo do histórico">
+                      {canDelete && (<button onClick={(e) => handleOpenDeleteDossier(dossier, e)} className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition shrink-0 cursor-pointer" title="Excluir dossiê do processo do histórico">
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </button>)}
                     </div>
 
                     {/* Linha 2: ato/vara e ações */}
@@ -638,7 +646,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                   : (coverFallback?.defendant || "");
                 const actTitle = item.result?.minute?.title || item.promptTitle || "MINUTA JUDICIAL";
                 const isMine = currentUid && item.createdBy === currentUid;
-                const canDelete = isAdmin || isMine;
+                const canDelete = podeExcluirAto(item, currentUid);
                 const hasChat = item.chatMessages && item.chatMessages.length > 0;
                 
                 return (
@@ -693,6 +701,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                           )}
                         </div>
 
+                        {canDelete && (
                         <button
                           onClick={(e) => handleOpenDelete(item, e)}
                           className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0 cursor-pointer"
@@ -700,6 +709,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        )}
                       </div>
 
                       <h3 className="text-xs font-bold text-slate-900 leading-snug group-hover:text-indigo-700 transition line-clamp-2">
@@ -945,7 +955,12 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                 <div>
                   <h4 className="text-sm font-bold text-slate-900">Excluir Toda a Evolução Cronológica?</h4>
                   <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                    Deseja excluir definitivamente toda a cadeia de atos vinculados do processo <strong>{dossierToDelete.processNumber}</strong> (total de <strong>{dossierToDelete.totalActs} ato(s)</strong>) do histórico?
+                    {(() => {
+                      const meus = dossierToDelete.analyses.filter((a) => podeExcluirAto(a, currentUid)).length, outros = dossierToDelete.analyses.length - meus;
+                      return outros > 0
+                        ? <>Excluir as suas <strong>{meus} minuta(s)</strong> do processo <strong>{dossierToDelete.processNumber}</strong>? As <strong>{outros} minuta(s) de outros usuários</strong> permanecem: cada usuário só exclui as próprias.</>
+                        : <>Deseja excluir definitivamente toda a cadeia de atos vinculados do processo <strong>{dossierToDelete.processNumber}</strong> (total de <strong>{dossierToDelete.totalActs} ato(s)</strong>) do histórico?</>;
+                    })()}
                   </p>
                 </div>
               </div>

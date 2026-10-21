@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { ProcessDossier, SavedAnalysis, MinuteData } from "../types";
 import { auth } from "../lib/firebase";
+import { podeExcluirAto } from "../utils/historyDb";
 import { detectPromptCategory } from "../utils/promptCategoryHelper";
 
 interface ProcessTimelineModalProps {
@@ -54,7 +55,9 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
   if (!isOpen || !dossier) return null;
 
   const currentUid = auth.currentUser?.uid;
-  const canDeleteDossier = true; // Always allow deleting the dossier evolution
+  // cada usuário só exclui as PRÓPRIAS minutas: o botão do dossiê só aparece se houver ao menos uma sua; ele remove apenas as suas
+  const meusAtos = dossier.analyses.filter((a) => podeExcluirAto(a, currentUid));
+  const canDeleteDossier = meusAtos.length > 0;
 
   const handleCopyProcessNumber = () => {
     navigator.clipboard.writeText(dossier.processNumber);
@@ -68,8 +71,8 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
       onDeleteDossier(dossier);
       onClose();
     } else {
-      // Fallback: delete each analysis
-      dossier.analyses.forEach((a) => onDeleteAnalysis(a));
+      // Fallback: delete each analysis (só as do próprio usuário)
+      meusAtos.forEach((a) => onDeleteAnalysis(a));
       onClose();
     }
   };
@@ -119,7 +122,7 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
               <button
                 onClick={() => setIsConfirmingDeleteAll(true)}
                 className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-400/30 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="Excluir toda a evolução cronológica dos atos vinculados deste processo"
+                title={meusAtos.length < dossier.analyses.length ? "Excluir as SUAS minutas deste processo (as de outros usuários permanecem)" : "Excluir toda a evolução cronológica dos atos vinculados deste processo"}
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Excluir Toda a Evolução</span>
@@ -158,7 +161,7 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
               const isLast = index === dossier.analyses.length - 1;
               const actTitle = act.result?.minute?.title || act.promptTitle || `Ato Judicial #${actNumber}`;
               const isMine = currentUid && act.createdBy === currentUid;
-              const canDelete = true;
+              const canDelete = podeExcluirAto(act, currentUid);
               const dateStr = new Date(act.date).toLocaleDateString("pt-BR");
               const timeStr = new Date(act.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
               const paradigmUsed = act.result?.paradigmUsed;
@@ -320,7 +323,7 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
               <button
                 onClick={() => setIsConfirmingDeleteAll(true)}
                 className="text-rose-600 hover:text-rose-800 text-[11px] sm:text-xs font-bold flex items-center gap-1 hover:underline cursor-pointer"
-                title="Excluir todos os atos vinculados a este processo"
+                title={meusAtos.length < dossier.analyses.length ? "Excluir as SUAS minutas deste processo (as de outros usuários permanecem)" : "Excluir todos os atos vinculados a este processo"}
               >
                 <Trash2 className="w-3 h-3" />
                 <span>Excluir Todos</span>

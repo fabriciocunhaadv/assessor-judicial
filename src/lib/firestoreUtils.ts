@@ -590,8 +590,31 @@ export const updateProcessCategoryInDb = async (
   }
 };
 
-export const deleteHistoryFromDb = async (id: string): Promise<void> => {
+/** Mensagem única para quando alguém tenta excluir a minuta de outro usuário. */
+export const ERRO_NAO_E_DONO_DO_ATO = "Só quem gerou a minuta pode excluí-la. Esta minuta foi gerada por outro usuário do gabinete.";
+
+/** Quem gerou o ato (createdBy). `existe: false` quando o ato não está em nenhum dos caminhos do Histórico. */
+export const lerCriadorDoAto = async (id: string): Promise<{ existe: boolean; createdBy?: string }> => {
+  if (!id) return { existe: false };
+  for (const collPath of getHistoryCollectionPaths()) {
+    try {
+      const ex = await getDoc(doc(db, collPath, id));
+      if (ex.exists()) return { existe: true, createdBy: (ex.data() as any)?.createdBy };
+    } catch { /* tenta o próximo caminho */ }
+  }
+  return { existe: false };
+};
+
+/** Regra de dono: só quem gerou a minuta exclui. Ato sem dono registrado (legado/anônimo) pode ser excluído por qualquer usuário do gabinete. */
+export const ehDonoDoAto = (createdBy: string | undefined | null, uid: string | undefined | null): boolean =>
+  !createdBy || createdBy === "anonymous" || (!!uid && createdBy === uid);
+
+export const deleteHistoryFromDb = async (id: string, opcoes?: { forcar?: boolean }): Promise<void> => {
   if (!auth.currentUser || !id) return;
+  if (!opcoes?.forcar) {
+    const { existe, createdBy } = await lerCriadorDoAto(id);
+    if (existe && !ehDonoDoAto(createdBy, auth.currentUser.uid)) throw new Error(ERRO_NAO_E_DONO_DO_ATO);
+  }
   const paths = getHistoryCollectionPaths();
   
   const results = await Promise.allSettled(
@@ -622,6 +645,7 @@ export const deleteDossierFromDb = async (processNumber: string, unitId?: string
           if (targetUnit !== "montes_claros" && itemUnit !== targetUnit) return false;
           if (targetUnit === "montes_claros" && itemUnit !== "montes_claros" && !!data.unitId) return false;
           
+          if (!ehDonoDoAto(data.createdBy, auth.currentUser?.uid)) return false;      // só as minutas do próprio usuário
           const itemNum = (data.processNumber || data.result?.minute?.processNumber || "").replace(/[^\d]/g, '');
           return (cleanTargetNum && itemNum === cleanTargetNum) || (data.processNumber === processNumber);
         });

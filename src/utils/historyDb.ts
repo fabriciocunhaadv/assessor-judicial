@@ -1,5 +1,8 @@
 import { SavedAnalysis } from "../types";
-import { getHistoryFromDb, saveHistoryToDb, deleteHistoryFromDb, conferirAtoNaNuvem, globalTenantId } from "../lib/firestoreUtils";
+import { getHistoryFromDb, saveHistoryToDb, deleteHistoryFromDb, conferirAtoNaNuvem, lerCriadorDoAto, ehDonoDoAto, ERRO_NAO_E_DONO_DO_ATO, globalTenantId } from "../lib/firestoreUtils";
+
+/** Só quem gerou a minuta pode excluí-la (ato sem dono registrado é de todos). Usado pela tela do Histórico para mostrar ou esconder os botões de excluir. */
+export const podeExcluirAto = (ato: { createdBy?: string } | null | undefined, uid?: string | null): boolean => !!ato && ehDonoDoAto(ato.createdBy, uid);
 import { auth } from "../lib/firebase";
 import { safeGetItem, safeSetItem, safeRemoveItem } from "./safeStorage";
 import { limitarAtoParaNuvem, semListasAninhadas, versaoMinimaDoAto } from "./historicoTamanho";
@@ -196,7 +199,7 @@ export const getHistory = async (): Promise<SavedAnalysis[]> => {
       console.warn(`[History] Pruning ${corruptedIds.length} corrupted/incomplete history items:`, corruptedIds);
       corruptedIds.forEach((id) => {
         addTombstone(id);
-        deleteHistoryFromDb(id).catch(() => {});
+        deleteHistoryFromDb(id, { forcar: true }).catch(() => {});      // limpeza automática de registro corrompido: não é exclusão do usuário
       });
     }
 
@@ -336,13 +339,18 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: bool
   return resultado;
 };
 
-export const deleteFromHistory = async (id: string): Promise<void> => {
+export const deleteFromHistory = async (id: string, opcoes?: { sistema?: boolean }): Promise<void> => {
   if (!id) return;
+  // cada usuário só exclui a PRÓPRIA minuta (a limpeza automática de registro corrompido passa { sistema: true })
+  if (!opcoes?.sistema && auth.currentUser) {
+    const { existe, createdBy } = await lerCriadorDoAto(id);
+    if (existe && !ehDonoDoAto(createdBy, auth.currentUser.uid)) throw new Error(ERRO_NAO_E_DONO_DO_ATO);
+  }
   addTombstone(id);
 
   // 1. Delete from Firestore DB first
   try {
-    await deleteHistoryFromDb(id);
+    await deleteHistoryFromDb(id, { forcar: true });
   } catch (err) {
     console.warn("Could not delete from history DB:", err);
   }
@@ -395,7 +403,7 @@ export const deleteDossierFromHistory = async (processNumber: string, unitId?: s
               const filtered = list.filter((item) => {
                 if (!item) return false;
                 const itemNum = (item.processNumber || item.result?.minute?.processNumber || "").replace(/[^\d]/g, '');
-                const matches = (cleanTargetNum && itemNum === cleanTargetNum) || item.processNumber === processNumber;
+                const matches = ((cleanTargetNum && itemNum === cleanTargetNum) || item.processNumber === processNumber) && ehDonoDoAto(item.createdBy, auth.currentUser?.uid);      // minuta de outro usuário não sai da lista
                 if (matches && item.id) {
                   toTombstone.push(item.id);
                 }
@@ -688,8 +696,9 @@ export const clearAllHistory = async (): Promise<void> => {
   try {
     const list = await getHistoryFromDb();
     for (const item of list) {
+      if (!ehDonoDoAto(item.createdBy, auth.currentUser?.uid)) continue;      // só as minutas do próprio usuário
       addTombstone(item.id);
-      await deleteHistoryFromDb(item.id);
+      await deleteHistoryFromDb(item.id, { forcar: true });
     }
   } catch (err) {
     console.warn("Could not clear all history:", err);

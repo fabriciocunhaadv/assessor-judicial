@@ -1744,7 +1744,7 @@ export default function App() {
     try {
       if (isCorruptedHistoryItem(analysis)) {
         if (analysis.id) {
-          deleteFromHistory(analysis.id).catch(console.warn);
+          deleteFromHistory(analysis.id, { sistema: true }).catch(console.warn);
         }
         alert("Este registro continha erro de processamento e foi removido do histórico.");
         return;
@@ -1759,7 +1759,7 @@ export default function App() {
       if (!loadedResult || !loadedResult.minute || (loadedResult as any).error) {
         console.warn("Corrupted history data, missing minute:", analysis);
         if (analysis.id) {
-          deleteFromHistory(analysis.id).catch(console.warn);
+          deleteFromHistory(analysis.id, { sistema: true }).catch(console.warn);
         }
         alert("Este registro do histórico continha dados incompletos e foi limpo automaticamente.");
         return;
