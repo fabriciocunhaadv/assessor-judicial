@@ -295,6 +295,24 @@ export default function App() {
   });
   const [isProceedingToStage2, setIsProceedingToStage2] = useState<boolean>(false);
   const [isTurboModalOpen, setIsTurboModalOpen] = useState<boolean>(false);
+  // Lupa, Mesa e Turbo abrem no corpo principal e nunca ao mesmo tempo: abrir um fecha os outros
+  const abrirModuloPrincipal = (qual: "lupa" | "mesa" | "turbo") => {
+    setIsMinuteAuditorOpen(qual === "lupa"); setIsHearingWorkbenchModalOpen(qual === "mesa"); setIsTurboModalOpen(qual === "turbo");
+  };
+  // Clicar em qualquer outra opção da barra lateral fecha o módulo aberto e vai para a opção escolhida (os botões que abrem módulos reabrem em seguida, no mesmo clique)
+  const algumModuloAberto = isMinuteAuditorOpen || isHearingWorkbenchModalOpen || isTurboModalOpen;
+  useEffect(() => {
+    if (!algumModuloAberto) return;
+    const aoClicar = (ev: MouseEvent) => {
+      const alvo = ev.target as HTMLElement | null;
+      const lateral = alvo?.closest?.("#sidebar-principal");
+      if (!lateral || !alvo?.closest("button,a")) return;
+      if (alvo.closest("button[title*='barra lateral']")) return;      // só recolher/expandir a barra não fecha o módulo
+      setIsMinuteAuditorOpen(false); setIsHearingWorkbenchModalOpen(false); setIsTurboModalOpen(false);
+    };
+    document.addEventListener("click", aoClicar, true);
+    return () => document.removeEventListener("click", aoClicar, true);
+  }, [algumModuloAberto]);
   const moduloAbertoNaJanela = modoJanela && (((isSuperAdmin || isJudge) && isMinuteAuditorOpen) || isHearingWorkbenchModalOpen || isTurboModalOpen);
   const [turboActiveMinute, setTurboActiveMinute] = useState<any>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
@@ -1926,7 +1944,7 @@ export default function App() {
       
       <Sidebar
         onGoHome={handleClearAllProcess}
-        onOpenMinuteAuditor={() => setIsMinuteAuditorOpen(true)}
+        onOpenMinuteAuditor={() => abrirModuloPrincipal("lupa")}
         onOpenPresentation={() => setIsPresentationOpen(true)}
         onOpenXRay={() => setIsXRayModalOpen(true)}
         onOpenHistory={() => setIsHistoryModalOpen(true)}
@@ -1935,7 +1953,7 @@ export default function App() {
         onOpenLegislativeLookup={() => setIsLegislativeModalOpen(true)}
         onOpenProjudiGuide={() => setIsProjudiGuideModalOpen(true)}
         onOpenCalendar={() => setIsCalendarModalOpen(true)}
-        onOpenHearingWorkbench={() => setIsHearingWorkbenchModalOpen(true)}
+        onOpenHearingWorkbench={() => abrirModuloPrincipal("mesa")}
         onOpenPromptManager={() => setIsPromptManagerOpen(true)}
         tesesCount={(tesesData.text.match(/^\s*\d+\.\s+[^\n]+/gm) || []).length}
         isJudge={isJudge}
@@ -1955,12 +1973,12 @@ export default function App() {
         onOpenLegislativeLookup={() => setIsLegislativeModalOpen(true)}
         onOpenProjudiGuide={() => setIsProjudiGuideModalOpen(true)}
         onOpenCalendar={() => setIsCalendarModalOpen(true)}
-        onOpenHearingWorkbench={() => setIsHearingWorkbenchModalOpen(true)}
+        onOpenHearingWorkbench={() => abrirModuloPrincipal("mesa")}
         onOpenManual={() => setIsManualModalOpen(true)}
         onOpenPresentation={() => setIsPresentationOpen(true)}
-        onOpenMinuteAuditor={() => setIsMinuteAuditorOpen(true)}
+        onOpenMinuteAuditor={() => abrirModuloPrincipal("lupa")}
         onOpenLateralAgent={() => setIsLateralAgentOpen(true)}
-        onOpenTurboModule={() => setIsTurboModalOpen(true)}
+        onOpenTurboModule={() => abrirModuloPrincipal("turbo")}
         onToggleGuide={() => setIsAssessorWorkflowGuideOpen(true)}
         isGuideVisible={isGuideVisible}
         onOpenSuperAdmin={() => setIsSuperAdminPanelOpen(true)}

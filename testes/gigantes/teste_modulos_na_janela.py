@@ -42,6 +42,17 @@ try:
         pg.evaluate("localStorage.setItem('assessor_modulos_na_janela_v1','0'); window.dispatchEvent(new Event('assessor:modulos-janela'))"); pg.wait_for_timeout(600)
         assert pg.evaluate("() => !!document.querySelector('[data-modulo-janela=turbo]')"), "preferência antiga não pode voltar à janela flutuante"
         assert pg.locator("[data-testid=btn-modulos-janela]").count() == 0
+        # navegação: clicar em outra opção fecha o módulo aberto e vai para a opção
+        abertos = lambda: pg.evaluate("() => [...document.querySelectorAll('[data-modulo-janela]')].map(d => d.getAttribute('data-modulo-janela'))")
+        pg.locator("#btn-sidebar-minute-auditor").click(); pg.wait_for_timeout(1200); print("Lupa aberta:", abertos()); assert abertos() == ["lupa"], abertos()
+        pg.locator("#btn-header-turbo-top").first.dispatch_event("click"); pg.wait_for_timeout(1200); print("Turbo por cima:", abertos()); assert abertos() == ["turbo"], abertos()
+        pg.locator("#btn-sidebar-minute-auditor").click(); pg.wait_for_timeout(1200); print("Lupa pela barra lateral:", abertos()); assert abertos() == ["lupa"], abertos()
+        pg.locator("#sidebar-principal button:has-text('Nova Análise')").first.click(); pg.wait_for_timeout(1000); print("Nova Análise:", abertos()); assert abertos() == [], abertos()
+        assert pg.locator("[data-testid=barra-modos]").is_visible(), "o formulário deveria voltar"
+        pg.locator("#btn-sidebar-minute-auditor").click(); pg.wait_for_timeout(1000); pg.locator("button[title*='barra lateral']").first.click(); pg.wait_for_timeout(500)
+        assert abertos() == ["lupa"], "recolher a barra não pode fechar o módulo"
+        pg.locator("button[title*='barra lateral']").first.click(); pg.wait_for_timeout(500)
+        pg.locator("#sidebar-principal button:has-text('Histórico Local')").first.click(); pg.wait_for_timeout(1000); assert abertos() == [], abertos()
         print("OK"); b.close()
 finally:
     os.killpg(vite.pid, 9)
