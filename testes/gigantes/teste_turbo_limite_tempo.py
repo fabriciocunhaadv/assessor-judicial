@@ -1,4 +1,4 @@
-"""Turbo: se o servidor responde o cabeçalho e depois trava, o limite de tempo do módulo precisa disparar (antes ficava esperando para sempre)."""
+"""Turbo: se o servidor responde o cabeçalho e depois trava, o limite de tempo dispara e o processo vai para o segundo plano (análise normal)."""
 import glob, os, subprocess, time, urllib.request, threading, http.server
 AQUI = os.path.dirname(os.path.abspath(__file__)); RAIZ = os.path.abspath(os.path.join(AQUI, "../.."))
 from playwright.sync_api import sync_playwright
@@ -37,9 +37,11 @@ try:
         ex = pg.get_by_role("button", name="Executar Análise Turbo")
         t0 = time.time(); ex.click(); pg.wait_for_timeout(1500)
         print("rodando:", pg.get_by_role("button", name="Processando").count() >= 1)
-        pg.wait_for_selector("text=demorou além do limite", timeout=20000); dt = round(time.time() - t0, 1)
+        pg.evaluate("window.__abriu = 0; window.addEventListener('gigantes:abrir', () => { window.__abriu++ })"); pg.wait_for_selector("text=foi para o segundo plano", timeout=20000); dt = round(time.time() - t0, 1)
         print("limite disparou em", dt, "s"); assert dt < 15, dt
         pg.wait_for_timeout(500); assert pg.get_by_role("button", name="Executar Análise Turbo").is_enabled(), "o botão deveria voltar"
+        assert pg.evaluate("window.__abriu") >= 1, "deveria abrir o painel do segundo plano"
+        jobs = pg.evaluate("""() => new Promise((ok) => { const r = indexedDB.databases ? indexedDB.databases() : Promise.resolve([]); r.then(l => ok(l.map(d => d.name))); })"""); print("bancos:", jobs)
         print("OK"); b.close()
 finally:
     os.killpg(vite.pid, 9)

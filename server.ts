@@ -1466,6 +1466,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
 
         if (alertaInjecaoT) (payload as any).alertaInjecao = alertaInjecaoT;
         if (cobT.cobertura) (payload as any).coberturaLeitura = cobT.cobertura;
+        if (keepAliveInterval) { clearInterval(keepAliveInterval); keepAliveInterval = null; }      // o pulso para antes de a resposta final ser escrita
         if (!res.headersSent) {
             res.json(payload);
         } else {

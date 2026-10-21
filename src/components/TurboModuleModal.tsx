@@ -288,15 +288,10 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
       setPdfFile({ ...pdfFile, text: up.extractedText, paginasSemTexto: up.paginasSemTexto, paginasNaoLidas: up.paginasNaoLidas, paginasOcr: up.paginasOcr });
     }
 
-    const controller = new AbortController();
-    const abortTimeout = setTimeout(() => controller.abort(), (globalThis as any).__turboTimeoutMs ?? 780000); // 13 minutos: processos grandes passam por várias partes e esperam a janela de 1 minuto da IA
-
-    try {
-      const response = await fetch("/api/generate-minute-turbo", {
-        method: "POST",
-        headers: getApiHeaders(),
-        signal: controller.signal,
-        body: JSON.stringify({
+    let controller = new AbortController();
+    let abortTimeout: any = null;
+    const limiteMs = () => (globalThis as any).__turboTimeoutMs ?? 780000; // 13 minutos: processos grandes passam por várias partes e esperam a janela de 1 minuto da IA
+    const corpoDaRequisicao = JSON.stringify({
           // Não duplica o texto no body: envia apenas em processText ou no array de pdfFiles
           processText: inputMode === "text" ? effectiveText : "",
           pdfFiles: inputMode === "pdf" && pdfFile ? [{ name: pdfFile.name, extractedText: textoDosAutos, pageCount: pdfFile.pageCount }] : [],
@@ -308,20 +303,44 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
           promptTitle: selectedPrompt?.title || "",
           promptText: selectedPrompt?.promptText || "",
           promptCategory: selectedPrompt?.category || "",
-        }),
-      });
-      // o servidor responde o cabeçalho logo e mantém a conexão viva enquanto a IA trabalha: o limite de tempo só pode cair DEPOIS de ler o corpo inteiro
-      const rawText = await response.text();
-      clearTimeout(abortTimeout);
-      let data: any = {};
-      try {
-        data = JSON.parse(rawText.trim());
-      } catch {
-        throw new Error("Falha na resposta do servidor. Tente novamente.");
-      }
+        });
 
-      if (!response.ok || data.error) {
-        throw new Error(data.error || `Erro HTTP ${response.status}`);
+    try {
+      // Falha de conexão/servidor (rede caiu, servidor reiniciou, resposta cortada): tenta de novo sozinho até 3 vezes, em vez de pedir ao usuário que clique outra vez
+      let data: any = {};
+      for (let tentativa = 1; ; tentativa++) {
+        controller = new AbortController();
+        abortTimeout = setTimeout(() => controller.abort(), limiteMs());
+        try {
+          const response = await fetch("/api/generate-minute-turbo", { method: "POST", headers: getApiHeaders(), signal: controller.signal, body: corpoDaRequisicao });
+          // o servidor responde o cabeçalho logo e mantém a conexão viva enquanto a IA trabalha: o limite de tempo só pode cair DEPOIS de ler o corpo inteiro
+          const rawText = await response.text();
+          clearTimeout(abortTimeout);
+          const corpo = rawText.trim();
+          try {
+            data = JSON.parse(corpo);
+          } catch {
+            const e: any = new Error(!corpo
+              ? `O servidor interrompeu a conexão antes de entregar a minuta${response.status && response.status !== 200 ? ` (HTTP ${response.status})` : ""}. Pode ter reiniciado ou a rede caiu.`
+              : /^</.test(corpo)
+                ? `O servidor respondeu com uma página de erro (HTTP ${response.status}) em vez da minuta. Ele pode estar reiniciando.`
+                : "A resposta do servidor chegou incompleta (a conexão foi cortada no meio). Tente novamente.");
+            e.transitorio = true;
+            throw e;
+          }
+          if (!response.ok || data.error) {
+            const e: any = new Error(data.error || `Erro HTTP ${response.status}`);
+            e.transitorio = [502, 503, 504].includes(response.status);
+            throw e;
+          }
+          break;
+        } catch (err: any) {
+          clearTimeout(abortTimeout);
+          const transitorio = !!err?.transitorio || (err?.name !== "AbortError" && /Failed to fetch|NetworkError|Load failed|network/i.test(String(err?.message || "")));
+          if (!transitorio || tentativa >= 3) throw err;
+          toast(`Conexão com o servidor interrompida. Tentando de novo (${tentativa + 1}/3)…`, { icon: "🔄" });
+          await new Promise((r) => setTimeout(r, 3000 * tentativa));
+        }
       }
 
       const generated = data.minute as TurboMinute;
@@ -409,6 +428,23 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
     } catch (error: any) {
       clearTimeout(abortTimeout);
       console.error("Erro no Módulo Turbo:", error);
+      // O Turbo não conseguiu: o processo vai para o segundo plano e é refeito pela análise normal padrão (a minuta vai para o Histórico). Só não vale para erro de chave/acesso/texto vazio.
+      const semSaida = /chave|api key|acesso|permiss|n[aã]o autorizad|nenhum texto|forne[cç]a/i.test(String(error?.message || ""));
+      if (!semSaida) {
+        try {
+          const paginasBg = inputMode === "pdf" && pdfFile ? (pdfFile.pageCount || 0) : Math.max(1, Math.ceil(textoDosAutos.length / 3500));
+          const config: ConfigGigante = {
+            promptText: selectedPrompt?.promptText || "", promptTitle: selectedPrompt?.title || "Minuta Turbo", promptId: selectedPrompt?.id, promptCategory: selectedPrompt?.category, promptScope: selectedPrompt?.scope,
+            actType: actType, unitId: activeUnitId, unitName: activeUnitName, instrucao: directive.trim(), origem: "turbo",
+            userUid: user?.uid, userName: user?.displayName || user?.email?.split("@")[0] || "Assessor", userEmail: user?.email || "",
+          };
+          await gerenteGigantes.iniciarComTextos([{ nome: pdfFile?.name || "Texto dos autos (colado)", texto: textoDosAutos, pageCount: paginasBg, semTexto: pdfFile?.paginasSemTexto, naoLidas: pdfFile?.paginasNaoLidas, arquivo: async () => pdfFile?.file || null }], config);
+          window.dispatchEvent(new CustomEvent("gigantes:abrir"));
+          toast("Turbo indisponível agora: este processo foi para o segundo plano e será refeito pela análise normal. A minuta irá para o Histórico.", { icon: "🔁", duration: 12000 });
+          setIsLoading(false);
+          return;
+        } catch (bgErr) { console.warn("Segundo plano do Turbo:", bgErr); }
+      }
       if (error.name === "AbortError") {
         toast.error("O processamento turbo demorou além do limite (timeout). Tente novamente.");
       } else {
