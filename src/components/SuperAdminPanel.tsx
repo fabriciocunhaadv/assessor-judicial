@@ -125,6 +125,8 @@ interface SuperAdminPanelProps {
   onOpenTicketsModal?: () => void;
 }
 
+// a limpeza automática (ficar só o último snapshot) roda uma vez por abertura do sistema; depois o super admin decide o que excluir
+let limpezaSnapsFeita = false;
 export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClose, onOpenTicketsModal }) => {
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<'tenants' | 'users' | 'snapshots' | 'broadcast' | 'migration' | 'tokens' | 'erros'>('tenants');
@@ -139,6 +141,10 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
   const [snapshotToRestore, setSnapshotToRestore] = useState<GlobalDatabaseSnapshot | null>(null);
   const [isRestoringSnapshot, setIsRestoringSnapshot] = useState(false);
   const [snapshotToDelete, setSnapshotToDelete] = useState<string | null>(null);
+  const [snapSel, setSnapSel] = useState<string[]>([]);
+  const [confirmarExclusao, setConfirmarExclusao] = useState<string[] | null>(null);
+  const [excluindoSnaps, setExcluindoSnaps] = useState<{ feitos: number; total: number } | null>(null);
+  const [erroExclusao, setErroExclusao] = useState('');
   const [isHealingDatabase, setIsHealingDatabase] = useState(false);
   const [healReport, setHealReport] = useState<{
     tenantsHealed: string[];
@@ -370,7 +376,8 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
       setGlobalUsers(usersList);
       setAllInvites(invitesList);
       setSnapshots(snapshotsList);
-      if (snapshotsList.length > 1) {
+      if (snapshotsList.length > 1 && !limpezaSnapsFeita) {
+        limpezaSnapsFeita = true;
         // limpeza única: só o último snapshot fica no banco
         manterSomenteUltimoSnapshot().then((n) => { if (n > 0) { getGlobalDatabaseSnapshots().then(setSnapshots).catch(() => {}); } }).catch(() => {});
       }
@@ -1206,6 +1213,20 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
     } finally {
       setIsRestoringSnapshot(false);
     }
+  };
+
+  /** Exclui vários snapshots (um a um, mostrando o andamento) e diz o motivo real se algum falhar. */
+  const excluirSnapshots = async (ids: string[]) => {
+    setErroExclusao(''); setExcluindoSnaps({ feitos: 0, total: ids.length });
+    let ok = 0, falhas = 0, primeiroErro = '';
+    for (const id of ids) {
+      try { await deleteGlobalDatabaseSnapshot(id); ok++; setSnapshots(prev => prev.filter(x => x.id !== id)); setSnapSel(prev => prev.filter(x => x !== id)); }
+      catch (e: any) { falhas++; if (!primeiroErro) primeiroErro = String(e?.message || e); }
+      setExcluindoSnaps({ feitos: ok + falhas, total: ids.length });
+    }
+    setExcluindoSnaps(null); setConfirmarExclusao(null);
+    if (falhas) setErroExclusao(`${falhas} de ${ids.length} não foram excluídos. Motivo: ${primeiroErro}`);
+    if (ok) showSuccessToast(`${ok} snapshot(s) excluído(s).`);
   };
 
   const handleDeleteSnapshot = async (snapshotId: string) => {
@@ -3048,6 +3069,39 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                 </div>
               </div>
 
+              {/* Excluir vários / todos */}
+              {snapshots.length > 0 && (
+                <div data-testid="barra-excluir-snapshots" className="flex flex-wrap items-center gap-2 text-xs bg-slate-900/70 border border-slate-800 rounded-xl px-3 py-2">
+                  <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                    <input type="checkbox" data-testid="snap-check-todos" className="w-4 h-4 accent-rose-500"
+                      checked={filteredSnapshots.length > 0 && filteredSnapshots.every(x => snapSel.includes(x.id))}
+                      onChange={(e) => setSnapSel(e.target.checked ? filteredSnapshots.map(x => x.id) : [])} />
+                    Selecionar todos ({filteredSnapshots.length})
+                  </label>
+                  <button type="button" data-testid="btn-excluir-selecionados" disabled={snapSel.length === 0 || !!excluindoSnaps}
+                    onClick={() => { setErroExclusao(''); setConfirmarExclusao([...snapSel]); }}
+                    className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-bold cursor-pointer flex items-center gap-1.5">
+                    <Trash2 className="w-3.5 h-3.5" /> Excluir selecionados ({snapSel.length})
+                  </button>
+                  <button type="button" data-testid="btn-excluir-menos-recente" disabled={snapshots.length < 2 || !!excluindoSnaps}
+                    onClick={() => { setErroExclusao(''); setConfirmarExclusao(snapshots.slice(1).map(x => x.id)); }}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-slate-700 font-bold cursor-pointer">
+                    Excluir todos, menos o mais recente
+                  </button>
+                </div>
+              )}
+
+              {confirmarExclusao && (
+                <div data-testid="confirma-exclusao-snapshots" className="bg-rose-950/60 border border-rose-500/50 rounded-xl px-4 py-3 text-xs text-rose-100 flex flex-wrap items-center gap-3">
+                  <span className="flex-1 min-w-[200px]">
+                    {excluindoSnaps ? `Excluindo… ${excluindoSnaps.feitos} de ${excluindoSnaps.total}` : `Excluir ${confirmarExclusao.length} snapshot(s)? Não dá para desfazer.`}
+                  </span>
+                  <button type="button" disabled={!!excluindoSnaps} onClick={() => setConfirmarExclusao(null)} className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-200 border border-slate-700 font-bold cursor-pointer disabled:opacity-40">Cancelar</button>
+                  <button type="button" data-testid="btn-confirmar-exclusao" disabled={!!excluindoSnaps} onClick={() => excluirSnapshots(confirmarExclusao)} className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold cursor-pointer disabled:opacity-40">Confirmar exclusão</button>
+                </div>
+              )}
+              {erroExclusao && <div data-testid="erro-exclusao-snapshots" className="bg-amber-950/60 border border-amber-500/50 rounded-xl px-4 py-2 text-xs text-amber-100">{erroExclusao}</div>}
+
               {/* Snapshots List */}
               {isLoadingSnapshots ? (
                 <div className="p-12 text-center text-slate-400 text-xs flex flex-col items-center gap-3">
@@ -3102,6 +3156,14 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
                         key={snap.id}
                         className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 transition shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4"
                       >
+                        <input
+                          type="checkbox"
+                          data-testid="snap-check"
+                          checked={snapSel.includes(snap.id)}
+                          onChange={(e) => setSnapSel(prev => e.target.checked ? [...prev, snap.id] : prev.filter(x => x !== snap.id))}
+                          className="w-4 h-4 accent-rose-500 cursor-pointer shrink-0"
+                          title="Selecionar para excluir"
+                        />
                         <div className="space-y-2 flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${triggerInfo.color}`}>
@@ -3173,7 +3235,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
 
                           <button
                             type="button"
-                            onClick={() => setSnapshotToDelete(snap.id)}
+                            onClick={() => { setErroExclusao(''); setConfirmarExclusao([snap.id]); }}
                             className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/80 text-slate-400 hover:text-rose-400 border border-slate-700 hover:border-rose-800 transition flex items-center justify-center cursor-pointer"
                             title="Excluir este snapshot"
                           >

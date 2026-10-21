@@ -17,7 +17,7 @@ const aplicar = (atual: any, novo: any) => {
   }
   return o;
 };
-export const setDoc = async (ref: any, dados: any) => { if (!/error_events/.test(ref._path || "")) return (base as any).setDoc(ref, dados); mem[ref._path] = aplicar(mem[ref._path], dados); };
+export const setDoc = async (ref: any, dados: any) => { if (!/error_events|system_snapshots/.test(ref._path || "")) return (base as any).setDoc(ref, dados); mem[ref._path] = aplicar(mem[ref._path], dados); };
 export const updateDoc = async (ref: any, dados: any) => {
   if (!/error_events/.test(ref._path || "")) return;
   if (!mem[ref._path]) { const e: any = new Error("not-found"); e.code = "not-found"; throw e; }
@@ -25,7 +25,12 @@ export const updateDoc = async (ref: any, dados: any) => {
 };
 export const getDocs = async (ref: any) => {
   const p = String(ref?._path || "");
-  if (!/error_events$/.test(p)) return (base as any).getDocs(ref);
+  if (!/(error_events|system_snapshots)$/.test(p)) return (base as any).getDocs(ref);
   const docs = Object.entries(mem).filter(([k]) => k.startsWith(p + "/")).map(([k, v]) => ({ id: k.split("/").pop(), data: () => v, exists: () => true }));
   return { docs, empty: docs.length === 0, size: docs.length, forEach: (f: any) => docs.forEach(f) };
+};
+export const deleteDoc = async (ref: any) => {
+  if (!/system_snapshots/.test(ref?._path || "")) return (base as any).deleteDoc(ref);
+  if ((globalThis as any).__fsFalhaExcluir) { const e: any = new Error("Missing or insufficient permissions."); e.code = "permission-denied"; throw e; }
+  delete mem[ref._path];
 };
