@@ -299,15 +299,15 @@ export default function App() {
   const abrirModuloPrincipal = (qual: "lupa" | "mesa" | "turbo") => {
     setIsMinuteAuditorOpen(qual === "lupa"); setIsHearingWorkbenchModalOpen(qual === "mesa"); setIsTurboModalOpen(qual === "turbo");
   };
-  // Clicar em qualquer outra opção da barra lateral fecha o módulo aberto e vai para a opção escolhida (os botões que abrem módulos reabrem em seguida, no mesmo clique)
+  // Só "Nova Análise" (barra lateral) fecha o módulo aberto e volta ao formulário; as demais opções da barra lateral não fecham nada
   const algumModuloAberto = isMinuteAuditorOpen || isHearingWorkbenchModalOpen || isTurboModalOpen;
   useEffect(() => {
     if (!algumModuloAberto) return;
     const aoClicar = (ev: MouseEvent) => {
       const alvo = ev.target as HTMLElement | null;
-      const lateral = alvo?.closest?.("#sidebar-principal");
-      if (!lateral || !alvo?.closest("button,a")) return;
-      if (alvo.closest("button[title*='barra lateral']")) return;      // só recolher/expandir a barra não fecha o módulo
+      if (!alvo?.closest?.("#sidebar-principal")) return;
+      const botao = alvo.closest("button[title='Nova Análise']");
+      if (!botao) return;
       setIsMinuteAuditorOpen(false); setIsHearingWorkbenchModalOpen(false); setIsTurboModalOpen(false);
     };
     document.addEventListener("click", aoClicar, true);
