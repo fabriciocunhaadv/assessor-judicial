@@ -52,8 +52,8 @@ def main():
             pg.locator("button[title='Atualizar lista']").click(); pg.wait_for_timeout(1000)
             pg.locator("button[title='Excluir este snapshot']").first.click(); pg.locator("[data-testid=btn-confirmar-exclusao]").click(); pg.wait_for_timeout(900)
             print("6) lixeira individual:", n()); assert n() == 2
-            vis = pg.evaluate("() => { const t = document.querySelector('[data-testid=abas-super-admin]'); const r = t.getBoundingClientRect(); return { larg: r.width, rolagem: t.scrollWidth > t.clientWidth + 1, abas: [...t.querySelectorAll('button')].map(x => { const q = x.getBoundingClientRect(); return q.right <= window.innerWidth + 1 && q.left >= -1; }) }; }")
-            print("7) abas:", vis); assert not vis["rolagem"] and all(vis["abas"]), vis
+            vis = pg.evaluate("() => { const t = document.querySelector('[data-testid=abas-super-admin]'); const r = t.getBoundingClientRect(); return { linhas: new Set([...t.querySelectorAll('button')].map(x => Math.round(x.getBoundingClientRect().top))).size, larg: r.width, rolagem: t.scrollWidth > t.clientWidth + 1, abas: [...t.querySelectorAll('button')].map(x => { const q = x.getBoundingClientRect(); return q.right <= window.innerWidth + 1 && q.left >= -1; }) }; }")
+            print("7) abas:", vis); assert not vis["rolagem"] and all(vis["abas"]) and vis["linhas"] == 1, vis
             pg.screenshot(path="/tmp/claude-0/work/mob/snapshots.png")
             print("OK"); b.close()
     finally:

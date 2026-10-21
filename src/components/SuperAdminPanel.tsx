@@ -1758,62 +1758,64 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
         </div>
 
         {/* Tab Navigation com labels responsivas e scroll horizontal limpo */}
-        <div data-testid="abas-super-admin" className="px-2.5 sm:px-5 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center gap-x-1 gap-y-0 shrink-0">
+        <div data-testid="abas-super-admin" className="px-2 sm:px-4 border-b border-slate-800 bg-slate-950 flex items-center gap-0.5 shrink-0 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('erros')}
+            title="Monitor de erros"
             data-testid="aba-monitor-erros"
-            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+            className={`px-2.5 py-2.5 text-[11px] sm:text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
               activeTab === 'erros'
                 ? 'border-rose-500 text-rose-400 bg-rose-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Bug className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-rose-400" />
-            <span>Monitor de erros</span>
+            <span>Erros</span>
           </button>
 
           <button
             onClick={() => setActiveTab('tenants')}
-            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+            title="Gabinetes contratantes"
+            className={`px-2.5 py-2.5 text-[11px] sm:text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
               activeTab === 'tenants'
                 ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span className="sm:hidden">Gabinetes ({tenants.length})</span>
-            <span className="hidden sm:inline">Gabinetes Contratantes ({tenants.length})</span>
+            <span>Gabinetes</span><span className="ml-0.5 px-1.5 py-px rounded-full bg-slate-800 text-slate-300 text-[10px] font-bold">{tenants.length}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+            title="Usuários globais do SaaS"
+            className={`px-2.5 py-2.5 text-[11px] sm:text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
               activeTab === 'users'
                 ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span className="sm:hidden">Usuários ({globalUsers.length})</span>
-            <span className="hidden sm:inline">Usuários Globais do SaaS ({globalUsers.length})</span>
+            <span>Usuários</span><span className="ml-0.5 px-1.5 py-px rounded-full bg-slate-800 text-slate-300 text-[10px] font-bold">{globalUsers.length}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('snapshots')}
-            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+            title="Snapshots & segurança"
+            className={`px-2.5 py-2.5 text-[11px] sm:text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
               activeTab === 'snapshots'
                 ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-emerald-400" />
-            <span className="sm:hidden">Snapshots ({snapshots.length})</span>
-            <span className="hidden sm:inline">Snapshots & Segurança ({snapshots.length})</span>
+            <span>Snapshots</span><span className="ml-0.5 px-1.5 py-px rounded-full bg-slate-800 text-slate-300 text-[10px] font-bold">{snapshots.length}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('broadcast')}
-            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+            title="Comunicado global"
+            className={`px-2.5 py-2.5 text-[11px] sm:text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
               activeTab === 'broadcast'
                 ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -1825,28 +1827,28 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
 
           <button
             onClick={() => setActiveTab('migration')}
-            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+            title="Migração de banco legado"
+            className={`px-2.5 py-2.5 text-[11px] sm:text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
               activeTab === 'migration'
                 ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Database className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span className="sm:hidden">Migração</span>
-            <span className="hidden sm:inline">Migração de Banco Legado</span>
+            <span>Migração</span>
           </button>
 
           <button
             onClick={() => setActiveTab('tokens')}
-            className={`px-3 sm:px-4 py-2.5 sm:py-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
+            title="Uso da chave nativa (tokens)"
+            className={`px-2.5 py-2.5 text-[11px] sm:text-xs font-bold border-b-2 transition flex items-center gap-1.5 sm:gap-2 shrink-0 whitespace-nowrap ${
               activeTab === 'tokens'
                 ? 'border-amber-500 text-amber-400 bg-amber-500/10'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-amber-400" />
-            <span className="sm:hidden">Uso de Tokens</span>
-            <span className="hidden sm:inline">Uso da Chave Nativa (Tokens)</span>
+            <span>Tokens</span>
           </button>
         </div>
 
