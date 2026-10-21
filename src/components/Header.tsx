@@ -293,6 +293,21 @@ export const Header: React.FC<HeaderProps> = ({
         >
           {/* Botões movidos para o Sidebar */}
 
+          {/* BOTÃO ESSENCIAL: chave de API (sem ela a análise não roda), com a situação em cor */}
+          {onOpenApiKeyConfig && (
+            <button
+              id="btn-header-api-key-top"
+              data-testid="btn-chave-api-topo"
+              onClick={onOpenApiKeyConfig}
+              className={`relative flex items-center gap-1.5 px-2.5 h-[30px] rounded-lg font-bold text-[11px] transition cursor-pointer border ${hasApiKey ? "bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 border-emerald-500/40" : "bg-amber-950/60 hover:bg-amber-900/70 text-amber-300 border-amber-500/50"}`}
+              title={hasApiKey ? "Chave de API ativa. Clique para gerenciar" : "Configure a sua chave de API Gemini para analisar processos"}
+            >
+              <Key className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">{hasApiKey ? "Chave ativa" : "Chave API"}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${hasApiKey ? "bg-emerald-400" : "bg-amber-400 animate-pulse"}`} />
+            </button>
+          )}
+
           {/* BOTÃO COPILOTO IA NO TOPO (AO LADO DE CONFIGURAÇÕES) */}
           {onOpenLateralAgent && (
             <button
@@ -507,7 +522,7 @@ export const Header: React.FC<HeaderProps> = ({
                     className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-slate-100 font-semibold text-xs transition cursor-pointer text-left w-full"
                   >
                     <Bot className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>Tutor IA: {isGuideVisible ? 'ON' : 'OFF'}</span>
+                    <span>Como iniciar uma análise (guia)</span>
                   </button>
                 )}
 
@@ -1197,9 +1212,8 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <div className="flex items-center gap-2.5">
                         <Bot className="w-4 h-4 text-slate-400 shrink-0" />
-                        <span>Tutor IA</span>
+                        <span>Como iniciar uma análise (guia)</span>
                       </div>
-                      <span className="text-[10px] font-bold text-slate-400">{isGuideVisible ? "ON" : "OFF"}</span>
                     </button>
                   )}
                 </div>

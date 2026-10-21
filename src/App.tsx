@@ -28,7 +28,6 @@ import { UserManagerModal } from "./components/UserManagerModal";
 import { UnitManagerModal } from "./components/UnitManagerModal";
 import { BindingPrecedentsModal } from "./components/BindingPrecedentsModal";
 import { XRayModal } from "./components/XRayModal";
-import { FloatingGuide } from "./components/FloatingGuide";
 import { SystemBroadcastBanner } from "./components/SystemBroadcastBanner";
 import { MinuteAuditorModal } from "./components/MinuteAuditorModal";
 import { ApiKeyBanner } from "./components/ApiKeyBanner";
@@ -1959,7 +1958,7 @@ export default function App() {
         onOpenMinuteAuditor={() => setIsMinuteAuditorOpen(true)}
         onOpenLateralAgent={() => setIsLateralAgentOpen(true)}
         onOpenTurboModule={() => setIsTurboModalOpen(true)}
-        onToggleGuide={() => setIsGuideVisible(prev => !prev)}
+        onToggleGuide={() => setIsAssessorWorkflowGuideOpen(true)}
         isGuideVisible={isGuideVisible}
         onOpenSuperAdmin={() => setIsSuperAdminPanelOpen(true)}
         onOpenUserManager={() => setIsUserModalOpen(true)}
@@ -2844,20 +2843,6 @@ export default function App() {
         onClose={() => setIsPetitionPanelOpen(false)}
         currentUserEmail={user?.email || userProfile?.email || ""}
       />
-      <FloatingGuide
-        onOpenSuperAdmin={() => setIsSuperAdminPanelOpen(true)} 
-        onOpenUserManager={() => setIsUserModalOpen(true)}
-        onOpenPetitionPanel={() => setIsPetitionPanelOpen(true)}
-        isLoading={isLoading}
-        loadingStep={loadingStep}
-        pdfCount={pdfFiles.length}
-        activeModal={determineActiveModal()}
-        hasResult={!!generationResult}
-        isVisible={isGuideVisible}
-        onClose={() => setIsGuideVisible(false)}
-        onOpenApiKeyConfig={() => setIsApiKeyModalOpen(true)}
-      />
-
       <LateralAgentDrawer
         isOpen={isLateralAgentOpen}
         onToggle={() => setIsLateralAgentOpen(prev => !prev)}
