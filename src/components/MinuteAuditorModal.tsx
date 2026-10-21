@@ -1655,7 +1655,7 @@ ${reAuditNotes}`
   if (!isOpen) return null;
 
   return (
-    <div style={areaPrincipal ? { position: "relative" } : undefined} data-modulo-janela={areaPrincipal ? "lupa" : undefined} className={areaPrincipal ? "fixed flex items-stretch justify-center p-0 bg-slate-950 w-full h-[76vh] rounded-xl border border-slate-800 overflow-hidden" : "fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in"}>
+    <div style={areaPrincipal ? { position: "relative" } : undefined} data-modulo-janela={areaPrincipal ? "lupa" : undefined} className={areaPrincipal ? "fixed flex items-stretch justify-center p-0 bg-slate-950 w-full h-[84vh] rounded-xl border border-slate-800 overflow-hidden" : "fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in"}>
       {dialogCobertura}
       {dlgDossie && <ProcessoGrandeDialog modulo="lupa" paginas={dlgDossie.paginas} tokens={dlgDossie.tokens} corte={dlgDossie.corte} onEscolha={dlgDossie.resolver} />}
       <div className={areaPrincipal ? "bg-slate-900 border-0 w-full max-w-none h-full flex flex-col overflow-hidden text-slate-100" : "bg-slate-900 border border-amber-500/40 sm:rounded-2xl w-full max-w-6xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[94vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"}>

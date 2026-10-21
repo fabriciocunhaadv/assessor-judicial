@@ -25,8 +25,9 @@ try:
         dentro = pg.evaluate("() => { const h = [...document.querySelectorAll('h2')].find((e) => /Lupa do Magistrado/.test(e.textContent)); const d = h.closest('div.fixed'); return { noMain: !!d.closest('main'), pos: getComputedStyle(d).position, form: getComputedStyle(document.querySelector('main > div.grid, main > div.hidden')).display }; }"); print("   dentro do <main>:", dentro)
         assert c and dentro["noMain"] and dentro["pos"] == "relative" and dentro["form"] == "none", (c, dentro)
         assert abs(c["w"] - ref["mainW"] + 2 * (ref["mainW"] - c["w"]) / 2) >= 0 and c["w"] > 0.9 * (ref["mainW"] - 40), (c, ref)
+        assert pg.locator("[data-testid=barra-modos]").is_hidden(), "a barra de modos deveria sumir com o módulo aberto"
         pg.screenshot(path="/tmp/claude-0/work/mob/lupa_na_janela.png")
-        pg.locator("button:has-text('Fechar')").last.click(); pg.wait_for_timeout(600); assert caixa_lupa() is None
+        pg.locator("button:has-text('Fechar')").last.click(); pg.wait_for_timeout(600); assert caixa_lupa() is None and pg.locator("[data-testid=barra-modos]").is_visible()
         # Mesa
         pg.locator("#btn-header-hearing-workbench-tools").first.dispatch_event("click"); pg.wait_for_timeout(1500)
         m = pg.evaluate("() => { const d = document.querySelector('.mesa-escura'); if (!d) return null; const r = d.getBoundingClientRect(); return { top: r.top, left: r.left, w: r.width, noMain: !!d.closest('main'), pos: getComputedStyle(d).position }; }"); print("Mesa:", m)

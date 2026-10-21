@@ -1999,7 +1999,7 @@ export default function App() {
       />
 
       {/* Mode & View Layout Toggle Banner */}
-      <div className="max-w-[1600px] mx-auto w-full px-3 sm:px-4 md:px-5 mt-2 sm:mt-3 mb-2 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+      <div data-testid="barra-modos" className={`${moduloAbertoNaJanela ? "hidden " : ""}max-w-[1600px] mx-auto w-full px-3 sm:px-4 md:px-5 mt-2 sm:mt-3 mb-2 flex flex-col sm:flex-row items-center justify-between gap-2.5`}>
         {/* Notebook / View Layout Toggle */}
         <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-full p-1 shadow-xs text-xs font-bold text-slate-600">
           <button

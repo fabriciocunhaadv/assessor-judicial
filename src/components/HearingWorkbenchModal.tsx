@@ -791,7 +791,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div style={areaPrincipal ? { position: "relative" } : undefined} data-modulo-janela={areaPrincipal ? "mesa" : undefined} className={areaPrincipal ? "mesa-escura fixed flex items-stretch justify-center bg-slate-950 p-0 w-full h-[76vh] rounded-xl border border-slate-800 overflow-hidden" : "mesa-escura fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-3 md:p-4 animate-in fade-in duration-200"}>
+    <div style={areaPrincipal ? { position: "relative" } : undefined} data-modulo-janela={areaPrincipal ? "mesa" : undefined} className={areaPrincipal ? "mesa-escura fixed flex items-stretch justify-center bg-slate-950 p-0 w-full h-[84vh] rounded-xl border border-slate-800 overflow-hidden" : "mesa-escura fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-0 sm:p-3 md:p-4 animate-in fade-in duration-200"}>
       {dlgDossie && <ProcessoGrandeDialog modulo="mesa" paginas={dlgDossie.paginas} tokens={dlgDossie.tokens} corte={dlgDossie.corte} onEscolha={dlgDossie.resolver} />}
       <div
         className={`bg-slate-900 border-0 sm:border border-slate-700/80 rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100 transition-all duration-300 w-full ${
