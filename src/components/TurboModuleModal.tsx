@@ -65,6 +65,7 @@ interface TurboHistoryItem {
   title: string;
   parties: string;
   elapsedSeconds: string;
+  userName?: string;
   minute: TurboMinute;
 }
 
@@ -129,14 +130,16 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
     }
   });
   const [viewHistoryItem, setViewHistoryItem] = useState<TurboHistoryItem | null>(null);
+  const [mostrarTodosHistorico, setMostrarTodosHistorico] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<any>(null);
 
   useEffect(() => {
-    try {
-      localStorage.setItem("assessor_turbo_history", JSON.stringify(turboHistory.slice(-15)));
-    } catch {}
+    // guarda até 100 (o mais recente primeiro); se o navegador ficar sem espaço, guarda menos
+    for (const n of [100, 50, 25, 15]) {
+      try { localStorage.setItem("assessor_turbo_history", JSON.stringify(turboHistory.slice(0, n))); break; } catch { /* tenta com menos */ }
+    }
   }, [turboHistory]);
 
   // Cronômetro em tempo real
@@ -399,9 +402,10 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
         title: generated.title || "Minuta Turbo",
         parties: `${generated.parties?.author || generated.author || "Parte Autora"} vs ${generated.parties?.defendant || generated.defendant || "Parte Ré"}`,
         elapsedSeconds: stats?.elapsedSeconds || "15",
+        userName: user?.displayName || auth.currentUser?.displayName || (user?.email || auth.currentUser?.email || "").split("@")[0] || "Assessor",
         minute: generated,
       };
-      setTurboHistory((prev) => [historyEntry, ...prev.slice(0, 14)]);
+      setTurboHistory((prev) => [historyEntry, ...prev.slice(0, 99)]);
     } catch (error: any) {
       clearTimeout(abortTimeout);
       console.error("Erro no Módulo Turbo:", error);
@@ -927,8 +931,13 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
                   <div className="flex items-center justify-between text-xs text-slate-400">
                     <span className="flex items-center gap-1 font-bold">
                       <Clock className="w-3.5 h-3.5 text-amber-400" />
-                      Minutas Recentes no Módulo Turbo:
+                      {mostrarTodosHistorico ? `Todas as minutas do Módulo Turbo (${turboHistory.length}):` : "Minutas Recentes no Módulo Turbo:"}
                     </span>
+                    {turboHistory.length > 4 && (
+                      <button type="button" data-testid="turbo-historico-todos" onClick={() => setMostrarTodosHistorico(v => !v)} className="ml-auto mr-3 text-amber-300 hover:text-amber-200 font-bold cursor-pointer">
+                        {mostrarTodosHistorico ? "Mostrar menos" : `Mostrar todos (${turboHistory.length})`}
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setTurboHistory([]);
@@ -941,8 +950,8 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {turboHistory.slice(0, 4).map((item) => (
+                  <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 ${mostrarTodosHistorico ? "max-h-[40vh] overflow-y-auto pr-1" : ""}`}>
+                    {(mostrarTodosHistorico ? turboHistory : turboHistory.slice(0, 4)).map((item) => (
                       <div
                         key={item.id}
                         onClick={() => setViewHistoryItem(item)}
@@ -954,6 +963,9 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
                           </p>
                           <p className="text-[10px] text-slate-400 truncate">
                             {item.parties}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate" data-testid="turbo-historico-quem-quando" title={`${item.userName || "Usuário não registrado"} · ${item.date}`}>
+                            {item.userName || "Usuário não registrado"} · {item.date}
                           </p>
                         </div>
                         <span className="text-[10px] text-amber-400 font-mono font-bold shrink-0">
