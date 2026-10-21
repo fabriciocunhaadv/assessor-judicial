@@ -289,7 +289,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
     }
 
     const controller = new AbortController();
-    const abortTimeout = setTimeout(() => controller.abort(), 780000); // 13 minutos: processos grandes passam por várias partes e esperam a janela de 1 minuto da IA
+    const abortTimeout = setTimeout(() => controller.abort(), (globalThis as any).__turboTimeoutMs ?? 780000); // 13 minutos: processos grandes passam por várias partes e esperam a janela de 1 minuto da IA
 
     try {
       const response = await fetch("/api/generate-minute-turbo", {
@@ -310,9 +310,9 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
           promptCategory: selectedPrompt?.category || "",
         }),
       });
-      clearTimeout(abortTimeout);
-
+      // o servidor responde o cabeçalho logo e mantém a conexão viva enquanto a IA trabalha: o limite de tempo só pode cair DEPOIS de ler o corpo inteiro
       const rawText = await response.text();
+      clearTimeout(abortTimeout);
       let data: any = {};
       try {
         data = JSON.parse(rawText.trim());
