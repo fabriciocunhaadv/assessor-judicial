@@ -58,7 +58,7 @@ import {
 } from "./types";
 import { subscribeToTickets, getLocalTickets, isTicketModuleEnabled } from "./utils/ticketsDb";
 import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
-import { saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
+import { retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
 import { findDossierForProcess, getProcessActsSummaryForPrompt } from "./utils/dossierUtils";
 import { ProcessTimelineModal } from "./components/ProcessTimelineModal";
 import { LegislativeLookupModal } from "./components/LegislativeLookupModal";
@@ -299,6 +299,8 @@ export default function App() {
   const abrirModuloPrincipal = (qual: "lupa" | "mesa" | "turbo") => {
     setIsMinuteAuditorOpen(qual === "lupa"); setIsHearingWorkbenchModalOpen(qual === "mesa"); setIsTurboModalOpen(qual === "turbo");
   };
+  // ao abrir o sistema logado: reenvia ao Histórico o que ficou pendente no disco (aba recarregada/fechada no meio da gravação)
+  useEffect(() => { if (user?.uid) retomarHistoricoPendente(); }, [user?.uid]);
   // Só "Nova Análise" (barra lateral) fecha o módulo aberto e volta ao formulário; as demais opções da barra lateral não fecham nada
   const algumModuloAberto = isMinuteAuditorOpen || isHearingWorkbenchModalOpen || isTurboModalOpen;
   useEffect(() => {

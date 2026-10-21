@@ -223,6 +223,32 @@ export const getHistory = async (): Promise<SavedAnalysis[]> => {
 };
 
 // ===== Gravação do Histórico na nuvem: limite de tamanho, prazo, fila de pendentes e reenvio =====
+
+// ---- Pendentes DURÁVEIS: o ato é guardado no disco do navegador ANTES de ir para a nuvem e só sai de lá depois de gravado. ----
+// Se a aba recarregar, fechar ou perder a rede no meio da gravação, o ato é reenviado quando o sistema abrir de novo (antes, a fila só existia na memória da aba).
+const IDB_NOME = "assessor_historico_pendente", IDB_LOJA = "atos";
+const abrirIdb = (): Promise<IDBDatabase | null> => new Promise((ok) => {
+  try {
+    if (typeof indexedDB === "undefined") return ok(null);
+    const r = indexedDB.open(IDB_NOME, 1);
+    r.onupgradeneeded = () => { try { r.result.createObjectStore(IDB_LOJA, { keyPath: "id" }); } catch { /* já existe */ } };
+    r.onsuccess = () => ok(r.result); r.onerror = () => ok(null); r.onblocked = () => ok(null);
+  } catch { ok(null); }
+});
+const idbFazer = async <T,>(modo: IDBTransactionMode, f: (loja: IDBObjectStore) => IDBRequest<T> | void): Promise<T | undefined> => {
+  const bd = await abrirIdb(); if (!bd) return undefined;
+  return new Promise((ok) => {
+    try {
+      const tx = bd.transaction(IDB_LOJA, modo), req = f(tx.objectStore(IDB_LOJA));
+      tx.oncomplete = () => { const v = req ? (req as IDBRequest<T>).result : undefined; try { bd.close(); } catch { /* ok */ } ok(v); };
+      tx.onerror = tx.onabort = () => { try { bd.close(); } catch { /* ok */ } ok(undefined); };
+    } catch { try { bd.close(); } catch { /* ok */ } ok(undefined); }
+  });
+};
+const guardarPendenteNoDisco = (a: SavedAnalysis) => idbFazer("readwrite", (l) => { l.put({ id: a.id, ato: limitarAtoParaNuvem(a).dado, guardadoEm: Date.now() }); });
+const tirarPendenteDoDisco = (id: string) => idbFazer("readwrite", (l) => { l.delete(id); });
+const lerPendentesDoDisco = async (): Promise<SavedAnalysis[]> => ((await idbFazer<any[]>("readonly", (l) => l.getAll())) || []).map((x) => x?.ato).filter((x) => x && x.id);
+
 const pendentesHistorico = new Map<string, SavedAnalysis>();      // atos que ainda não foram para a nuvem (só enquanto a aba estiver aberta)
 const comPrazoHistorico = <T,>(p: Promise<T>, ms: number): Promise<T> => new Promise((ok, falha) => {
   const t = setTimeout(() => falha(new Error("tempo esgotado ao gravar na nuvem (conexão lenta ou sem rede)")), ms);
@@ -244,11 +270,12 @@ const enviarHistoricoParaNuvem = async (analysis: SavedAnalysis, ms: number) => 
 };
 let reenvioHistoricoIniciado = false, reenviandoHistorico = false;
 export const reenviarHistoricoPendente = async (): Promise<void> => {
-  if (reenviandoHistorico || !auth.currentUser || pendentesHistorico.size === 0) return;
+  if (reenviandoHistorico || !auth.currentUser) return;
   reenviandoHistorico = true;
   try {
+    for (const doDisco of await lerPendentesDoDisco()) if (!pendentesHistorico.has(doDisco.id)) pendentesHistorico.set(doDisco.id, doDisco);
     for (const [id, ato] of Array.from(pendentesHistorico.entries())) {
-      try { await enviarHistoricoParaNuvem(ato, 30000); pendentesHistorico.delete(id); try { toast.success(`Ato ${ato.processNumber || ""} gravado no Histórico.`, { duration: 6000 }); } catch { /* sem toast */ } }
+      try { await enviarHistoricoParaNuvem(ato, 30000); pendentesHistorico.delete(id); await tirarPendenteDoDisco(id); try { toast.success(`Ato ${ato.processNumber || ""} gravado no Histórico.`, { duration: 6000 }); } catch { /* sem toast */ } }
       catch (e) { console.warn("[Histórico] reenvio falhou:", descreverErroHistorico(e)); }
     }
   } finally { reenviandoHistorico = false; }
@@ -259,6 +286,9 @@ const iniciarReenvioHistorico = () => {
   window.addEventListener("online", () => { void reenviarHistoricoPendente(); });
   setInterval(() => { void reenviarHistoricoPendente(); }, 60000);
 };
+
+/** Chamar uma vez ao abrir o sistema com o usuário logado: reenvia o que ficou pendente no disco (aba recarregada/fechada no meio da gravação). */
+export const retomarHistoricoPendente = () => { iniciarReenvioHistorico(); void reenviarHistoricoPendente(); };
 
 export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: boolean; erro?: string }> => {
   if (!analysis || !analysis.id) return { ok: false, erro: "ato sem identificador" };
@@ -272,9 +302,11 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: bool
   let resultado: { ok: boolean; erro?: string } = { ok: true };
   if (auth.currentUser) {
     iniciarReenvioHistorico();
+    await guardarPendenteNoDisco(analysis);
     try {
       await enviarHistoricoParaNuvem(analysis, 25000);
       pendentesHistorico.delete(analysis.id);
+      await tirarPendenteDoDisco(analysis.id);
     } catch (err) {
       resultado = { ok: false, erro: descreverErroHistorico(err) };
       console.warn("Could not save history to Firestore DB:", err);
