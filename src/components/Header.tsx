@@ -1,3 +1,4 @@
+import { useExtensaoStatus, URL_EXTENSAO_CHROME_STORE } from "./AvisoExtensao";
 import React, { useState, useEffect } from "react";
 import {
   Server,
@@ -19,6 +20,7 @@ import {
   UserCheck,
   ShieldCheck,
   Key,
+  Puzzle,
   Crown,
   Award,
   Gavel,
@@ -124,6 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
     setSuperAdminActiveTenant
   } = useAuth();
   const currentUid = userProfile?.uid;
+  const extStatus = useExtensaoStatus();
   const [stats, setStats] = useState<ApiUsageStats | null>(null);
   const [hasApiKey, setHasApiKey] = useState<boolean>(() => hasCustomApiKey(currentUid));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -408,6 +411,20 @@ export const Header: React.FC<HeaderProps> = ({
 
 
                 <div className="h-[1px] w-full bg-slate-800 my-0.5" />
+
+                {URL_EXTENSAO_CHROME_STORE && (
+                  <a
+                    id="btn-header-extensao"
+                    href={URL_EXTENSAO_CHROME_STORE}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-slate-100 font-semibold text-xs transition cursor-pointer text-left w-full relative"
+                    title="Abrir a página da extensão Conclusões Projudi na Chrome Web Store"
+                  >
+                    <Puzzle className={`w-3.5 h-3.5 shrink-0 ${extStatus === "instalada" ? "text-emerald-400" : "text-amber-400"}`} />
+                    <span>{extStatus === "instalada" ? "Extensão do Chrome (instalada)" : "Instalar extensão do Chrome"}</span>
+                  </a>
+                )}
 
                 {onOpenApiKeyConfig && (
                   <button
@@ -1077,6 +1094,25 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                   )}
 
+
+                  {URL_EXTENSAO_CHROME_STORE && (
+                    <a
+                      href={URL_EXTENSAO_CHROME_STORE}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-between border border-slate-700 transition"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Puzzle className={`w-4 h-4 ${extStatus === "instalada" ? "text-emerald-400" : "text-amber-400"}`} />
+                        <span>Extensão do Chrome</span>
+                      </div>
+                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                        extStatus === "instalada" ? "bg-emerald-950 text-emerald-300 border border-emerald-700/60" : "bg-amber-950 text-amber-300 border border-amber-700/60"
+                      }`}>
+                        {extStatus === "instalada" ? "INSTALADA" : "INSTALAR"}
+                      </span>
+                    </a>
+                  )}
 
                   {onOpenApiKeyConfig && (
                     <button

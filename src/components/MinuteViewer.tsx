@@ -118,6 +118,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
 }) => {
   const { user, userProfile, isJudge } = useAuth();
   const userName = userProfile?.name?.split(" ")[0] || user?.displayName?.split(" ")[0] || "Gabinete";
+  const [chatAberto, setChatAberto] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "formatted" | "preAudit" | "original" | "compare" | "history" | "editor" | "projudi" | "fatoVsProva" | "compliance" | "calculator" | "synopsis"
   >("formatted");
@@ -1125,7 +1126,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
   };
 
   return (
-    <div ref={topViewerRef} className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col">
+    <div ref={topViewerRef} className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden md:overflow-visible flex flex-col">
       {/* Toast Notification when Minute is Auto-Updated by Chat */}
       {updateNotification && (
         <div className="bg-emerald-600 text-white text-xs px-4 py-2 flex items-center justify-between font-medium animate-in fade-in slide-in-from-top-2">
@@ -1413,20 +1414,23 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
         </div>
       )}
 
-      {/* Tabs Navigation */}
-      <div id="tour-result-tabs" className="flex items-center border-b border-slate-200 bg-slate-50 px-3 overflow-x-auto">
+      {/* Abas: no computador viram um trilho suspenso na lateral esquerda (só ícones; abre com o mouse); no celular continuam na horizontal */}
+      <div className="md:flex md:items-start">
+      <div className="md:w-14 md:shrink-0 md:relative md:self-stretch">
+      <div id="tour-result-tabs" data-testid="trilho-abas" className="group/trilho flex items-center border-b border-slate-200 bg-slate-50 px-3 overflow-x-auto md:sticky md:top-52 md:ml-1.5 md:z-30 md:flex-col md:items-stretch md:gap-0.5 md:w-11 md:hover:w-60 md:focus-within:w-60 md:border md:border-slate-300 md:rounded-2xl md:shadow-xl md:bg-white/95 md:backdrop-blur md:p-1 md:overflow-hidden md:transition-[width] md:duration-200">
         <button
           onClick={() => setActiveTab("formatted")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "formatted" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "formatted"
               ? "border-emerald-600 text-slate-800 bg-white"
               : "border-transparent text-slate-600 hover:text-emerald-600"
           }`}
-        >
+        
+          title="Minuta do Ato">
           <Eye className="w-3.5 h-3.5" />
-          <span>Minuta do Ato</span>
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Minuta do Ato</span>
           {isMinuteModified && (
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-50 text-slate-800 border border-emerald-200 font-semibold" title="Minuta com refinos ou edições">
+            <span className="md:hidden md:group-hover/trilho:inline ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-50 text-slate-800 border border-emerald-200 font-semibold" title="Minuta com refinos ou edições">
               Refinada
             </span>
           )}
@@ -1434,7 +1438,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
 
         <button
           onClick={() => setActiveTab("preAudit")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "preAudit" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "preAudit"
               ? "border-emerald-600 text-emerald-950 bg-emerald-50/50 shadow-xs font-black"
               : "border-transparent text-slate-600 hover:text-emerald-600"
@@ -1442,13 +1446,13 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           title="Ver o certificado e o diagnóstico completo de auditoria prévia da minuta contra os autos do PDF"
         >
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Pré-Auditoria dos Autos</span>
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Pré-Auditoria dos Autos</span>
           {result?.auditAnalysis?.preAudit ? (
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-bold shadow-2xs">
+            <span className="md:hidden md:group-hover/trilho:inline ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-bold shadow-2xs">
               {result.auditAnalysis.preAudit.score}%
             </span>
           ) : result?.auditAnalysis ? (
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-bold shadow-2xs">
+            <span className="md:hidden md:group-hover/trilho:inline ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-600 text-white font-bold shadow-2xs">
               100%
             </span>
           ) : null}
@@ -1457,7 +1461,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
         {result?.holisticSynopsis && (
           <button
             onClick={() => setActiveTab("synopsis")}
-            className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+            className={`${activeTab === "synopsis" ? "md:bg-amber-100 md:ring-1 md:ring-amber-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
               activeTab === "synopsis"
                 ? "border-amber-600 text-amber-950 bg-amber-50/70 font-black shadow-xs"
                 : "border-transparent text-slate-600 hover:text-amber-600"
@@ -1465,8 +1469,8 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
             title="Visualizar a Sinopse Holística Forense dos autos em 5 pilares estruturados sem omissões fáticas"
           >
             <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-            <span>Sinopse Holística dos Autos</span>
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-amber-200 text-amber-900 border border-amber-300 font-bold">
+            <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Sinopse Holística dos Autos</span>
+            <span className="md:hidden md:group-hover/trilho:inline ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-amber-200 text-amber-900 border border-amber-300 font-bold">
               5 Pilares
             </span>
           </button>
@@ -1474,7 +1478,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
 
         <button
           onClick={() => setActiveTab("editor")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "editor" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "editor"
               ? "border-emerald-600 text-slate-800 bg-white shadow-xs"
               : "border-transparent text-slate-600 hover:text-emerald-600"
@@ -1482,12 +1486,12 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           title="Editar manualmente o texto da minuta e salvar diretamente"
         >
           <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Editar Minuta</span>
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Editar Minuta</span>
         </button>
 
         <button
           onClick={() => setActiveTab("original")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "original" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "original"
               ? "border-amber-600 text-amber-900 bg-white"
               : "border-transparent text-slate-600 hover:text-emerald-600"
@@ -1495,15 +1499,15 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           title="Acessar o 1º modelo original gerado pela IA antes de quaisquer alterações no chat ou edições manuais"
         >
           <Bookmark className="w-3.5 h-3.5 text-amber-600" />
-          <span>1º Modelo Original</span>
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-amber-100 text-amber-800 border border-amber-300 font-bold">
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">1º Modelo Original</span>
+          <span className="md:hidden md:group-hover/trilho:inline ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-amber-100 text-amber-800 border border-amber-300 font-bold">
             Base
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("compare")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "compare" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "compare"
               ? "border-indigo-600 text-indigo-900 bg-white"
               : "border-transparent text-slate-600 hover:text-emerald-600"
@@ -1511,12 +1515,12 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           title="Comparar versões lado a lado com destaque de alterações"
         >
           <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Comparar Versões</span>
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Comparar Versões</span>
         </button>
 
         <button
           onClick={() => setActiveTab("history")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "history" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "history"
               ? "border-indigo-600 text-indigo-900 bg-white"
               : "border-transparent text-slate-600 hover:text-emerald-600"
@@ -1524,69 +1528,74 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           title="Histórico cronológico de minutas e refinos salvos"
         >
           <History className="w-3.5 h-3.5 text-slate-600" />
-          <span>Histórico</span>
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold">
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Histórico</span>
+          <span className="md:hidden md:group-hover/trilho:inline ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold">
             {versions.length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("fatoVsProva")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "fatoVsProva" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "fatoVsProva"
               ? "border-emerald-600 text-slate-800 bg-white"
               : "border-transparent text-slate-600 hover:text-emerald-600"
           }`}
-        >
+        
+          title="Fato vs. Prova">
           <FileCheck2 className="w-3.5 h-3.5 text-emerald-600" />
-          Fato vs. Prova
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700">
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Fato vs. Prova</span>
+          <span className="md:hidden md:group-hover/trilho:inline ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700">
             {result.auditAnalysis?.fatoVsProva?.length || 0}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("compliance")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "compliance" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "compliance"
               ? "border-emerald-600 text-slate-800 bg-white"
               : "border-transparent text-slate-600 hover:text-emerald-600"
           }`}
-        >
+        
+          title="Checklist Processual">
           <Scale className="w-3.5 h-3.5 text-emerald-600" />
-          Checklist Processual
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Checklist Processual</span>
         </button>
 
         <button
           onClick={() => setActiveTab("calculator")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "calculator" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "calculator"
               ? "border-emerald-600 text-slate-800 bg-white"
               : "border-transparent text-slate-600 hover:text-emerald-600"
           }`}
-        >
+        
+          title="Lei 14.905/2024">
           <Calculator className="w-3.5 h-3.5 text-purple-600" />
-          Lei 14.905/2024
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Lei 14.905/2024</span>
         </button>
 
         <button
           onClick={() => setActiveTab("projudi")}
-          className={`py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+          className={`${activeTab === "projudi" ? "md:bg-emerald-100 md:ring-1 md:ring-emerald-500" : "md:hover:bg-slate-100"} py-2.5 px-3 text-xs font-bold border-b-2 whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 md:border-b-0 md:rounded-xl md:py-2 md:px-2.5 md:w-full md:justify-start md:shrink-0 ${
             activeTab === "projudi"
               ? "border-emerald-600 text-slate-800 bg-white"
               : "border-transparent text-slate-600 hover:text-emerald-600"
           }`}
-        >
+        
+          title="Texto Projudi">
           <FileText className="w-3.5 h-3.5 text-slate-500" />
-          <span>Texto Projudi</span>
+          <span className="md:hidden md:group-hover/trilho:inline md:group-focus-within/trilho:inline">Texto Projudi</span>
           {effectiveTpu && (
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-blue-100 text-blue-800 font-bold border border-blue-200">
+            <span className="md:hidden md:group-hover/trilho:inline ml-1 px-1.5 py-0.2 rounded-full text-[9px] bg-blue-100 text-blue-800 font-bold border border-blue-200">
               TPU {effectiveTpu.codigoTpu}
             </span>
           )}
         </button>
       </div>
-
+      </div>
+      <div className="md:flex-1 md:min-w-0">
       {/* Main Tab Content */}
       <div ref={tabContentRef} className="p-5 overflow-y-auto max-h-[520px] relative">
         {!hasLinkedParadigm && (
@@ -2532,9 +2541,26 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           </div>
         )}
       </div>
+      </div>
+      </div>
 
       {/* Enhanced Chat Panel for Assessor Fabrício */}
-      <div id="tour-result-chat" className="bg-slate-50 border-t border-slate-200 p-3.5 space-y-2.5">
+      {!chatAberto && (
+        <div data-testid="barra-chat-fechado" className="bg-slate-50 border-t border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-[11px] text-slate-500 flex items-center gap-1.5"><Bot className="w-4 h-4 text-emerald-600" />Quer ajustar a minuta ou tirar dúvidas sobre o caso?{chatMessages.length > 0 && <span className="font-semibold text-slate-700"> ({chatMessages.length} mensagem(ns) na conversa)</span>}</span>
+          <button
+            type="button"
+            data-testid="abrir-chat-gemini"
+            onClick={() => setChatAberto(true)}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:brightness-110 text-white text-xs font-black flex items-center gap-2 shadow-lg ring-2 ring-emerald-300/60 cursor-pointer transition"
+            title="Abrir o chat para reescrever trechos da minuta ou fazer perguntas"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Editar com o chat Gemini</span>
+          </button>
+        </div>
+      )}
+      <div id="tour-result-chat" data-testid="painel-chat-gemini" className={chatAberto ? "fixed bottom-4 right-4 z-[60] w-[min(96vw,540px)] max-h-[82vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-300 bg-slate-50 p-3.5 space-y-2.5" : "hidden"}>
         {/* Top bar of Assistant with Title and Limpar Chat button */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
@@ -2543,6 +2569,16 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="fechar-chat-gemini"
+              onClick={() => setChatAberto(false)}
+              className="px-2 py-0.5 text-[11px] font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded flex items-center gap-1 transition cursor-pointer border border-slate-300"
+              title="Recolher o chat (a conversa é mantida)"
+            >
+              <X className="w-3 h-3" />
+              <span>Recolher</span>
+            </button>
             {chatMessages.length > 0 && (
               <button
                 onClick={handleClearChatOnly}

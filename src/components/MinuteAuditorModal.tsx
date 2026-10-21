@@ -806,17 +806,15 @@ ${specificInstructions}`
       setAuditStep("Lendo e confrontando peças processuais dos autos com a minuta...");
     }
 
-    const stepInterval = setInterval(() => {
-      setAuditStep((curr) => {
-        if (curr.includes("Lendo e confrontando"))
-          return "Mapeando pedidos da inicial e teses de defesa (Princípio da Congruência)...";
-        if (curr.includes("Mapeando pedidos"))
-          return "Verificando se o assessor valorou todos os documentos e provas do PDF...";
-        if (curr.includes("Verificando se o assessor"))
-          return "Conferindo preliminares, réplica e riscos de nulidade citra petita...";
-        return "Calculando pontuação e formulando feedback de orientação para o assessor...";
-      });
-    }, 1800);
+    // Andamento REAL: o servidor informa a etapa em curso (levantamento dos fatos, conferência da minuta, validação das provas)
+    const progressoId = `lupa-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+    const stepInterval = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/progresso/${encodeURIComponent(progressoId)}`, { cache: "no-store" });
+        const j = await r.json();
+        if (j?.texto) setAuditStep(`${j.texto}${typeof j.pct === "number" ? ` (${j.pct}%)` : ""}`);
+      } catch { /* o andamento é só informativo */ }
+    }, 1500);
 
     try {
       // Consolidate full process text (text box + all extracted texts from uploaded PDFs)
@@ -836,7 +834,7 @@ ${specificInstructions}`
 
       const response = await fetch("/api/audit-assessor-draft", {
         method: "POST",
-        headers: getApiHeaders(),
+        headers: getApiHeaders({ "x-progresso-id": progressoId }),
         body: JSON.stringify({
           draftText,
           processText: fullProcessText || processText,
@@ -1815,23 +1813,6 @@ ${reAuditNotes}`
                 </button>
               )}
 
-              <button
-                onClick={() => handleOpenSaveTeseModal()}
-                className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                title="Salvar fundamentação auditada no Caderno de Teses do Gabinete"
-              >
-                <BookmarkPlus className="w-3.5 h-3.5 text-amber-400" />
-                <span>Salvar Tese</span>
-              </button>
-
-              <button
-                onClick={() => handleCopyText(auditResult.assessorFeedbackMessage, "headerFeedback")}
-                className="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                title="Copiar feedback pedagógico para envio ao assessor no WhatsApp"
-              >
-                {copiedSection === "headerFeedback" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />}
-                <span>{copiedSection === "headerFeedback" ? "Copiado!" : "WhatsApp"}</span>
-              </button>
             </div>
           )}
         </div>
@@ -2481,22 +2462,6 @@ ${reAuditNotes}`
                               <Edit3 className="w-4 h-4 text-slate-300" />
                             </button>
 
-                            {/* WhatsApp */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopyText(latest.auditResult?.assessorFeedbackMessage || "", `card-${latest.id}`);
-                              }}
-                              className="p-2 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs transition cursor-pointer"
-                              title="Copiar mensagem para WhatsApp do assessor"
-                            >
-                              {copiedSection === `card-${latest.id}` ? (
-                                <Check className="w-4 h-4" />
-                              ) : (
-                                <MessageSquare className="w-4 h-4" />
-                              )}
-                            </button>
 
                             {/* Toggle Version History Drawer */}
                             <button
@@ -2625,17 +2590,6 @@ ${reAuditNotes}`
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleCopyText(rec.auditResult?.assessorFeedbackMessage || "", `rec-${rec.id}`);
-                                        }}
-                                        className="p-1.5 bg-emerald-950 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs"
-                                        title="Copiar WhatsApp"
-                                      >
-                                        {copiedSection === `rec-${rec.id}` ? <Check className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-                                      </button>
-                                      <button
-                                        type="button"
                                         onClick={(e) => handleDeleteRecord(rec.id, e)}
                                         className="p-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/40 rounded-lg text-xs"
                                         title="Excluir apenas esta versão"
@@ -2667,6 +2621,17 @@ ${reAuditNotes}`
               {auditResult.alertaInjecao && <AvisoPromptInjection info={auditResult.alertaInjecao} />}
               {auditResult.gigante && <AvisoGigante info={auditResult.gigante} />}
               {auditResult.coberturaLeitura && <AvisoCoberturaLeitura info={auditResult.coberturaLeitura} />}
+              {auditResult.avisoModelo?.fraco && (
+                <div data-testid="aviso-modelo-fraco" className="p-3 rounded-xl border border-amber-500/50 bg-amber-950/40 text-amber-200 text-xs">
+                  <strong>Modelo reduzido:</strong> {auditResult.avisoModelo.mensagem} <span className="text-amber-400/80">({auditResult.avisoModelo.modelo})</span>
+                </div>
+              )}
+              {auditResult.scoreCalculo && (
+                <div data-testid="nota-por-regra" className="text-[11px] text-slate-400 leading-relaxed">
+                  <strong className="text-slate-300">Nota calculada por regra:</strong> {auditResult.scoreCalculo.regra.join(" ")}
+                  {typeof auditResult.apontamentosDescartados === "number" && auditResult.apontamentosDescartados > 0 && <> {auditResult.apontamentosDescartados} apontamento(s) da IA foram descartados por não trazerem prova literal.</>}
+                </div>
+              )}
 
               {/* SCORE CARD & VERDICT BANNER */}
               <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-amber-500/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
@@ -2939,10 +2904,19 @@ ${reAuditNotes}`
                           <span>{alert.title}</span>
                         </div>
                         <p className="text-xs opacity-90 leading-relaxed">{alert.description}</p>
+                        {alert.minutaTrecho && (
+                          <blockquote data-testid="alerta-trecho-minuta" className="text-[11px] border-l-2 border-amber-400/70 pl-2 text-slate-200"><strong className="text-amber-300">Na minuta:</strong> “{alert.minutaTrecho}”</blockquote>
+                        )}
+                        {alert.autosTrecho && (
+                          <blockquote data-testid="alerta-trecho-autos" className="text-[11px] border-l-2 border-sky-400/70 pl-2 text-slate-200"><strong className="text-sky-300">Nos autos:</strong> “{alert.autosTrecho}”</blockquote>
+                        )}
                         {alert.recommendation && (
                           <div className="pt-1 text-[11px] font-semibold text-amber-300">
                             <strong>Orientação ao Assessor:</strong> {alert.recommendation}
                           </div>
+                        )}
+                        {alert.origem === "codigo" && (
+                          <div className="text-[10px] uppercase tracking-wider text-slate-400">conferência automática por código</div>
                         )}
                       </div>
                     ))}
@@ -2959,11 +2933,11 @@ ${reAuditNotes}`
                       Cadeia Processual (4 Pontos):
                     </span>
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[11px]" title="Ponto 1: Gênese">
-                      1. Gênese: <strong className="text-amber-300">{auditResult.proceduralChain.genese?.movement || "Mov. 1"}</strong>
+                      1. Gênese: <strong className="text-amber-300">{auditResult.proceduralChain.genese?.movement || "não identificada"}</strong>
                     </span>
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[11px]" title="Ponto 2: Cadeia de Decisões">
-                      2. Preclusão: <strong className={auditResult.proceduralChain.cadeiaDecisoes?.preclusaoRespected !== false ? "text-emerald-300" : "text-rose-300"}>
-                        {auditResult.proceduralChain.cadeiaDecisoes?.preclusaoRespected !== false ? "Respeitada" : "Risco"}
+                      2. Preclusão: <strong className={auditResult.proceduralChain.cadeiaDecisoes?.preclusaoRespected === undefined ? "text-slate-400" : auditResult.proceduralChain.cadeiaDecisoes?.preclusaoRespected !== false ? "text-emerald-300" : "text-rose-300"}>
+                        {auditResult.proceduralChain.cadeiaDecisoes?.preclusaoRespected === undefined ? "Não avaliada" : auditResult.proceduralChain.cadeiaDecisoes?.preclusaoRespected !== false ? "Respeitada" : "Risco"}
                       </strong>
                     </span>
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[11px]" title="Ponto 3: Atos Subsequentes">
@@ -3515,11 +3489,15 @@ ${reAuditNotes}`
                           </h4>
                         </div>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          auditResult.proceduralChain?.cadeiaDecisoes?.preclusaoRespected !== false
+                          auditResult.proceduralChain?.cadeiaDecisoes?.preclusaoRespected === undefined
+                            ? "bg-slate-900 text-slate-400 border-slate-600/50"
+                            : auditResult.proceduralChain?.cadeiaDecisoes?.preclusaoRespected !== false
                             ? "bg-emerald-950 text-emerald-300 border-emerald-500/40"
                             : "bg-rose-950 text-rose-300 border-rose-500/50"
                         }`}>
-                          {auditResult.proceduralChain?.cadeiaDecisoes?.preclusaoRespected !== false
+                          {auditResult.proceduralChain?.cadeiaDecisoes?.preclusaoRespected === undefined
+                            ? "Preclusão não avaliada"
+                            : auditResult.proceduralChain?.cadeiaDecisoes?.preclusaoRespected !== false
                             ? "✓ Preclusão Respeitada"
                             : "⚠️ Alerta de Preclusão"}
                         </span>
@@ -3799,21 +3777,13 @@ ${reAuditNotes}`
                 </div>
               )}
 
-              {/* SUB-TAB 4: FEEDBACK WHATSAPP */}
+              {/* SUB-TAB 4: MENSAGEM AO ASSESSOR */}
               {activeAnalysisSubTab === "feedback" && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-slate-300">
                       Mensagem técnica e pedagógica redigida pelo sistema para o Magistrado enviar diretamente ao Assessor:
                     </p>
-                    <button
-                      onClick={() => handleCopyText(auditResult.assessorFeedbackMessage, "feedbackTab")}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-xs"
-                      title="Copiar mensagem para colar no WhatsApp ou chat do assessor"
-                    >
-                      {copiedSection === "feedbackTab" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedSection === "feedbackTab" ? "Copiado!" : "Copiar para WhatsApp"}</span>
-                    </button>
                   </div>
 
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 text-xs font-mono whitespace-pre-wrap leading-relaxed shadow-inner">
@@ -3925,14 +3895,6 @@ ${reAuditNotes}`
                     <option value="arquivado">Arquivado</option>
                   </select>
 
-                  <button
-                    onClick={() => handleOpenSaveTeseModal(editingDraftText, "Minuta Paradigma do Juiz")}
-                    className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer"
-                    title="Salvar esta minuta completa no acervo de paradigmas do juiz"
-                  >
-                    <BookmarkPlus className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Salvar como Paradigma</span>
-                  </button>
 
                   {onOpenCopilot && (
                     <button

@@ -605,6 +605,15 @@ export interface CriticalAuditAlert {
   title: string;
   description: string;
   recommendation: string;
+  severity?: "bloqueante" | "atencao" | "informativo";
+  pillar?: string;
+  suggestedFix?: string;
+  location?: string;
+  /** contradicao | omissao | sem_lastro | forma: define qual prova literal o servidor exige. */
+  tipoProva?: string;
+  minutaTrecho?: string;
+  autosTrecho?: string;
+  origem?: "ia" | "codigo";
 }
 
 export interface AlertResolutionItem {
@@ -708,6 +717,12 @@ export interface AssessorDraftAuditResult {
   systemGeneratedMinute?: string;
   comparison?: AuditComparisonResult;
   modelUsed?: string;
+  /** Como a nota foi calculada (regra do servidor) e a nota que o modelo daria. */
+  scoreCalculo?: { regra: string[]; notaDoModelo: number | null };
+  /** Apontamentos da IA descartados por não trazerem prova literal nos autos/minuta. */
+  apontamentosDescartados?: number;
+  etapas?: { fichaDosAutos: boolean };
+  avisoModelo?: { fraco: boolean; modelo: string; mensagem: string };
   holisticSynopsis?: string;
   deduplicationStats?: {
     duplicatesFound: number;

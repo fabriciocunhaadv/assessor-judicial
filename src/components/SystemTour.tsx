@@ -328,7 +328,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
       placement: "bottom",
     },
     {
-      target: "#tour-result-chat",
+      target: "[data-testid=barra-chat-fechado]",
       content: (
         <div className="text-left font-sans space-y-1.5">
           <h3 className="font-bold text-md text-emerald-800">Assistente do Gabinete (Chat Interativo) 💬</h3>

@@ -5,13 +5,15 @@ LIM = int(sys.argv[2]) if len(sys.argv) > 2 else 250000
 JAN = {}          # (modelo) -> [(t, tokens)]
 LOG = []
 lock = threading.Lock()
-FORA = {'on': False}      # /__503?on=1: o Google responde 503 (alta demanda) a tudo
+FORA = {'on': False, 'lite': False}      # /__503?on=1: o Google responde 503 (alta demanda) a tudo
 def tokens(body): return int(len(body) / 3.5)
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
         if self.path == '/__reset':
             JAN.clear(); LOG.clear(); self.send_response(200); self.end_headers(); return
+        if self.path.startswith("/__lite"):
+            FORA['lite'] = 'on=1' in self.path; self.send_response(200); self.end_headers(); return
         if self.path.startswith("/__503"):
             FORA['on'] = 'on=1' in self.path; self.send_response(200); self.end_headers(); return
         if self.path == "/__log":
@@ -22,7 +24,7 @@ class H(BaseHTTPRequestHandler):
         m = re.search(r"models/([^:/]+):generateContent", self.path)
         modelo = m.group(1) if m else "?"
         n = tokens(raw)
-        if FORA['on']:
+        if FORA['on'] or (FORA['lite'] and 'lite' not in modelo):
             LOG.append({"t": time.time(), "modelo": modelo, "tok": n, "res": 503})
             b = json.dumps({"error": {"code": 503, "message": "This model is currently experiencing high demand. Spikes in demand are usually temporary.", "status": "UNAVAILABLE"}}).encode()
             self.send_response(503); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
@@ -54,6 +56,23 @@ class H(BaseHTTPRequestHandler):
             dg = {"resumo": "O Google respondeu 503 em alta demanda.", "causa_provavel": "Pico de demanda no cluster do Gemini; passageiro.", "gravidade": "media", "origem_provavel": "google_ia", "acao_para_usuario": "Tentar de novo em alguns minutos ou usar o segundo plano.", "sugestoes": [{"tipo": "configuracao", "titulo": "Aumentar a espera entre ciclos", "descricao": "Subir o intervalo de resfriamento do modelo.", "onde": "fila de modelos do servidor", "risco": "baixo", "esforco": "pequeno"}], "precisa_desenvolvedor": False, "confianca": "media"}
             b = json.dumps({"candidates": [{"content": {"role": "model", "parts": [{"text": json.dumps(dg, ensure_ascii=False)}]}, "finishReason": "STOP", "index": 0}], "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 10, "totalTokenCount": 20}}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
+        def _resp(obj):
+            b = json.dumps({"candidates": [{"content": {"role": "model", "parts": [{"text": json.dumps(obj, ensure_ascii=False)}]}, "finishReason": "STOP", "index": 0}], "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 10, "totalTokenCount": 20}, "modelVersion": modelo}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        if "devolve a FICHA DOS AUTOS" in sist or "FICHA DOS AUTOS, um mapa" in sist:
+            LOG[-1]["p"] = "lupa_ficha"
+            return _resp({"numeroProcesso": "", "partes": [{"nome": "Fulano", "papel": "autor", "loc": "Mov. 1, Arq. 1, Pág. 1"}], "pedidos": [], "decisoes": [], "atosSubsequentes": [], "solicitacoesAoJuizo": [{"origem": "Juízo de Custódia", "pedido": "esclarecer prazo", "respondido": False, "loc": "Mov. 5, Arq. 1, Pág. 1"}], "datas": [], "valores": [], "pendenciasFormais": [], "estadoAtual": "concluso"})
+        if "juiz de direito auditor rigoroso" in sist:
+            LOG[-1]["p"] = "lupa_audit"
+            dm = re.search(r"MINUTA SUBMETIDA PELO ASSESSOR PARA AUDITORIA:\n(.*?)\n\n----------------------------------------", txt, re.S)
+            am = re.search(r"AUTOS DO PROCESSO:\n(.*?)\n----------------------------------------\nMINUTA SUBMETIDA", txt, re.S)
+            draft = (dm.group(1) if dm else ""); autos_t = (am.group(1) if am else "")
+            mt = draft.strip()[:70]; at = autos_t.strip()[:70]
+            alertas = [
+                {"severity": "bloqueante", "pillar": "adstricao", "title": "Pedido não apreciado", "description": "A minuta omite o pedido.", "suggestedFix": "Apreciar o pedido.", "location": "Dispositivo", "tipoProva": "contradicao", "minutaTrecho": mt, "autosTrecho": at},
+                {"severity": "atencao", "pillar": "provas", "title": "Apontamento inventado (sem prova)", "description": "Citação que não existe.", "suggestedFix": "—", "location": "Relatório", "tipoProva": "contradicao", "minutaTrecho": "frase que a minuta jamais escreveu sobre um fato inexistente nos autos", "autosTrecho": "trecho que os autos jamais trouxeram sobre outra coisa qualquer"},
+            ]
+            return _resp({"score": 99, "verdict": "Aprovada sem Ressalvas", "summary": "Resumo da auditoria simulada.", "criticalAlerts": alertas, "assessorFeedbackMessage": "", "suggestedCorrectionSnippet": "", "systemGeneratedMinute": ""})
         if "leitor de documentos judiciais (OCR)" in txt:
             nums = [int(x) for x in re.findall(r"PÁGINA (\d+):", txt)]
             paginas = [{"pagina": nn, "texto": f"CONTESTAÇÃO lida por OCR. FATO-{500 + nn % 100} registrado na página {nn}. O réu junta o comprovante.", "emBranco": False} for nn in nums]
