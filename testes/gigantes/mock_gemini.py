@@ -5,6 +5,7 @@ LIM = int(sys.argv[2]) if len(sys.argv) > 2 else 250000
 JAN = {}          # (modelo) -> [(t, tokens)]
 LOG = []
 lock = threading.Lock()
+FICHA = {'modo': '', 'n': 0}      # /__ficha?modo=cortada|vazia|primeira_vazia: simula a IA devolvendo a ficha cortada, vazia, ou vazia só na 1ª tentativa
 FORA = {'on': False, 'lite': False}      # /__503?on=1: o Google responde 503 (alta demanda) a tudo
 def tokens(body): return int(len(body) / 3.5)
 class H(BaseHTTPRequestHandler):
@@ -16,6 +17,8 @@ class H(BaseHTTPRequestHandler):
             FORA['lite'] = 'on=1' in self.path; self.send_response(200); self.end_headers(); return
         if self.path.startswith("/__503"):
             FORA['on'] = 'on=1' in self.path; self.send_response(200); self.end_headers(); return
+        if self.path.startswith("/__ficha"):
+            FICHA['modo'] = (re.search(r"modo=(\w+)", self.path) or [None, ''])[1] if 'modo=' in self.path else ''; FICHA['n'] = 0; self.send_response(200); self.end_headers(); return
         if self.path == "/__log":
             self.send_response(200); self.end_headers(); self.wfile.write(json.dumps(LOG).encode()); return
         self.send_response(404); self.end_headers()
@@ -105,7 +108,12 @@ class H(BaseHTTPRequestHandler):
                 itens["decisoes"].append(f"Trecho com {len(paginas)} páginas lidas (de {paginas[0] if paginas else '?'} a {paginas[-1] if paginas else '?'})")
             if filler > 0: itens["partes"].append("Parte preenchimento " + "x" * filler)
             LOG[-1]["p"] = "fusao" if fusao else "ficha"; LOG[-1]["chars"] = len(txt)
-            b = json.dumps({"candidates": [{"content": {"role": "model", "parts": [{"text": json.dumps(itens, ensure_ascii=False)}]}, "finishReason": "STOP", "index": 0}], "usageMetadata": {"promptTokenCount": n, "candidatesTokenCount": 50, "totalTokenCount": n + 50}, "modelVersion": modelo}).encode()
+            saida = json.dumps(itens, ensure_ascii=False)
+            if not fusao and FICHA['modo']:
+                FICHA['n'] += 1
+                if FICHA['modo'] == 'cortada': saida = saida[: int(len(saida) * 0.8)]
+                elif FICHA['modo'] == 'vazia' or (FICHA['modo'] == 'primeira_vazia' and FICHA['n'] == 1): saida = ""
+            b = json.dumps({"candidates": [{"content": {"role": "model", "parts": [{"text": saida}]}, "finishReason": "STOP", "index": 0}], "usageMetadata": {"promptTokenCount": n, "candidatesTokenCount": 50, "totalTokenCount": n + 50}, "modelVersion": modelo}).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
         if "CLASSIFICADOR DE RELEVÂNCIA" in sist:
             segs = []

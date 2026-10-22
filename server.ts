@@ -6,6 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { petitionRouter } from './server/petitionAdvogadoRoutes';
 import { matchApplicableBindingPrecedents } from './src/utils/bindingPrecedents';
+import { lerFicha } from './src/utils/fichaTolerante';
 import { getApplicableTaxonomySummary } from './src/data/legalTaxonomy';
 import { filterInnocuousCertificates, cleanJudicialPdfText } from './src/utils/judicialTextCleaner';
 import { deduplicateJudicialPdfFiles, deduplicateTextBlocks } from './src/utils/documentDeduplicator';
@@ -373,7 +374,7 @@ app.post("/api/gigante-lote", async (req, res) => {
         let injecao: any = null, defesa = "";
         try { const r = detectarInjecao(texto); if (r.verificado) injecao = r; if (r.total > 0) defesa = instrucaoDefesaInjecao(r); } catch { /* ignora */ }
         manterViva(res);
-        const response = await gerarResfriando({
+        const opcoes: any = {
             apiKey: extractApiKey(req),
             keyPool: extractApiKeyPool(req),
             isNativeAllowed: isRequestNativeAllowed(req),
@@ -387,9 +388,17 @@ app.post("/api/gigante-lote", async (req, res) => {
             cycleDelayMs: 8000,
             contents: [{ role: "user", parts: [{ text: `${contexto ? `CONTEXTO DO PEDIDO (o que será minutado): ${contexto}\n\n` : ""}TRECHO DOS AUTOS: ${rotulo}\n\n${texto}` }] }],
             config: { systemInstruction: SISTEMA_FICHA + defesa, temperature: 0.1, maxOutputTokens: 12000, responseMimeType: "application/json" },
-        });
-        const ficha = safeParseObj(response.text || "{}");
-        if (!ficha || typeof ficha !== "object") return res.status(502).json({ error: "A IA não devolveu a ficha do trecho em formato válido." });
+        };
+        let response = await gerarResfriando(opcoes);
+        let lida = lerFicha(response.text);
+        if (!lida.ficha) {      // resposta vazia/cortada/fora do formato: uma nova tentativa antes de parar o lote
+            console.log(`[gigante-lote] ficha inválida (tamanho=${String(response.text || "").length}, término=${(response as any)?.candidates?.[0]?.finishReason || "?"}); tentando de novo uma vez`);
+            response = await gerarResfriando({ ...opcoes, config: { ...opcoes.config, temperature: 0.3 } });
+            lida = lerFicha(response.text);
+        }
+        const ficha = lida.ficha;
+        if (lida.reparada) console.log(`[gigante-lote] ficha recuperada de resposta cortada/mal formada`);
+        if (!ficha) return res.status(502).json({ error: "A IA não devolveu a ficha do trecho em formato válido (mesmo após uma nova tentativa).", detalhe: `a IA respondeu ${String(response.text || "").length} caracteres sem os campos da ficha` });
         return res.json({ ficha, injecao, usage: response.usageMetadata || {}, modelUsed: response.modelVersion || "" });
     } catch (err: any) {
         console.error("Erro no gigante-lote:", err);
@@ -402,7 +411,7 @@ app.post("/api/gigante-fusao", async (req, res) => {
         const fichas: any[] = Array.isArray(req.body?.fichas) ? req.body.fichas : [];
         if (fichas.length < 1) return res.status(400).json({ error: "Informe ao menos uma ficha." });
         manterViva(res);
-        const response = await gerarResfriando({
+        const opcoes: any = {
             apiKey: extractApiKey(req),
             keyPool: extractApiKeyPool(req),
             isNativeAllowed: isRequestNativeAllowed(req),
@@ -416,9 +425,17 @@ app.post("/api/gigante-fusao", async (req, res) => {
             cycleDelayMs: 8000,
             contents: [{ role: "user", parts: [{ text: fichas.map((f, i) => `FICHA ${i + 1}${f?.__rotulo ? ` (${f.__rotulo})` : ""}:\n${JSON.stringify({ ...f, __rotulo: undefined })}`).join("\n\n") }] }],
             config: { systemInstruction: SISTEMA_FUSAO, temperature: 0.1, maxOutputTokens: 16000, responseMimeType: "application/json" },
-        });
-        const ficha = safeParseObj(response.text || "{}");
-        if (!ficha || typeof ficha !== "object") return res.status(502).json({ error: "A IA não devolveu a ficha fundida em formato válido." });
+        };
+        let response = await gerarResfriando(opcoes);
+        let lida = lerFicha(response.text);
+        if (!lida.ficha) {      // resposta vazia/cortada/fora do formato: uma nova tentativa antes de parar o lote
+            console.log(`[gigante-fusao] ficha inválida (tamanho=${String(response.text || "").length}, término=${(response as any)?.candidates?.[0]?.finishReason || "?"}); tentando de novo uma vez`);
+            response = await gerarResfriando({ ...opcoes, config: { ...opcoes.config, temperature: 0.3 } });
+            lida = lerFicha(response.text);
+        }
+        const ficha = lida.ficha;
+        if (lida.reparada) console.log(`[gigante-fusao] ficha recuperada de resposta cortada/mal formada`);
+        if (!ficha) return res.status(502).json({ error: "A IA não devolveu a ficha fundida em formato válido (mesmo após uma nova tentativa).", detalhe: `a IA respondeu ${String(response.text || "").length} caracteres sem os campos da ficha` });
         return res.json({ ficha, usage: response.usageMetadata || {}, modelUsed: response.modelVersion || "" });
     } catch (err: any) {
         console.error("Erro no gigante-fusao:", err);
