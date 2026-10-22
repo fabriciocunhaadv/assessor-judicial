@@ -16,6 +16,7 @@ import { detectarInjecao, instrucaoDefesaInjecao } from './src/utils/promptInjec
 import { descreverCorte, textoDoCorte, CorteArquivo } from './src/utils/corteAutos';
 import { textoOcultoDeDocumento, blocoTextoOculto } from './src/utils/pdfTextoOculto';
 import fs from 'fs';
+import { blocoPerfilMateria } from './src/utils/perfisMateria';
 // Abertura padrão do relatório de TODA minuta (pedido do magistrado). Vale para qualquer área e ato; entra nas etapas 1 e 2 e no Turbo.
 const REGRA_ABERTURA_RELATORIO = `
 
@@ -1177,7 +1178,7 @@ DIRETRIZES DA ANÁLISE JUDICIAL TURBO:
    * PONTO 1 - GÊNESE DA CAUSA: Petição inicial, pedidos e causa de pedir originários;
    * PONTO 2 - DECISÕES ANTERIORES E O QUE JÁ FOI RESOLVIDO: O magistrado deve identificar toda a sequência cronológica dos despachos, decisões interlocutórias, liminares e comandos já proferidos nos autos, respeitando com rigor absoluto a preclusão pro judicato (arts. 505 e 507 do CPC) — é TERMINANTEMENTE PROIBIDO proferir decisão contraditória, anacrônica ou retroceder a fases anteriores já superadas;
    * PONTO 3 - ATOS SUBSEQUENTES E REAÇÃO DAS PARTES: O que ocorreu após as decisões (cumprimento voluntário, inércia da parte, certidão de decurso de prazo pelo cartório, petições intercorrentes);
-   * PONTO 4 - PRÓXIMA DECISÃO CABÍVEL (MATÉRIA PENDENTE): A decisão a ser proferida DEVE ser a consequência lógica e processual da marcha (ex: se já houve intimação para pagar alimentos ou justificar sob pena de prisão e o executado manteve-se inerte com prazo decorrido, a PRÓXIMA DECISÃO É A DECRETAÇÃO DA PRISÃO CIVIL ou medidas coercitivas, sendo PROIBIDO retroagir mandando intimar novamente para pagar; se já houve contestação e réplica, a fase é de saneamento ou julgamento antecipado, etc.).
+   * PONTO 4 - PRÓXIMA DECISÃO CABÍVEL (MATÉRIA PENDENTE): A decisão a ser proferida DEVE ser a consequência lógica e processual da marcha (ex: se já houve intimação para cumprir a obrigação sob pena de medida coercitiva e a parte manteve-se inerte com prazo decorrido, a PRÓXIMA DECISÃO É A MEDIDA COERCITIVA CABÍVEL, sendo PROIBIDO retroagir mandando intimar novamente; se já houve contestação e réplica, a fase é de saneamento ou julgamento antecipado, etc.).
    Essa análise DEVE orientar internamente a elaboração da minuta, sendo refletida com técnica e precisão no Relatório circunstanciado, na Fundamentação jurídica e no Dispositivo mandamental.
 
 3. TIPO DE ATO E ADEQUAÇÃO AO MOMENTO PROCESSUAL:
@@ -1197,7 +1198,7 @@ DIRETRIZES DA ANÁLISE JUDICIAL TURBO:
 5. II - FUNDAMENTAÇÃO SUBSTANCIAL, APROFUNDADA E EMBASADA NO ACERVO PROBATÓRIO DO PDF (ART. 489 DO CPC):
    - PROIBIÇÃO ABSOLUTA DE FUNDAMENTAÇÃO SIMPLES, CURTA, GENÉRICA OU DE PARÁGRAFO ÚNICO: A fundamentação não pode ficar muito simples ou superficial. O magistrado deve fundamentar com densidade, seriedade e rigor analítico exauriente.
    - EXTRAÇÃO DOS DADOS DO PDF PARA JUSTIFICAR O ATO:
-     * Extraia dos autos todos os dados fáticos, contratuais, financeiros e probatórios concretos necessários para fundamentar e justificar categoricamente a decisão/despacho/sentença (ex: valores de débitos/alimentos, cláusulas contratuais, datas de vencimento, datas de intimação pessoal, ausência de justificativa idônea, probabilidade do direito e perigo de dano).
+     * Extraia dos autos todos os dados fáticos, contratuais, financeiros e probatórios concretos necessários para fundamentar e justificar categoricamente a decisão/despacho/sentença (ex: valores de débitos, cláusulas contratuais, datas de vencimento, datas de intimação pessoal, ausência de justificativa idônea, probabilidade do direito e perigo de dano).
    - CITAÇÃO OBRIGATÓRIA DE MOVIMENTO, ARQUIVO E PÁGINA (MANDATÓRIO):
      * Toda vez que invocar uma prova, documento, cálculo, certidão ou manifestação para justificar o acolhimento, rejeição ou ordem mandamental, INDIQUE EXPRESSAMENTE entre parênteses o movimento, arquivo e página de onde a informação foi extraída dos autos:
        Exemplos:
@@ -1212,7 +1213,6 @@ DIRETRIZES DA ANÁLISE JUDICIAL TURBO:
      * Subtópico 3 (se cabível): Medidas coercitivas, fixação de prazos e consequências legais cabíveis.
    - DENSIDADE TEXTUAL SUBSTANCIAL: Mínimo de 2 a 3 parágrafos analíticos consistentes por subtópico, correlacionando o fato concreto dos autos com a norma legal aplicável.
    - MATÉRIAS TÍPICAS E RIGOR TÉCNICO:
-     * Cumprimento de Sentença de Alimentos (rito prisional / art. 528 do CPC e Súmula 309 do STJ): verifique nos autos a prévia intimação pessoal (cite mov. e p.); examine a certidão de decurso de prazo in albis (cite mov. e p.) ou eventual justificativa; demonstre que escusas genéricas de desemprego não elidem a obrigação e justifique a decretação da prisão civil pelo prazo de 1 a 3 meses em regime fechado (art. 528, § 3º e § 4º, do CPC);
      * Tutelas Provisórias (art. 300 do CPC): examine individualmente a probabilidade do direito (*fumus boni iuris*) e o perigo de dano ou risco ao resultado útil (*periculum in mora*), com base nos documentos e páginas do PDF;
      * Emenda à Inicial (art. 321 do CPC) ou Saneamento (art. 357 do CPC): aponte com precisão cirúrgica os vícios ou pontos controvertidos com indicação das folhas e movimentos do processo.
 
@@ -1226,8 +1226,7 @@ DIRETRIZES DA ANÁLISE JUDICIAL TURBO:
    - CITAÇÃO PRECISA DE ARTIGOS DE LEI, CÓDIGOS E SÚMULAS VINCULANTES:
      * Cite de forma expressa, detalhada e tecnicamente precisa os artigos de lei pertinentes (CPC, Código Civil, Constituição Federal, CDC, leis especiais) e os enunciados de súmulas ou temas dos tribunais superiores (STF, STJ e TJGO).
      * CITAÇÃO DESTACADA EM BLOCO MARKDOWN (>): Quando a literalidade do dispositivo legal ou da súmula for o fundamento central da deliberação, destaque-a em bloco de citação Markdown entre aspas e em itálico:
-       > *"Art. 528, § 3º, do CPC: Se o executado não pagar ou se a justificativa apresentada não for aceita, o juiz, além de mandar protestar o pronunciamento judicial na forma do § 1º, decretar-lhe-á a prisão pelo prazo de 1 (um) a 3 (três) meses."*
-       > *"Súmula 309 do STJ: O débito alimentar que autoriza a prisão civil do alimentante é o que compreende as três prestações anteriores ao ajuizamento da execução e as que se vencerem no curso do processo."*
+       > *"Art. 300, do CPC: A tutela de urgência será concedida quando houver elementos que evidenciem a probabilidade do direito e o perigo de dano ou o risco ao resultado útil do processo."*
 
 7. III - DISPOSITIVO OPERACIONAL:
    - Comandos judiciais claros, práticos, imperativos e executáveis que resolvem categoricamente a matéria pendente.
@@ -1244,7 +1243,7 @@ Comarca/Vara de atuação: ${comarcaVara || "Comarca de Montes Claros / Vara Ún
 INSTRUÇÃO DE RESPOSTA (JSON OBRIGATÓRIO):
 Retorne ESTRITAMENTE um objeto JSON válido no formato abaixo, analisando primeiro a fase e as decisões anteriores para fundamentar e proferir a próxima decisão correta com densidade analítica, extração fidedigna do PDF e indicação obrigatória de movimento, arquivo e página:
 {
-  "proceduralPhase": "Fase processual atual (ex: Cumprimento de Sentença - Rito Prisional, Execução, Conhecimento, etc.)",
+  "proceduralPhase": "Fase processual atual (ex: Conhecimento, Cumprimento de Sentença, Execução, Fase Recursal)",
   "priorDecisionsSummary": "Síntese cronológica das decisões anteriores e comandos já exarados nos autos (o que já havia sido decidido)",
   "pendingMatter": "A matéria exata pendente de deliberação atual (qual é a próxima decisão cabível no andamento dos autos)",
   "title": "SENTENÇA" ou "DECISÃO INTERLOCUTÓRIA" ou "DESPACHO",
@@ -1276,7 +1275,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
                 { role: "user", parts: [{ text: userPrompt }, ...cobT.partes] }
             ],
             config: {
-                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + cobT.regra + defesaInjecaoT,
+                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: promptTitle, categoria: promptCategory, unidade: comarcaVara }) + cobT.regra + defesaInjecaoT,
                 temperature: 0.1,
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
@@ -5287,7 +5286,7 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
     setProg(progId, "Etapa 1 — assessor fático: extraindo partes, fatos e provas dos autos…", 12, 56);
-    stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + regraCobertura;
+    stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: activePromptTitle, categoria: req.body.promptCategory || '', unidade: processInfo?.comarca || '' }) + regraCobertura;
     const stage1StartTimer = Date.now();
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 3000);      // maior para autos grandes
     stage1Response = await gerarComAutosGrandes(generateWithFallbackAndRetry, {
@@ -5908,7 +5907,7 @@ let stage2ErrorMsg = "";
 
 try {
     const stage2StartTimer = Date.now();
-    stage2SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + regraCobertura;
+    stage2SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: activePromptTitle, categoria: req.body.promptCategory || '', unidade: processInfo?.comarca || '' }) + regraCobertura;
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage2Prompt, stage2SystemInstruction) / 10000) * 3000);
     response = await generateWithFallbackAndRetry({
         apiKey: stage2KeyPool[0] || userApiKey,
