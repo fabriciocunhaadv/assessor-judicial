@@ -11,7 +11,7 @@ function daTexto(t: string): Set<Materia> {
   const x = sem(t), m = new Set<Materia>();
   if (!x) return m;
   if (/juizado/.test(x)) m.add("juizado");
-  if (/faz\.?\s*pub|fazenda|execucao fiscal|exec\.? fiscal/.test(x)) m.add("fazenda");
+  if (/faz\.?\s*pub|fazendas?\s+publicas?|execucao fiscal|exec\.? fiscal/.test(x)) m.add("fazenda");
   if (/infancia|juventude|infracional/.test(x)) m.add("infancia");
   if (/familia|sucess/.test(x)) m.add("familia");
   if (/eleitoral/.test(x)) m.add("eleitoral");

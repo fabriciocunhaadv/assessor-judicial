@@ -9,12 +9,12 @@ const sem = (s: string) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, 
 /** Área da matéria que um texto (nome da unidade ou do prompt) indica; "" quando não dá para saber. */
 export function areaDoTexto(texto: string): string {
   const t = sem(texto);
-  if (/juizado.*fazenda|fazenda.*juizado|faz\.?\s*pub/.test(t) && /juizado|faz\.?\s*pub/.test(t)) return "fazenda";
+  if (/juizado.*fazendas?\s+publicas?|fazendas?\s+publicas?.*juizado|faz\.?\s*pub/.test(t)) return "fazenda";
   if (/infracional/.test(t)) return "infancia";
   if (/inf[aâ]ncia|infancia|juventude/.test(t)) return "infancia";
   if (/familia|sucess/.test(t)) return "familia";
   if (/execucao fiscal|exec\.? fiscal/.test(t)) return "fazenda";
-  if (/fazenda/.test(t)) return "fazenda";
+  if (/fazendas?\s+publicas?/.test(t)) return "fazenda";
   if (/eleitoral/.test(t)) return "eleitoral";
   const crim = /criminal|penal/.test(t), civ = /civel|civil/.test(t) || /juizado especial(?! criminal)/.test(t);
   if (crim && civ) return "";                  // unidade que cobre as duas matérias (ex.: "Cível e Criminal"): não dá para acusar nada
