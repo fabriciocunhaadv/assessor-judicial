@@ -124,12 +124,15 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   onGoHome,
   onDeleteAnalysis,
 }) => {
-  const { allowedUnits, isAdmin, activeUnit } = useAuth();
+  const { allowedUnits, isAdmin, isJudge, isSuperAdmin, activeUnit } = useAuth();
+  // só administrador, juiz e super admin podem ver as minutas do gabinete inteiro; os demais veem só as próprias
+  const podeVerGabinete = Boolean(isAdmin || isJudge || isSuperAdmin);
   const [history, setHistory] = useState<SavedAnalysis[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [actFilter, setActFilter] = useState<"todos" | "sentenca" | "decisao" | "despacho">("todos");
   const [categoryFilter, setCategoryFilter] = useState<"todos" | "civel" | "fazenda" | "criminal" | "familia" | "infancia" | "outros">("todos");
-  const [scopeFilter, setScopeFilter] = useState<"todos" | "meus">("todos");
+  const [scopeFilterEscolhido, setScopeFilter] = useState<"todos" | "meus">("meus");      // o Histórico abre nas minutas do próprio usuário
+  const scopeFilter: "todos" | "meus" = podeVerGabinete ? scopeFilterEscolhido : "meus";
   const [viewMode, setViewMode] = useState<"dossiers" | "flat">("dossiers");
   const [lancFilter, setLancFilter] = useState<"todos" | "pendentes" | "lancados">("pendentes");      // o que interessa no dia a dia: o que ainda falta lançar
   const [recemMarcados, setRecemMarcados] = useState<Set<string>>(new Set()); // atos que acabei de marcar: ficam à vista até trocar o filtro, para não "sumirem" na hora do clique
@@ -174,6 +177,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
       if (auth.currentUser) {
         getUserProfile(auth.currentUser.uid).then(setUserProfile).catch(() => {});
       }
+      setScopeFilter("meus");      // cada vez que o Histórico abre, começa nas minutas do usuário
       // Lista AO VIVO e LEVE: o Firestore avisa só o que mudou (ato novo de outro usuário aparece na hora) e a minuta completa só é baixada ao abrir o ato.
       setIsLoading(true);
       const parar = assinarHistorico((lista) => { setHistory(lista); setIsLoading(false); });
@@ -467,7 +471,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
             </div>
 
             <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
-              {([["todos", "Gabinete", Users], ["meus", "Minhas", User]] as const).map(([id, label, Icone]) => (
+              {([["todos", "Gabinete", Users], ["meus", "Minhas", User]] as const).filter(([id]) => podeVerGabinete || id === "meus").map(([id, label, Icone]) => (
                 <button key={id} onClick={() => { setScopeFilter(id); setCurrentPage(1); }}
                   className={`px-2 py-1 rounded-md font-bold text-[11px] transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${scopeFilter === id ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}>
                   <Icone className="w-3 h-3" /><span>{label}</span>

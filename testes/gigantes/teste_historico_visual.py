@@ -30,6 +30,7 @@ try:
                 l.first.dispatch_event("click"); pg.wait_for_timeout(1500)
                 if pg.locator("[data-testid=historico-barra]").count(): aberto = True; break
         assert aberto, "não consegui abrir o Histórico"
+        pg.wait_for_selector("[data-testid=historico-barra]", timeout=15000); pg.locator('[data-testid=historico-barra] button:has-text("Gabinete")').first.click(); pg.wait_for_timeout(500)      # abre em "Minhas": o teste usa as minutas de outro usuário
         pg.wait_for_selector("[data-testid=dossie-linha]", timeout=15000)
         barra = pg.locator("[data-testid=historico-barra]").bounding_box(); topo = pg.locator("[data-testid=historico-barra]").evaluate("e => e.parentElement.getBoundingClientRect().top")
         altura_cab = barra["y"] + barra["height"] - topo

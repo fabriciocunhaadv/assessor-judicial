@@ -49,6 +49,7 @@ def main():
             print("   últimas leituras:", [x for x in log() if "history" in x][-8:])
             print("   linhas:", pg.locator("[data-testid=dossie-linha]").count(), "| leituras completas:", completos(), "(base", base, ")")
             assert pg.locator("[data-testid=dossie-linha]").count() == 2 and completos() == base; print("C) janela aberta: 2 processos, sem leitura completa")
+            pg.locator('[data-testid=historico-barra] button:has-text("Gabinete")').first.click(); pg.clock.run_for(500); pg.wait_for_timeout(400)      # o Histórico abre em "Minhas"; "Gabinete" mostra as de todos
             # D) outro usuário grava: o novo processo aparece na lista AO VIVO, sem ler a coleção
             pg.evaluate("""() => { globalThis.__idx.set('h9', { id: 'h9', unitId: 'montes_claros', promptTitle: 'Decisão', date: 1791000000000, processNumber: '5500009-10.2025.8.09.0166', createdBy: 'outro-uid', creatorName: 'Outro', leve: true, corrompido: false, numeroLimpo: '55000091020258090166', fonte: 'gabinetes/gabinete_default/history',
                 result: { minute: { title: 'DECISÃO', processNumber: '5500009-10.2025.8.09.0166', judicialUnit: 'Vara Única', parties: { author: 'NOVO AUTOR', defendant: 'NOVO REU' } } } }); globalThis.__idxOuvintes.forEach(f => f()); }""")

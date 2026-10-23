@@ -28,6 +28,7 @@ try:
             if l.count():
                 l.first.dispatch_event("click"); pg.wait_for_timeout(1500)
                 if pg.locator("[data-testid=historico-barra]").count(): break
+        pg.locator('[data-testid=historico-barra] button:has-text("Gabinete")').first.click(); pg.wait_for_timeout(500)      # o Histórico abre em "Minhas"; o super admin vê todas clicando em "Gabinete"
         pg.wait_for_selector("[data-testid=dossie-linha]", timeout=15000)
         def botoes():
             linhas = pg.locator("[data-testid=dossie-linha]"); res = {}
@@ -42,6 +43,7 @@ try:
                     l.first.dispatch_event("click"); pg.wait_for_timeout(1500)
                     if pg.locator("[data-testid=historico-barra]").count(): break
             pg.wait_for_selector("[data-testid=dossie-linha]", timeout=15000)
+            pg.locator('[data-testid=historico-barra] button:has-text("Gabinete")').first.click(); pg.wait_for_timeout(500)
         # A) super admin (o usuário do teste é o super admin): o botão de excluir aparece em TODAS as minutas
         res = botoes(); print("super admin, botão por processo:", res); assert all(v == 1 for v in res.values()) and len(res) == 4, res
         # B) usuário comum: só nas próprias (e nas sem dono)
