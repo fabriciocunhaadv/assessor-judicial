@@ -3,7 +3,6 @@ import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { PromptSelectorAndEditor } from "./components/PromptSelectorAndEditor";
 import { SystemTour } from "./components/SystemTour";
-import { AvisoCotaFirestore } from "./components/AvisoCotaFirestore";
 import { PromptManagerModal } from "./components/PromptManagerModal";
 import { PdfUploadZone } from "./components/PdfUploadZone";
 import { useCoberturaLeitura } from "./components/useCoberturaLeitura";
@@ -1950,7 +1949,6 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden bg-[#f3f4f6] text-slate-900 font-sans selection:bg-slate-200">
       <AvisoExtensao />
-      <AvisoCotaFirestore superAdmin={isSuperAdmin} />
       <Toaster position="bottom-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ duration: 4000, style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' } }} />
       <SystemTour 
         runAppTour={!generationResult && !isHistoryModalOpen && !isPromptManagerOpen && !isTesesModalOpen && !isManualModalOpen} 

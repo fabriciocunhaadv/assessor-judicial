@@ -1,6 +1,5 @@
 import { db, auth } from './firebase';
 import { medirLeitura } from "../utils/medidorColeta";
-import { avisarSeCota } from "../utils/avisoCota";
 import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc, query, orderBy, limit, onSnapshot, where, increment, getCountFromServer, writeBatch, startAfter, documentId } from 'firebase/firestore';
 import { resumoLeve, ehLeve, digitosDoProcesso } from '../utils/historicoLeve';
 import { CustomPrompt, GenerationResult, CabinetTesesData, ProjudiGuideData, UserProfile, UserRole, ChatMessage, MinuteData, SavedAnalysis, ApiUsageMetadata, SystemBroadcast, MinuteVersion, AuditedProcessRecord, CabinetCalendarSettings, SaaSTenant, CabinetBackupSnapshot, GlobalDatabaseSnapshot, CabinetFullPartitionData, CabinetMonthlyTokenUsage, ExecutionModuleType, ModuleTokenUsageStats } from '../types';
@@ -363,7 +362,7 @@ export type EstadoIndiceHistorico = { fase: 'verificando' | 'montando' | 'pronto
 let _estadoIndice: EstadoIndiceHistorico = { fase: 'verificando' };
 export const estadoIndiceHistorico = () => _estadoIndice;
 let _erroReconciliacao = '';
-const mudarEstadoIndice = (e: EstadoIndiceHistorico) => { _estadoIndice = e; if (e.erro) avisarSeCota(e.erro); try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('assessor-indice-estado', { detail: e })); } catch { /* sem janela */ } };
+const mudarEstadoIndice = (e: EstadoIndiceHistorico) => { _estadoIndice = e; try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('assessor-indice-estado', { detail: e })); } catch { /* sem janela */ } };
 const esperarMs = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 const metaIndiceRef = () => doc(db, getTenantPath('settings'), 'history_index_meta');
 
@@ -414,7 +413,7 @@ async function reconciliarIndiceHistorico(incluirLegado: boolean): Promise<boole
     return true;
   } catch (e) {
     console.warn('[Histórico] não consegui montar o índice leve:', e);
-    _erroReconciliacao = String((e as any)?.message || e).slice(0, 160); avisarSeCota(e);
+    _erroReconciliacao = String((e as any)?.message || e).slice(0, 160);
     try { await setDoc(metaIndiceRef(), { reconciliandoAte: 0 }, { merge: true }); } catch { /* sem trava para soltar */ }
     return false;
   }
@@ -436,7 +435,7 @@ export async function garantirIndiceHistorico(): Promise<boolean> {
       const ok = await reconciliarIndiceHistorico(precisaLegado);
       mudarEstadoIndice(ok ? { fase: 'pronto' } : { fase: 'falhou', erro: _erroReconciliacao || 'não consegui montar a lista leve' });
       return ok;
-    } catch (e) { console.warn('[Histórico] verificação do índice falhou:', e); avisarSeCota(e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.message || e).slice(0, 160) }); return false; }
+    } catch (e) { console.warn('[Histórico] verificação do índice falhou:', e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.message || e).slice(0, 160) }); return false; }
   })();
   _indiceVerificado = { chave, ate: Date.now() + (10 * 60000), p };
   p.then((ok) => { if (!ok && _indiceVerificado?.p === p) _indiceVerificado.ate = Date.now() + 2 * 60000; });      // falhou: tenta de novo em 2 minutos
@@ -475,7 +474,7 @@ export const assinarIndiceHistorico = (cb: (lista: SavedAnalysis[]) => void, ori
     desfazer = onSnapshot(consultaIndice(), (sn) => {
       try { const mud = ((sn as any).docChanges?.() || []).map((c: any) => c.doc).filter(Boolean); medirLeitura(origem, mud.length ? mud : sn.docs); } catch { /* sem medição */ }
       if (!caiuNoCompleto) cb(listaDoIndice(sn.docs));
-    }, (e) => { console.warn('[Histórico] escuta do índice falhou; usando a leitura completa:', e); avisarSeCota(e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.code || (e as any)?.message || e).slice(0, 160) }); usarCompleto(); });
+    }, (e) => { console.warn('[Histórico] escuta do índice falhou; usando a leitura completa:', e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.code || (e as any)?.message || e).slice(0, 160) }); usarCompleto(); });
   } catch (e) { console.warn('[Histórico] não consegui escutar o índice:', e); usarCompleto(); }
   void garantirIndiceHistorico().then((ok) => { if (!ok) usarCompleto(); });
   return () => { cancelado = true; if (desfazer) desfazer(); };
