@@ -443,9 +443,17 @@ export async function garantirIndiceHistorico(): Promise<boolean> {
       const nHist = (await getCountFromServer(collection(db, getTenantPath('history')))).data().count;
       const nIdx = (await getCountFromServer(query(collection(db, indiceHistoricoPath()), where('fonte', '==', getTenantPath('history'))))).data().count;
       if (nHist === nIdx && !precisaLegado) { mudarEstadoIndice({ fase: 'pronto' }); return true; }
+      // a refação anterior não conseguiu igualar as contagens (divergência estrutural, por exemplo ato duplicado em caminhos antigos): não insiste, só tenta de novo em 6 horas
+      if (!precisaLegado && md.divergenciaPersistenteEm && Date.now() - Number(md.divergenciaPersistenteEm) < 6 * 3_600_000) { mudarEstadoIndice({ fase: 'pronto' }); return true; }
       // diferença pequena e o índice foi refeito há pouco (por qualquer usuário): espera, em vez de reler tudo de novo (cada refação lê o Histórico inteiro, dezenas de MB)
       if (!precisaLegado && md.feitoEm && Date.now() - Number(md.feitoEm) < 30 * 60_000) { console.warn(`[Histórico] índice com diferença (${nHist} atos, ${nIdx} no índice); refeito há menos de 30 min, aguardando`); mudarEstadoIndice({ fase: 'pronto' }); return true; }
       const ok = await reconciliarIndiceHistorico(precisaLegado, precisaLegado ? 'primeira montagem (inclui caminhos antigos)' : `contagem diferente: ${nHist} atos e ${nIdx} no índice`);
+      if (ok) {      // conferiu de novo: se ainda diverge, anota para não repetir a leitura completa a cada 30 minutos
+        try {
+          const nIdx2 = (await getCountFromServer(query(collection(db, indiceHistoricoPath()), where('fonte', '==', getTenantPath('history'))))).data().count;
+          await setDoc(metaIndiceRef(), nIdx2 === nHist ? { divergenciaPersistenteEm: 0, divergencia: null } : { divergenciaPersistenteEm: Date.now(), divergencia: { atos: nHist, noIndice: nIdx2 } }, { merge: true });
+        } catch { /* sem conferência extra */ }
+      }
       mudarEstadoIndice(ok ? { fase: 'pronto' } : { fase: 'falhou', erro: _erroReconciliacao || 'não consegui montar a lista leve' });
       return ok;
     } catch (e) { console.warn('[Histórico] verificação do índice falhou:', e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.message || e).slice(0, 160) }); return false; }
@@ -454,6 +462,8 @@ export async function garantirIndiceHistorico(): Promise<boolean> {
   p.then((ok) => { if (!ok && _indiceVerificado?.p === p) _indiceVerificado.ate = Date.now() + 2 * 60000; });      // falhou: tenta de novo em 2 minutos
   return p;
 }
+/** Documento de controle do índice (última refação, motivo, divergência): o painel do super admin mostra para diagnóstico. */
+export const lerControleIndiceHistorico = async (): Promise<any> => { try { const sn = await getDoc(metaIndiceRef()); return sn.exists() ? sn.data() : null; } catch { return null; } };
 /** Força nova conferência na próxima leitura (usar depois de operações em massa). */
 export const invalidarIndiceHistorico = () => { _indiceVerificado = null; };
 
