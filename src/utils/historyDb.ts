@@ -1,5 +1,5 @@
 import { SavedAnalysis } from "../types";
-import { getHistoryFromDb, getHistoryFromDbCompleto, assinarIndiceHistorico, carregarAtoCompleto, saveHistoryToDb, deleteHistoryFromDb, conferirAtoNaNuvem, lerCriadorDoAto, ehDonoDoAto, ERRO_NAO_E_DONO_DO_ATO, globalTenantId } from "../lib/firestoreUtils";
+import { getHistoryFromDb, getHistoryFromDbCompleto, assinarIndiceHistorico, buscarAtosDoUsuario, buscarAtosDosProcessos, OpcoesListaHistorico, carregarAtoCompleto, saveHistoryToDb, deleteHistoryFromDb, conferirAtoNaNuvem, lerCriadorDoAto, ehDonoDoAto, ERRO_NAO_E_DONO_DO_ATO, globalTenantId } from "../lib/firestoreUtils";
 
 /** Só quem gerou a minuta pode excluí-la (ato sem dono registrado é de todos). Usado pela tela do Histórico para mostrar ou esconder os botões de excluir. */
 export const podeExcluirAto = (ato: { createdBy?: string } | null | undefined, uid?: string | null): boolean => !!ato && ehDonoDoAto(ato.createdBy, uid);
@@ -233,14 +233,18 @@ export const getHistory = async (origem?: string): Promise<SavedAnalysis[]> => {
 };
 
 /** Lista AO VIVO (leve): chama `cb` agora e toda vez que outro usuário (ou esta aba) grava, altera ou exclui um ato, sem baixar a lista de novo. Devolve a função de parar. */
-export const assinarHistorico = (cb: (lista: SavedAnalysis[]) => void): (() => void) => {
+export const assinarHistorico = (cb: (lista: SavedAnalysis[]) => void, opcoes: OpcoesListaHistorico = {}): (() => void) => {
   let ultima: SavedAnalysis[] = [], parado = false;
   const emitir = () => { if (!parado) { try { cb(montarListaDoHistorico(ultima)); } catch (e) { console.warn("[Histórico] lista ao vivo:", e); } } };
-  const parar = assinarIndiceHistorico((lista) => { ultima = lista; emitir(); });
+  const parar = assinarIndiceHistorico((lista) => { ultima = lista; emitir(); }, "hist_ao_vivo", opcoes);
   const aoMudar = () => emitir();      // ato desta aba ainda sem gravar na nuvem, ou excluído: reaparece/some na hora, sem rede
   if (typeof window !== "undefined") window.addEventListener(HISTORICO_MUDOU, aoMudar);
   return () => { parado = true; parar(); if (typeof window !== "undefined") window.removeEventListener(HISTORICO_MUDOU, aoMudar); };
 };
+
+/** Atos de um usuário e atos de processos (resumos leves, sem baixar a lista inteira). */
+export { buscarAtosDoUsuario, buscarAtosDosProcessos };
+export type { OpcoesListaHistorico };
 
 /** Histórico COMPLETO (minutas e textos dos autos de todos os atos). Pesado: só para o que precisa mesmo (backup, mineração de teses). */
 export const getHistoryCompleto = async (origem: string = "hist_completo"): Promise<SavedAnalysis[]> => {

@@ -45,13 +45,14 @@ def main():
                     pg.locator('[data-testid=historico-barra] button:has-text("Gabinete")').first.click(); pg.wait_for_timeout(600)
                     assert numeros() == todos, (nome, numeros()); print(f"   clicando em Gabinete vê {numeros()}")
                     sel = pg.locator("[data-testid=filtro-usuario]"); assert sel.count() == 1, "faltou o filtro por usuário"
-                    opcoes = sel.locator("option").all_inner_texts(); print("   filtro por usuário:", opcoes); assert opcoes == ["Todos os usuários", "Eu mesmo (1)", "Outra Pessoa (2)"], opcoes
+                    opcoes = sel.locator("option").all_inner_texts(); print("   filtro por usuário:", opcoes); assert opcoes == ["Todos os usuários", "Eu mesmo", "Outra Pessoa"], opcoes
                     antes = len([x for x in pg.evaluate("globalThis.__getDocsLog || []") if not x.startswith("count:")])
-                    sel.select_option(label="Outra Pessoa (2)"); pg.wait_for_timeout(600)
+                    sel.select_option(label="Outra Pessoa"); pg.wait_for_timeout(600)
                     assert numeros() == ["5500002", "5500003"], numeros(); print("   escolhendo Outra Pessoa vê", numeros())
-                    sel.select_option(label="Eu mesmo (1)"); pg.wait_for_timeout(400); assert numeros() == ["5500001"], numeros()
+                    sel.select_option(label="Eu mesmo"); pg.wait_for_timeout(400); assert numeros() == ["5500001"], numeros()
                     depois = len([x for x in pg.evaluate("globalThis.__getDocsLog || []") if not x.startswith("count:")])
-                    assert depois == antes, f"o filtro por usuário não pode ler o banco ({antes} -> {depois})"; print("   filtrar por usuário não fez nenhuma leitura no banco")
+                    novas = [x for x in pg.evaluate("globalThis.__getDocsLog || []") if not x.startswith("count:")][antes:]
+                    assert all(x.endswith("history_index") for x in novas), f"filtrar por usuário só pode ler o índice leve: {novas}"; print("   filtrar por usuário leu só o índice leve:", len(novas), "consulta(s)")
                     pg.locator('[data-testid=historico-barra] button:has-text("Minhas")').first.click(); pg.wait_for_timeout(400)
                     assert pg.locator("[data-testid=filtro-usuario]").count() == 0, "o filtro deveria sumir em Minhas"
                 assert not erros, erros

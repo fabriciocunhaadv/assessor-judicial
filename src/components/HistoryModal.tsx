@@ -46,6 +46,7 @@ import {
   isCorruptedHistoryItem,
   marcarLancadoProjudi,
   assinarHistorico,
+  type OpcoesListaHistorico,
   abrirAtoCompleto,
   getHistoryCompleto,
 } from "../utils/historyDb";
@@ -135,6 +136,9 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const scopeFilter: "todos" | "meus" = podeVerGabinete ? scopeFilterEscolhido : "meus";
   // filtro por usuário (só administrador, juiz e super admin): usa a lista leve que já está na tela, sem nenhuma leitura nova no banco
   const [usuarioFiltro, setUsuarioFiltro] = useState<string>("todos");
+  const LOTE_GABINETE = 40;      // a lista do gabinete traz só os 40 resumos mais recentes; "Ver mais" busca outros 40
+  const [limiteGabinete, setLimiteGabinete] = useState(LOTE_GABINETE);
+  const [autoresVistos, setAutoresVistos] = useState<Map<string, { id: string; nome: string }>>(new Map());
   const [viewMode, setViewMode] = useState<"dossiers" | "flat">("dossiers");
   const [lancFilter, setLancFilter] = useState<"todos" | "pendentes" | "lancados">("pendentes");      // o que interessa no dia a dia: o que ainda falta lançar
   const [recemMarcados, setRecemMarcados] = useState<Set<string>>(new Set()); // atos que acabei de marcar: ficam à vista até trocar o filtro, para não "sumirem" na hora do clique
@@ -181,12 +185,37 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
       }
       setScopeFilter("meus");      // cada vez que o Histórico abre, começa nas minutas do usuário
       setUsuarioFiltro("todos");
-      // Lista AO VIVO e LEVE: o Firestore avisa só o que mudou (ato novo de outro usuário aparece na hora) e a minuta completa só é baixada ao abrir o ato.
-      setIsLoading(true);
-      const parar = assinarHistorico((lista) => { setHistory(lista); setIsLoading(false); });
-      return parar;
+      setLimiteGabinete(LOTE_GABINETE);
+      setAutoresVistos(new Map());
     }
   }, [isOpen, activeUnit?.id]);
+
+  // Lista AO VIVO e LEVE, só do que a tela precisa: "Minhas" = resumos do próprio usuário; "Gabinete" = os 40 mais recentes (+40 a cada "Ver mais");
+  // um usuário escolhido = só os resumos dele. A minuta completa só é baixada quando o ato é aberto.
+  useEffect(() => {
+    if (!isOpen) return;
+    setIsLoading(true);
+    const opcoes: OpcoesListaHistorico =
+      scopeFilter === "meus" ? { criador: currentUid || "sem-login" }
+      : usuarioFiltro !== "todos" && usuarioFiltro !== "__sem__" ? { criador: usuarioFiltro }
+      : { limite: limiteGabinete };
+    return assinarHistorico((lista) => { setHistory(lista); setIsLoading(false); }, opcoes);
+  }, [isOpen, activeUnit?.id, scopeFilter, usuarioFiltro, limiteGabinete, currentUid]);
+
+  // guarda os autores já vistos no Gabinete, para o seletor de usuário continuar completo depois de escolher um deles
+  useEffect(() => {
+    if (!isOpen || scopeFilter !== "todos") return;
+    setAutoresVistos((prev) => {
+      let mudou = false; const m = new Map(prev);
+      for (const it of history) {
+        if (!it?.id) continue;
+        const id = it.createdBy && it.createdBy !== "anonymous" ? it.createdBy : "__sem__";
+        const nome = id === "__sem__" ? "Sem autor registrado" : (it.creatorName || it.creatorEmail?.split("@")[0] || "Usuário");
+        if (!m.has(id)) { m.set(id, { id, nome }); mudou = true; }
+      }
+      return mudou ? m : prev;
+    });
+  }, [history, isOpen, scopeFilter]);
 
   const loadHistory = async () => {
     setIsLoading(true);
@@ -353,16 +382,10 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const formatarLancado = (t?: number | null) => (t ? `${new Date(t).toLocaleDateString()} ${new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "");
 
   // quem fez as minutas desta lista (nome e quantidade), tirado do que já foi carregado
-  const autoresDaLista = React.useMemo(() => {
-    const m = new Map<string, { id: string; nome: string; total: number }>();
-    for (const it of history) {
-      if (!it || !it.id) continue;
-      const id = it.createdBy && it.createdBy !== "anonymous" ? it.createdBy : "__sem__";
-      const nome = id === "__sem__" ? "Sem autor registrado" : (it.creatorName || it.creatorEmail?.split("@")[0] || "Usuário");
-      const x = m.get(id) || { id, nome, total: 0 }; x.total++; m.set(id, x);
-    }
-    return [...m.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  }, [history]);
+  const autoresDaLista = React.useMemo(
+    () => [...autoresVistos.values()].sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR")),
+    [autoresVistos],
+  );
 
   // Filtragem dos registros
   const filteredHistory = history.filter((item) => {
@@ -498,10 +521,10 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
             </div>
 
             {podeVerGabinete && scopeFilter === "todos" && autoresDaLista.length > 0 && (
-              <select value={usuarioFiltro} onChange={(e) => { setUsuarioFiltro(e.target.value); setCurrentPage(1); }} data-testid="filtro-usuario" title="Ver só as minutas de um usuário (lista já carregada, sem ler o banco de novo)"
+              <select value={usuarioFiltro} onChange={(e) => { setUsuarioFiltro(e.target.value); setCurrentPage(1); }} data-testid="filtro-usuario" title="Ver só as minutas de um usuário (busca só os resumos dele)"
                 className="shrink-0 max-w-[190px] bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-200">
                 <option value="todos">Todos os usuários</option>
-                {autoresDaLista.map((a) => <option key={a.id} value={a.id}>{a.nome} ({a.total})</option>)}
+                {autoresDaLista.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
               </select>
             )}
 
@@ -919,8 +942,14 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
         {/* Footer */}
         <div className="px-3 sm:px-5 py-2 sm:py-3 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-2 shrink-0">
           <span className="text-[11px] sm:text-xs text-slate-500 font-medium text-center sm:text-left">
-            <strong>{processDossiers.length}</strong> processo(s) • <strong>{history.length}</strong> ato(s) no Firestore
+            <strong>{processDossiers.length}</strong> processo(s) • <strong>{history.length}</strong> ato(s) listados
           </span>
+          {scopeFilter === "todos" && usuarioFiltro === "todos" && history.length >= limiteGabinete && (
+            <button onClick={() => setLimiteGabinete((n) => n + LOTE_GABINETE)} data-testid="btn-ver-mais"
+              className="px-3 py-1 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 text-[11px] font-bold cursor-pointer hover:bg-indigo-100">
+              Ver mais {LOTE_GABINETE}
+            </button>
+          )}
           {onGoHome && (
             <button
               onClick={() => {

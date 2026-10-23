@@ -473,7 +473,11 @@ const listaDoIndice = (docs: any[]): SavedAnalysis[] => {
   for (const d of docs) { const v: any = d.data(); if ((v.unitId || 'montes_claros') !== unidade) continue; out.push({ id: d.id, ...v } as SavedAnalysis); }
   return out.sort((a, b) => (b.date || 0) - (a.date || 0));
 };
-const consultaIndice = () => query(collection(db, indiceHistoricoPath()), orderBy('date', 'desc'), limit(INDICE_LIMITE));
+/** Consulta do índice. `criador`: só os atos desse usuário (consulta por igualdade, sem ordenar no servidor). Sem `criador`: os `limite` mais recentes do gabinete. */
+export interface OpcoesListaHistorico { limite?: number; criador?: string }
+const consultaIndice = (o: OpcoesListaHistorico = {}) => o.criador
+  ? query(collection(db, indiceHistoricoPath()), where('createdBy', '==', o.criador))
+  : query(collection(db, indiceHistoricoPath()), orderBy('date', 'desc'), limit(o.limite ?? INDICE_LIMITE));
 
 /** Lista do Histórico (versão LEVE: sem minuta nem texto dos autos). Se o índice não estiver disponível, cai na leitura completa de antes. */
 export const getHistoryFromDb = async (origem: string = "hist_outros"): Promise<SavedAnalysis[]> => {
@@ -489,19 +493,42 @@ export const getHistoryFromDb = async (origem: string = "hist_outros"): Promise<
 };
 
 /** Lista AO VIVO: o Firestore avisa só o que mudou (um ato novo de outro usuário aparece na hora, sem baixar a lista de novo). */
-export const assinarIndiceHistorico = (cb: (lista: SavedAnalysis[]) => void, origem: string = "hist_ao_vivo"): (() => void) => {
+export const assinarIndiceHistorico = (cb: (lista: SavedAnalysis[]) => void, origem: string = "hist_ao_vivo", opcoes: OpcoesListaHistorico = {}): (() => void) => {
   if (!auth.currentUser) return () => {};
   let cancelado = false, desfazer: (() => void) | null = null, caiuNoCompleto = false;
   const usarCompleto = () => { if (caiuNoCompleto || cancelado) return; caiuNoCompleto = true; void getHistoryFromDbFallback(origem).then((l) => { if (!cancelado) cb(l); }).catch(() => {}); };
   // escuta o índice JÁ (a lista vai aparecendo conforme o índice é montado); a conferência de contagem roda em paralelo
   try {
-    desfazer = onSnapshot(consultaIndice(), (sn) => {
+    desfazer = onSnapshot(consultaIndice(opcoes), (sn) => {
       try { const mud = ((sn as any).docChanges?.() || []).map((c: any) => c.doc).filter(Boolean); medirLeitura(origem, mud.length ? mud : sn.docs); } catch { /* sem medição */ }
       if (!caiuNoCompleto) cb(listaDoIndice(sn.docs));
     }, (e) => { console.warn('[Histórico] escuta do índice falhou; usando a leitura completa:', e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.code || (e as any)?.message || e).slice(0, 160) }); usarCompleto(); });
   } catch (e) { console.warn('[Histórico] não consegui escutar o índice:', e); usarCompleto(); }
   void garantirIndiceHistorico().then((ok) => { if (!ok) usarCompleto(); });
   return () => { cancelado = true; if (desfazer) desfazer(); };
+};
+
+/** Resumos dos atos de UM usuário (consulta leve por igualdade). Serve para os avisos de vencimento: só as minutas do próprio usuário. */
+export const buscarAtosDoUsuario = async (uid: string, origem: string = 'hist_meus'): Promise<SavedAnalysis[]> => {
+  if (!auth.currentUser || !uid) return [];
+  try {
+    if (!(await garantirIndiceHistorico())) return [];
+    const sn = await getDocs(consultaIndice({ criador: uid }));
+    medirLeitura(origem, sn.docs);
+    return listaDoIndice(sn.docs);
+  } catch (e) { console.warn('[Histórico] não consegui listar os atos do usuário:', e); return []; }
+};
+
+/** Resumos dos atos de alguns processos (pelo número). Serve para a memória do assistente e o agrupamento em dossiê: só os atos desses processos, não a lista inteira. */
+export const buscarAtosDosProcessos = async (numeros: string[], origem: string = 'dossie_por_processo'): Promise<SavedAnalysis[]> => {
+  const limpos = Array.from(new Set(numeros.map((n) => digitosDoProcesso(n)).filter((n) => n.length >= 7))).slice(0, 10);
+  if (!auth.currentUser || limpos.length === 0) return [];
+  try {
+    if (!(await garantirIndiceHistorico())) return [];
+    const sn = await getDocs(query(collection(db, indiceHistoricoPath()), where('numeroLimpo', 'in', limpos)));
+    medirLeitura(origem, sn.docs);
+    return listaDoIndice(sn.docs);
+  } catch (e) { console.warn('[Histórico] não consegui buscar os atos do processo:', e); return []; }
 };
 
 /** Abre o ato COMPLETO (minuta, texto dos autos, conversa) a partir do resumo da lista. Um ato que já é completo volta como está. */

@@ -63,7 +63,7 @@ import { registrarOperacao } from "./utils/monitorOperacao";
 import { iniciarMedidor } from "./utils/medidorEnvio";
 import { avisarVencimentos, carregarConfigRetencao, iniciarRetencao } from "./utils/retencaoDb";
 import { useConfigRetencao } from "./components/EtiquetaValidade";
-import { assinarHistorico, retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
+import { assinarHistorico, buscarAtosDosProcessos, retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
 import { findDossierForProcess, getProcessActsSummaryForPrompt } from "./utils/dossierUtils";
 import { ProcessTimelineModal } from "./components/ProcessTimelineModal";
 import { LegislativeLookupModal } from "./components/LegislativeLookupModal";
@@ -326,7 +326,6 @@ export default function App() {
   const [turboActiveMinute, setTurboActiveMinute] = useState<any>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [showInstructionsBanner, setShowInstructionsBanner] = useState<boolean>(true);
-  const [historyList, setHistoryList] = useState<SavedAnalysis[]>([]);
   const [activeTimelineDossier, setActiveTimelineDossier] = useState<ProcessDossier | null>(null);
   const [autoExecutePending, setAutoExecutePending] = useState<boolean>(false);
   const [selectedActType, setSelectedActType] = useState<"auto" | "sentenca" | "decisao" | "despacho" | "embargos">("auto");
@@ -415,12 +414,20 @@ export default function App() {
     }
   };
 
-  // Lista do Histórico (LEVE: só o resumo de cada ato) para agrupar dossiês e alimentar a memória. É uma escuta ao vivo: o Firestore avisa só o que mudou,
-  // então um ato gravado por outra pessoa aparece na hora sem baixar a lista de novo. A minuta completa só é baixada quando o ato é aberto.
+  // Listas LEVES do Histórico (só o resumo de cada ato), sem puxar o gabinete inteiro:
+  // (1) os atos do próprio usuário, ao vivo (alimenta os avisos de vencimento e a memória); (2) os atos dos processos que estão na tela, buscados pelo número.
+  // A minuta completa só é baixada quando o ato é aberto.
+  const [atosDoUsuario, setAtosDoUsuario] = useState<SavedAnalysis[]>([]);
+  const [atosDosProcessos, setAtosDosProcessos] = useState<SavedAnalysis[]>([]);
   useEffect(() => {
     if (!user?.uid) return;
-    return assinarHistorico(setHistoryList);
+    return assinarHistorico(setAtosDoUsuario, { criador: user.uid });
   }, [user?.uid, activeUnit?.id]);
+  const historyList = useMemo(() => {
+    const m = new Map<string, SavedAnalysis>();
+    for (const it of [...atosDosProcessos, ...atosDoUsuario]) if (it?.id) m.set(it.id, it);
+    return [...m.values()];
+  }, [atosDoUsuario, atosDosProcessos]);
   // avisa (uma vez por dia) das minutas do usuário que estão perto de vencer no Histórico
   const cfgRetencao = useConfigRetencao();
   useEffect(() => { if (user?.uid && historyList.length) avisarVencimentos(historyList, user.uid); }, [historyList, user?.uid, cfgRetencao.ativa, cfgRetencao.ativadaEm]);
@@ -442,6 +449,21 @@ export default function App() {
     }
     return null;
   }, [processNumber, generationResult, processText, pdfFiles, historyList]);
+
+  // números de processo presentes na tela (campo, minuta, texto, PDFs): só os atos desses processos são buscados no Histórico
+  const cnjsNaTela = useMemo(() => {
+    const achados = new Set<string>();
+    const add = (t: string) => { for (const m of String(t || "").match(/\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}/g) || []) achados.add(m.replace(/\D/g, "")); };
+    add(processNumber); add(generationResult?.minute?.processNumber || ""); add(processText);
+    for (const p of pdfFiles) add((p.extractedText || "").slice(0, 20000));
+    return [...achados].slice(0, 10).sort().join(",");
+  }, [processNumber, generationResult, processText, pdfFiles]);
+  useEffect(() => {
+    if (!user?.uid || !cnjsNaTela) { setAtosDosProcessos([]); return; }
+    let vivo = true;
+    const t = setTimeout(() => { buscarAtosDosProcessos(cnjsNaTela.split(",")).then((l) => { if (vivo) setAtosDosProcessos(l); }); }, 800);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [cnjsNaTela, user?.uid, activeUnit?.id]);
 
   // Cabinet Teses (Global System-Wide Injected Understanding)
   const [tesesData, setTesesData] = useState<CabinetTesesData>({

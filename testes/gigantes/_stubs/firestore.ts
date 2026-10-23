@@ -2,7 +2,15 @@
 const idx: Map<string, any> = ((globalThis as any).__idx ||= new Map());
 const ouvintesIdx: Array<() => void> = ((globalThis as any).__idxOuvintes ||= []);
 const ehIdx = (p: any) => /\/history_index(\/|$)/.test(String(p || ""));
-const docsIdx = () => [...idx.entries()].map(([id, v]) => ({ id, data: () => v })).sort((a: any, b: any) => (b.data().date || 0) - (a.data().date || 0));
+const docsIdx = (cl: any[] = []) => {
+  let l = [...idx.entries()].map(([id, v]) => ({ id, data: () => v }));
+  for (const c of cl) if (c && c._w) {      // filtros da consulta (igualdade, "in" e comparações)
+    const [f, op, val] = c._w;
+    l = l.filter((d: any) => { const x = d.data()[f]; return op === "==" ? x === val : op === "in" ? (val as any[]).includes(x) : op === "<" ? x < val : op === ">=" ? x >= val : true; });
+  }
+  l.sort((a: any, b: any) => (b.data().date || 0) - (a.data().date || 0));
+  const lim = cl.find((c: any) => c && c._lim); return lim ? l.slice(0, lim._lim) : l;
+};
 const avisarIdx = () => ouvintesIdx.forEach((f) => { try { f(); } catch { /* ouvinte já removido */ } });
 const snap = (docs: any[] = []) => ({ exists: () => false, data: () => undefined, id: "x", docs, empty: docs.length === 0, size: docs.length, forEach: (f: any) => docs.forEach(f), docChanges: () => [] });
 export const initializeFirestore = (..._a: any[]) => ({});
@@ -13,7 +21,7 @@ export const collection = (..._a: any[]) => ({ _c: true, _path: String(_a[1] || 
 export const collectionGroup = (..._a: any[]) => ({ _c: true });
 export const doc = (..._a: any[]) => ({ _d: true, _id: String(_a[_a.length - 1] || ""), _path: _a.slice(1).map(String).join("/") });
 export const getDoc = async (..._a: any[]) => { const id = String((_a[0] as any)?._id || ""); const todos = ((globalThis as any).__setDocs || []).filter((d: any) => d.id === id); const ex = id === "history_index_meta" && todos.length ? { dados: Object.assign({}, ...todos.map((d: any) => d.dados)) } : todos[0]; if (ex) return { ...snap(), exists: () => true, data: () => ex.dados, id }; const sd = ((globalThis as any).__seedHistory || []).find((d: any) => d.id === id); return sd ? { ...snap(), exists: () => true, data: () => sd, id } : snap(); };
-export const getDocs = async (..._a: any[]) => { const ref: any = _a[0]; const path = String(ref?._path || ""); ((globalThis as any).__getDocsLog ||= []).push(path); if (ehIdx(path)) return snap(docsIdx()); { const w: any = globalThis; const lista = /\/audits$/.test(path) ? w.__seedAudits : /\/hearings$/.test(path) ? w.__seedHearings : null; if (lista) return snap(lista.map((d: any) => ({ id: d.id, data: () => d, ref: { _d: true, _id: d.id, _path: path + "/" + d.id } }))); } const seed = (globalThis as any).__seedHistory || []; return snap(path.endsWith("/history") ? seed.map((d: any) => ({ id: d.id, data: () => d })) : []); };
+export const getDocs = async (..._a: any[]) => { const ref: any = _a[0]; const path = String(ref?._path || ""); ((globalThis as any).__getDocsLog ||= []).push(path); if (ehIdx(path)) return snap(docsIdx((ref as any)?._cl)); { const w: any = globalThis; const lista = /\/audits$/.test(path) ? w.__seedAudits : /\/hearings$/.test(path) ? w.__seedHearings : null; if (lista) return snap(lista.map((d: any) => ({ id: d.id, data: () => d, ref: { _d: true, _id: d.id, _path: path + "/" + d.id } }))); } const seed = (globalThis as any).__seedHistory || []; return snap(path.endsWith("/history") ? seed.map((d: any) => ({ id: d.id, data: () => d })) : []); };
 export const setDoc = async (...a: any[]) => {
   const w: any = globalThis;
   if (ehIdx(a[0]?._path)) { idx.set(a[0]._id, a[1]); (w.__idxWrites ||= []).push(a[0]._id); avisarIdx(); return; }
@@ -21,14 +29,14 @@ export const setDoc = async (...a: any[]) => {
   if (w.__gravaSemSalvar) return;      // simula: a nuvem "aceita" mas o ato não fica lá
   (w.__setDocs ||= []).push({ id: a[0]?._id, bytes: new TextEncoder().encode(JSON.stringify(a[1])).length, texto: (a[1]?.processText || "").length, dados: a[1] });
 };
-export const getCountFromServer = async (..._a: any[]) => { const path = String((_a[0] as any)?._path || ""); ((globalThis as any).__getDocsLog ||= []).push("count:" + path); const n = ehIdx(path) ? idx.size : path.endsWith("/history") ? ((globalThis as any).__seedHistory || []).length : 0; return { data: () => ({ count: n }) }; };
+export const getCountFromServer = async (..._a: any[]) => { const path = String((_a[0] as any)?._path || ""); ((globalThis as any).__getDocsLog ||= []).push("count:" + path); const n = ehIdx(path) ? docsIdx((_a[0] as any)?._cl).length : path.endsWith("/history") ? ((globalThis as any).__seedHistory || []).length : 0; return { data: () => ({ count: n }) }; };
 export const addDoc = async (..._a: any[]) => ({ id: "novo" });
 export const updateDoc = async (..._a: any[]) => { const r: any = _a[0]; if (ehIdx(r?._path)) { if (!idx.has(r._id)) { const e: any = new Error("not-found"); e.code = "not-found"; throw e; } idx.set(r._id, { ...idx.get(r._id), ..._a[1] }); avisarIdx(); } };
 export const deleteDoc = async (..._a: any[]) => { const r: any = _a[0]; { const w: any = globalThis; (w.__deletados ||= []).push(String(r?._path || r?._id || "")); for (const nome of ["__seedAudits", "__seedHearings"]) if (Array.isArray(w[nome]) && /\/(audits|hearings)\//.test(String(r?._path || ""))) w[nome] = w[nome].filter((x: any) => x.id !== r._id); } if (ehIdx(r?._path)) { idx.delete(r._id); avisarIdx(); } };
-export const query = (...a: any[]) => a[0];
-export const where = (..._a: any[]) => ({});
+export const query = (...a: any[]) => (a[0] && a[0]._c ? { ...a[0], _cl: a.slice(1) } : a[0]);
+export const where = (...a: any[]) => ({ _w: [a[0], a[1], a[2]] });
 export const orderBy = (..._a: any[]) => ({});
-export const limit = (..._a: any[]) => ({});
+export const limit = (n: number) => ({ _lim: n });
 export const startAfter = (..._a: any[]) => ({});
 export const documentId = () => "id";
 export const serverTimestamp = () => Date.now();
@@ -40,6 +48,6 @@ export const writeBatch = (..._a: any[]) => { const ops: any[] = []; return { se
 export const runTransaction = async (_d: any, f: any) => f({ get: async () => snap(), set() {}, update() {}, delete() {} });
 export class Timestamp { static now() { return new Timestamp(); } static fromDate(d: Date) { return new Timestamp(); } toMillis() { return Date.now(); } toDate() { return new Date(); } }
 export const onSnapshot = (_ref: any, cb: any, _err?: any) => {
-  if (ehIdx((_ref as any)?._path)) { const f = () => cb({ ...snap(docsIdx()), docChanges: () => docsIdx().map((doc) => ({ doc })) }); ouvintesIdx.push(f); ((globalThis as any).__idxEscutas = ((globalThis as any).__idxEscutas || 0) + 1); setTimeout(f, 30); return () => { const i = ouvintesIdx.indexOf(f); if (i >= 0) ouvintesIdx.splice(i, 1); }; }
+  if (ehIdx((_ref as any)?._path)) { const f = () => cb({ ...snap(docsIdx((_ref as any)?._cl)), docChanges: () => docsIdx((_ref as any)?._cl).map((doc) => ({ doc })) }); ouvintesIdx.push(f); ((globalThis as any).__idxEscutas = ((globalThis as any).__idxEscutas || 0) + 1); setTimeout(f, 30); return () => { const i = ouvintesIdx.indexOf(f); if (i >= 0) ouvintesIdx.splice(i, 1); }; }
   setTimeout(() => { try { cb(snap([])); } catch {} }, 30); return () => {};
 };
