@@ -50,9 +50,12 @@ def main():
                 if l.count(): l.first.dispatch_event("click"); pg.clock.run_for(2000); pg.wait_for_timeout(1200)
                 if pg.locator("[data-testid=historico-barra]").count(): break
             pg.wait_for_selector("[data-testid=dossie-linha]", timeout=15000)
+            if os.environ.get('FOTO_RETENCAO'): pg.screenshot(path=os.environ['FOTO_RETENCAO'])
             assert pg.locator("[data-testid=aviso-retencao]").count() == 1; print("3) banner 'ficam por 7 dias' presente")
             fases = pg.evaluate("[...document.querySelectorAll('[data-testid=dossie-linha] [data-testid=etiqueta-validade]')].map(e => e.dataset.fase).sort()")
             print("   etiquetas por processo:", fases); assert fases == ["aviso1", "aviso3", "aviso3", "ok"], fases
+            cores = pg.evaluate("Object.fromEntries([...document.querySelectorAll('[data-testid=dossie-linha] [data-testid=etiqueta-validade]')].map(e => [e.dataset.fase, e.className]))")
+            assert "emerald" in cores["ok"] and "orange" in cores["aviso3"] and "rose" in cores["aviso1"], cores; print("   cores suaves: verde (em prazo), laranja (3 dias), vermelho (1 dia)")
             # 4) regra DESLIGADA (sem configuração): nada é apagado, nem etiqueta aparece
             pg2 = b.new_page(viewport={"width": 1400, "height": 1000}); pg2.set_default_timeout(60000)
             pg2.add_init_script("localStorage.setItem('assessor_tour_done','1'); window.__seedHistory = " + json.dumps(seed) + ";")
