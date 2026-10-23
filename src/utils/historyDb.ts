@@ -8,6 +8,7 @@ import { safeGetItem, safeSetItem, safeRemoveItem } from "./safeStorage";
 import { limitarAtoParaNuvem, semListasAninhadas, versaoMinimaDoAto } from "./historicoTamanho";
 import toast from "react-hot-toast";
 import { configRetencaoAtual } from "./retencaoRegras";
+import { avisarSeCota } from "./avisoCota";
 
 export type { SavedAnalysis };
 
@@ -284,7 +285,7 @@ const comPrazoHistorico = <T,>(p: Promise<T>, ms: number): Promise<T> => new Pro
   const t = setTimeout(() => falha(new Error("tempo esgotado ao gravar na nuvem (conexão lenta ou sem rede)")), ms);
   p.then((v) => { clearTimeout(t); ok(v); }, (e) => { clearTimeout(t); falha(e); });
 });
-const descreverErroHistorico = (e: any): string => `${e?.code ? e.code + ": " : ""}${String(e?.message || e || "erro desconhecido").slice(0, 140)}`;
+const descreverErroHistorico = (e: any): string => { avisarSeCota(e); return `${e?.code ? e.code + ": " : ""}${String(e?.message || e || "erro desconhecido").slice(0, 140)}`; };
 const enviarHistoricoParaNuvem = async (analysis: SavedAnalysis, ms: number) => {
   const { dado, cortou } = limitarAtoParaNuvem(analysis);
   if (cortou.length) console.warn(`[Histórico] ato ${analysis.id} encurtado para caber na nuvem:`, cortou.join(", "));
