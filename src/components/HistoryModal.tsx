@@ -133,6 +133,8 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<"todos" | "civel" | "fazenda" | "criminal" | "familia" | "infancia" | "outros">("todos");
   const [scopeFilterEscolhido, setScopeFilter] = useState<"todos" | "meus">("meus");      // o Histórico abre nas minutas do próprio usuário
   const scopeFilter: "todos" | "meus" = podeVerGabinete ? scopeFilterEscolhido : "meus";
+  // filtro por usuário (só administrador, juiz e super admin): usa a lista leve que já está na tela, sem nenhuma leitura nova no banco
+  const [usuarioFiltro, setUsuarioFiltro] = useState<string>("todos");
   const [viewMode, setViewMode] = useState<"dossiers" | "flat">("dossiers");
   const [lancFilter, setLancFilter] = useState<"todos" | "pendentes" | "lancados">("pendentes");      // o que interessa no dia a dia: o que ainda falta lançar
   const [recemMarcados, setRecemMarcados] = useState<Set<string>>(new Set()); // atos que acabei de marcar: ficam à vista até trocar o filtro, para não "sumirem" na hora do clique
@@ -160,7 +162,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, actFilter, categoryFilter, scopeFilter, viewMode]);
+  }, [searchTerm, actFilter, categoryFilter, scopeFilter, viewMode, usuarioFiltro]);
 
   const currentUid = auth.currentUser?.uid;
 
@@ -178,6 +180,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
         getUserProfile(auth.currentUser.uid).then(setUserProfile).catch(() => {});
       }
       setScopeFilter("meus");      // cada vez que o Histórico abre, começa nas minutas do usuário
+      setUsuarioFiltro("todos");
       // Lista AO VIVO e LEVE: o Firestore avisa só o que mudou (ato novo de outro usuário aparece na hora) e a minuta completa só é baixada ao abrir o ato.
       setIsLoading(true);
       const parar = assinarHistorico((lista) => { setHistory(lista); setIsLoading(false); });
@@ -349,6 +352,18 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const qtdPendentes = history.filter((it) => it && it.id && !isCorruptedHistoryItem(it) && !it.lancadoProjudi).length;
   const formatarLancado = (t?: number | null) => (t ? `${new Date(t).toLocaleDateString()} ${new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "");
 
+  // quem fez as minutas desta lista (nome e quantidade), tirado do que já foi carregado
+  const autoresDaLista = React.useMemo(() => {
+    const m = new Map<string, { id: string; nome: string; total: number }>();
+    for (const it of history) {
+      if (!it || !it.id) continue;
+      const id = it.createdBy && it.createdBy !== "anonymous" ? it.createdBy : "__sem__";
+      const nome = id === "__sem__" ? "Sem autor registrado" : (it.creatorName || it.creatorEmail?.split("@")[0] || "Usuário");
+      const x = m.get(id) || { id, nome, total: 0 }; x.total++; m.set(id, x);
+    }
+    return [...m.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [history]);
+
   // Filtragem dos registros
   const filteredHistory = history.filter((item) => {
     if (!item || !item.id || isCorruptedHistoryItem(item)) return false;
@@ -368,6 +383,9 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
     if (scopeFilter === "meus") {
       if (currentUid && item.createdBy !== currentUid) return false;
+    } else if (podeVerGabinete && usuarioFiltro !== "todos") {
+      const dono = item.createdBy && item.createdBy !== "anonymous" ? item.createdBy : "__sem__";
+      if (dono !== usuarioFiltro) return false;
     }
 
     if (categoryFilter !== "todos") {
@@ -472,12 +490,20 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
             <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
               {([["todos", "Gabinete", Users], ["meus", "Minhas", User]] as const).filter(([id]) => podeVerGabinete || id === "meus").map(([id, label, Icone]) => (
-                <button key={id} onClick={() => { setScopeFilter(id); setCurrentPage(1); }}
+                <button key={id} onClick={() => { setScopeFilter(id); setUsuarioFiltro("todos"); setCurrentPage(1); }}
                   className={`px-2 py-1 rounded-md font-bold text-[11px] transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${scopeFilter === id ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}>
                   <Icone className="w-3 h-3" /><span>{label}</span>
                 </button>
               ))}
             </div>
+
+            {podeVerGabinete && scopeFilter === "todos" && autoresDaLista.length > 0 && (
+              <select value={usuarioFiltro} onChange={(e) => { setUsuarioFiltro(e.target.value); setCurrentPage(1); }} data-testid="filtro-usuario" title="Ver só as minutas de um usuário (lista já carregada, sem ler o banco de novo)"
+                className="shrink-0 max-w-[190px] bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-700 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-200">
+                <option value="todos">Todos os usuários</option>
+                {autoresDaLista.map((a) => <option key={a.id} value={a.id}>{a.nome} ({a.total})</option>)}
+              </select>
+            )}
 
             <button onClick={() => setFiltrosAbertos((v) => !v)} data-testid="btn-filtros"
               className={`px-2 py-1.5 rounded-lg border text-[11px] font-bold flex items-center gap-1 cursor-pointer transition shrink-0 ${filtrosAbertos ? "bg-indigo-50 border-indigo-300 text-indigo-800" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"}`}

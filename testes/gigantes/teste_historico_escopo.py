@@ -9,7 +9,7 @@ def esperar_http(url, n=120):
         except Exception: time.sleep(1)
     raise SystemExit("não subiu: " + url)
 def ato(i, num, dono, quando):
-    return {"id": f"h{i}", "unitId": "montes_claros", "promptTitle": "Sentença", "date": quando, "processNumber": num, "createdBy": dono, "creatorName": "X", "result": {"minute": {"title": "SENTENÇA", "processNumber": num, "judicialUnit": "Vara Única", "parties": {"author": f"AUTOR {i}", "defendant": f"REU {i}"}, "fullFormattedText": f"MINUTA {i}"}}}
+    return {"id": f"h{i}", "unitId": "montes_claros", "promptTitle": "Sentença", "date": quando, "processNumber": num, "createdBy": dono, "creatorName": ("Eu mesmo" if dono == "teste-uid" else "Outra Pessoa"), "result": {"minute": {"title": "SENTENÇA", "processNumber": num, "judicialUnit": "Vara Única", "parties": {"author": f"AUTOR {i}", "defendant": f"REU {i}"}, "fullFormattedText": f"MINUTA {i}"}}}
 def main():
     os.makedirs("/tmp/claude-0/work/teste", exist_ok=True); procs = []
     try:
@@ -40,9 +40,20 @@ def main():
                 tem_btn = pg.locator('[data-testid=historico-barra] button:has-text("Gabinete")').count() == 1
                 inicial = numeros(); print(f"{nome}: botão Gabinete = {tem_btn} | ao abrir vê {inicial}")
                 assert tem_btn == ve_gabinete, (nome, tem_btn); assert inicial == so_meus, (nome, inicial)
+                assert pg.locator("[data-testid=filtro-usuario]").count() == 0, "o filtro por usuário só aparece em Gabinete"
                 if ve_gabinete:
                     pg.locator('[data-testid=historico-barra] button:has-text("Gabinete")').first.click(); pg.wait_for_timeout(600)
                     assert numeros() == todos, (nome, numeros()); print(f"   clicando em Gabinete vê {numeros()}")
+                    sel = pg.locator("[data-testid=filtro-usuario]"); assert sel.count() == 1, "faltou o filtro por usuário"
+                    opcoes = sel.locator("option").all_inner_texts(); print("   filtro por usuário:", opcoes); assert opcoes == ["Todos os usuários", "Eu mesmo (1)", "Outra Pessoa (2)"], opcoes
+                    antes = len([x for x in pg.evaluate("globalThis.__getDocsLog || []") if not x.startswith("count:")])
+                    sel.select_option(label="Outra Pessoa (2)"); pg.wait_for_timeout(600)
+                    assert numeros() == ["5500002", "5500003"], numeros(); print("   escolhendo Outra Pessoa vê", numeros())
+                    sel.select_option(label="Eu mesmo (1)"); pg.wait_for_timeout(400); assert numeros() == ["5500001"], numeros()
+                    depois = len([x for x in pg.evaluate("globalThis.__getDocsLog || []") if not x.startswith("count:")])
+                    assert depois == antes, f"o filtro por usuário não pode ler o banco ({antes} -> {depois})"; print("   filtrar por usuário não fez nenhuma leitura no banco")
+                    pg.locator('[data-testid=historico-barra] button:has-text("Minhas")').first.click(); pg.wait_for_timeout(400)
+                    assert pg.locator("[data-testid=filtro-usuario]").count() == 0, "o filtro deveria sumir em Minhas"
                 assert not erros, erros
                 pg.close()
             b.close()
