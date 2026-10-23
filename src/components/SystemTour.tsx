@@ -490,12 +490,16 @@ export const SystemTour: React.FC<SystemTourProps> = ({
   useEffect(() => {
     if (!userProfile) return;
     const completed = userProfile.completedTours || [];
+    // "Não mostrar mais": vale também neste navegador, mesmo que a gravação no perfil falhe ou demore (era por isso que o tutorial voltava a cada abertura)
+    const lerLocal = (k: string) => { try { return localStorage.getItem(k) === "1"; } catch { return false; } };
+    if (lerLocal("assessor_tour_off")) { setRun(false); return; }
+    const feito = (id: string) => completed.includes(id) || lerLocal("assessor_tour_" + id);
 
     // Reset run state if context changes and already completed
     setRun(false);
 
     if (runTesesTour) {
-      if (!completed.includes("teses_tour")) {
+      if (!feito("teses_tour")) {
         setTimeout(() => {
           setSteps(tesesSteps);
           setCurrentTourId("teses_tour");
@@ -504,7 +508,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         }, 800);
       }
     } else if (runHistoryTour) {
-      if (!completed.includes("history_tour")) {
+      if (!feito("history_tour")) {
         setTimeout(() => {
           setSteps(historySteps);
           setCurrentTourId("history_tour");
@@ -513,7 +517,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         }, 800);
       }
     } else if (runPromptTour) {
-      if (!completed.includes("prompt_tour")) {
+      if (!feito("prompt_tour")) {
         setTimeout(() => {
           setSteps(promptSteps);
           setCurrentTourId("prompt_tour");
@@ -522,7 +526,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         }, 800);
       }
     } else if (runResultTour) {
-      if (!completed.includes("result_tour")) {
+      if (!feito("result_tour")) {
         setTimeout(() => {
           setSteps(resultSteps);
           setCurrentTourId("result_tour");
@@ -531,7 +535,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         }, 800);
       }
     } else if (runAppTour) {
-      if (!completed.includes("app_tour")) {
+      if (!feito("app_tour")) {
         const filteredAppSteps = appSteps.filter((step) => {
           if (step.target === "#btn-header-superadmin" && !isSuperAdmin) return false;
           if (step.target === "#btn-header-user-manager" && !isAdmin) return false;
@@ -554,6 +558,10 @@ export const SystemTour: React.FC<SystemTourProps> = ({
     const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
 
     if (finishedStatuses.includes(status) || type === EVENTS.TOUR_END) {
+      try {
+        if (currentTourId) localStorage.setItem("assessor_tour_" + currentTourId, "1");
+        if (status === STATUS.SKIPPED) localStorage.setItem("assessor_tour_off", "1");      // "Pular e não mostrar mais": nenhum tutorial volta neste navegador
+      } catch { /* sem armazenamento: o perfil ainda guarda */ }
       if (currentTourId) {
         completeTour(currentTourId);
       }
@@ -597,7 +605,7 @@ export const SystemTour: React.FC<SystemTourProps> = ({
         close: 'Fechar',
         last: 'Concluir',
         next: 'Próximo',
-        skip: 'Pular Tutorial',
+        skip: 'Pular e não mostrar mais',
       }}
     />
   );
