@@ -61,6 +61,8 @@ import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
 import { registrarOperacao } from "./utils/monitorOperacao";
 import { iniciarMedidor } from "./utils/medidorEnvio";
+import { avisarVencimentos, carregarConfigRetencao, iniciarRetencao } from "./utils/retencaoDb";
+import { useConfigRetencao } from "./components/EtiquetaValidade";
 import { assinarHistorico, retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
 import { findDossierForProcess, getProcessActsSummaryForPrompt } from "./utils/dossierUtils";
 import { ProcessTimelineModal } from "./components/ProcessTimelineModal";
@@ -303,7 +305,7 @@ export default function App() {
     setIsMinuteAuditorOpen(qual === "lupa"); setIsHearingWorkbenchModalOpen(qual === "mesa"); setIsTurboModalOpen(qual === "turbo");
   };
   // ao abrir o sistema logado: reenvia ao Histórico o que ficou pendente no disco (aba recarregada/fechada no meio da gravação)
-  useEffect(() => { if (user?.uid) { retomarHistoricoPendente(); iniciarMedidor(); } }, [user?.uid]);
+  useEffect(() => { if (user?.uid) { retomarHistoricoPendente(); iniciarMedidor(); void carregarConfigRetencao(); iniciarRetencao(); } }, [user?.uid]);
   // o super admin pode excluir a minuta de qualquer usuário no Histórico (os demais, só a própria)
   useEffect(() => { definirSuperAdminHistorico(!!isSuperAdmin); }, [isSuperAdmin]);
   // Só "Nova Análise" (barra lateral) fecha o módulo aberto e volta ao formulário; as demais opções da barra lateral não fecham nada
@@ -419,6 +421,9 @@ export default function App() {
     if (!user?.uid) return;
     return assinarHistorico(setHistoryList);
   }, [user?.uid, activeUnit?.id]);
+  // avisa (uma vez por dia) das minutas do usuário que estão perto de vencer no Histórico
+  const cfgRetencao = useConfigRetencao();
+  useEffect(() => { if (user?.uid && historyList.length) avisarVencimentos(historyList, user.uid); }, [historyList, user?.uid, cfgRetencao.ativa, cfgRetencao.ativadaEm]);
 
   // Detected process dossier for active input (finds all previously authored acts for this process)
   const activeProcessDossier = useMemo(() => {

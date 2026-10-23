@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { Activity, RefreshCw, Copy, Loader2, AlertTriangle, Users } from "lucide-react";
 import { MedidorLeituraPanel } from "./MedidorLeituraPanel";
+import { RetencaoHistoricoPanel } from "./RetencaoHistoricoPanel";
 import { OperacaoRegistrada, listarOperacoes, agruparAlertas, pedidoDeCorrecaoOperacao } from "../utils/monitorOperacao";
 
 const quando = (t: number) => (t ? new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -35,6 +36,7 @@ export function MonitorOperacaoPanel() {
 
   return (
     <div className="space-y-5" data-testid="monitor-operacao">
+      <RetencaoHistoricoPanel />
       <MedidorLeituraPanel />
       <div className="bg-slate-900 border border-sky-500/40 rounded-2xl p-5 space-y-3">
         <div className="flex items-center gap-2 flex-wrap">

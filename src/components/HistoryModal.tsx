@@ -1,5 +1,6 @@
 import { estadoIndiceHistorico, EstadoIndiceHistorico } from "../lib/firestoreUtils";
 import toast from "react-hot-toast";
+import { AvisoRetencao, EtiquetaValidade } from "./EtiquetaValidade";
 import React, { useState, useEffect, useRef } from "react";
 import {
   X,
@@ -532,6 +533,8 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
           )}
         </div>
 
+        <AvisoRetencao />
+
         {/* List Content */}
         <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3 bg-slate-50/70">
           
@@ -608,6 +611,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                       <p className="text-xs font-bold text-slate-900 truncate flex-1 min-w-[150px]" title={`${toSafeString(dossier.parties?.author, "Parte Autora")} vs ${toSafeString(dossier.parties?.defendant, "Parte Ré")}`}>
                         {toSafeString(dossier.parties?.author, "Parte Autora")} <span className="text-indigo-600 font-semibold">vs</span> {toSafeString(dossier.parties?.defendant, "Parte Ré")}
                       </p>
+                      <EtiquetaValidade date={dossier.firstDate} />
                       <span className="ml-auto flex items-center gap-1 text-[10px] text-slate-500 font-medium whitespace-nowrap max-w-[220px]" data-testid="historico-analisado-por" title={`Analisado por: ${dossier.creators.join(", ")}`}>
                         <User className="w-3 h-3 text-slate-400 shrink-0" />
                         <span className="truncate">{latestAct?.creatorName || latestAct?.creatorEmail?.split("@")[0] || "Gabinete"}</span>
@@ -687,6 +691,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                           <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-900 border border-indigo-200 font-mono text-[10px] font-bold">
                             {actTitle}
                           </span>
+                          <EtiquetaValidade date={item.date} />
                           {(() => {
                             const cat = detectPromptCategory(item);
                             return (

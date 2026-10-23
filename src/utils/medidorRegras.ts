@@ -22,6 +22,7 @@ export const ROTULO_ORIGEM: Record<string, string> = {
   ato_completo: "Histórico: minuta completa aberta pelo usuário",
   teses_minerar: "Teses: mineração das minutas completas (só quando clicada)",
   hist_exportar: "Histórico: backup (exportar tudo)",
+  retencao_limpeza: "Retenção do Histórico: busca dos atos vencidos (leve)",
   hist_completo: "Histórico: leitura completa (uso interno)",
   usuarios_lista: "Lista de usuários (coleção inteira)",
   uso_logs: "Registros de uso (usageLogs)",

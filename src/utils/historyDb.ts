@@ -7,6 +7,7 @@ import { auth } from "../lib/firebase";
 import { safeGetItem, safeSetItem, safeRemoveItem } from "./safeStorage";
 import { limitarAtoParaNuvem, semListasAninhadas, versaoMinimaDoAto } from "./historicoTamanho";
 import toast from "react-hot-toast";
+import { configRetencaoAtual } from "./retencaoRegras";
 
 export type { SavedAnalysis };
 
@@ -326,6 +327,10 @@ export const avisarHistoricoMudou = () => { try { if (typeof window !== "undefin
 export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: boolean; erro?: string }> => {
   const r = await salvarNoHistoricoInterno(analysis);
   avisarHistoricoMudou();
+  try {
+    const cfg = configRetencaoAtual();
+    if (r.ok && cfg.ativa) toast(`Minuta gravada no Histórico. Fica disponível por ${cfg.dias} dias (até ${new Date(Date.now() + cfg.dias * 86_400_000).toLocaleDateString("pt-BR")}); depois é apagada. Baixe se quiser guardar.`, { duration: 7000, icon: "⏳" });
+  } catch { /* o aviso nunca atrapalha a gravação */ }
   return r;
 };
 
