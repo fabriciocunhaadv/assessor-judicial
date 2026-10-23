@@ -74,8 +74,10 @@ import { AvisoGigante } from "./AvisoGigante";
 // acima disso a Lupa não consegue ler os autos de uma vez (limite de entrada da chave gratuita): usa o dossiê preparado em lotes
 const LIMITE_CHARS_LUPA = 700_000;
 import { AvisoCoberturaLeitura } from "./AvisoCoberturaLeitura";
+import { EtiquetaValidade } from "./EtiquetaValidade";
 import {
   getAudits,
+  getLocalAudits,
   saveAudit,
   updateAudit,
   deleteAudit,
@@ -313,7 +315,8 @@ export const MinuteAuditorModal: React.FC<MinuteAuditorModalProps> = ({
       if (initialPdfs && initialPdfs.length > 0) {
         setPdfFiles((prev) => (prev.length === 0 ? initialPdfs : prev));
       }
-      loadAuditsList();
+      // A lista vem da escuta ao vivo (1 leitura só). Antes havia também uma leitura avulsa da coleção inteira: cada abertura baixava as auditorias duas vezes.
+      setAuditedRecords((atual) => (atual.length ? atual : getLocalAudits()));
 
       // Real-time Firestore subscription for live updates
       const unsub = subscribeToAudits((updatedList) => {
@@ -2370,6 +2373,7 @@ ${reAuditNotes}`
                                   minute: "2-digit",
                                 })}
                               </span>
+                              <EtiquetaValidade date={latest.date} />
                               {latest.pdfFileNames && latest.pdfFileNames.length > 0 && (
                                 <span className="flex items-center gap-1 text-emerald-400">
                                   <FileText className="w-3.5 h-3.5" />
@@ -2554,6 +2558,7 @@ ${reAuditNotes}`
                                             minute: "2-digit",
                                           })}
                                         </span>
+                                        <EtiquetaValidade date={rec.date} />
                                       </div>
 
                                       {rec.correctionNotes && (

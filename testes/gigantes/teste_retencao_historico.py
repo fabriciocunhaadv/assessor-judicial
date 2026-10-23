@@ -26,11 +26,14 @@ def main():
                 ato(3, "5500003-10.2025.8.09.0166", AGORA - int(6.5 * DIA)),   # nova, falta meio dia: aviso de 1
                 ato(4, "5500004-10.2025.8.09.0166", AGORA - 1 * DIA),      # nova, faltam 6 dias: sem aviso
                 ato(5, "5500005-10.2025.8.09.0166", 1792800000000)]        # antiga (20/10/2026): carência até 12/11, faltam 2 dias
+        auditorias = [{"id": "a1", "date": AGORA - 8 * DIA, "processNumber": "1", "createdBy": "outro-uid"}, {"id": "a2", "date": AGORA - 1 * DIA, "processNumber": "2", "createdBy": "outro-uid"}]
+        audiencias = [{"id": "hh1", "updatedAt": AGORA - 10 * DIA, "scheduledDate": "2026-11-01", "processNumber": "3"},      # alterada há 10 dias e a audiência foi em 01/11: vencida
+                      {"id": "hh2", "updatedAt": AGORA - 10 * DIA, "scheduledDate": "2026-11-15", "processNumber": "4"}]      # alterada há 10 dias, mas a audiência é só em 15/11: NÃO vence antes de acontecer
         cfg = {"id": "retencao_historico", "dados": {"ativa": True, "dias": 7, "ativadaEm": ATIVADA, "corteAntigas": 1792810800000}}
         with sync_playwright() as p:
             b = p.chromium.launch(executable_path=glob.glob("/opt/pw-browsers/chromium-*/chrome-linux*/chrome")[0], args=["--no-sandbox"])
             pg = b.new_page(viewport={"width": 1400, "height": 1000}); pg.set_default_timeout(60000); erros = []; pg.on("pageerror", lambda e: erros.append(str(e)[:200]))
-            pg.add_init_script("localStorage.setItem('assessor_tour_done','1'); window.__seedHistory = " + json.dumps(seed) + "; window.__setDocs = " + json.dumps([cfg]) + ";")
+            pg.add_init_script("localStorage.setItem('assessor_tour_done','1'); window.__seedHistory = " + json.dumps(seed) + "; window.__setDocs = " + json.dumps([cfg]) + "; window.__seedAudits = " + json.dumps(auditorias) + "; window.__seedHearings = " + json.dumps(audiencias) + ";")
             import datetime; pg.clock.install(time=datetime.datetime.fromtimestamp(AGORA / 1000, tz=datetime.timezone.utc))      # a API do Python recebe data/segundos, não milissegundos
             pg.goto(f"http://127.0.0.1:{PV}/"); pg.wait_for_timeout(1500); pg.clock.run_for(5000); pg.wait_for_timeout(600)
             pg.add_style_tag(content="#react-joyride-portal{display:none!important}")
@@ -41,6 +44,11 @@ def main():
             ids = pg.evaluate("[...globalThis.__idx.keys()].sort()"); print("índice depois da limpeza:", ids)
             assert "h1" not in ids and all(x in ids for x in ["h2", "h3", "h4", "h5"]), ids
             print("1) venceu = apagada (h1); em prazo e a antiga em carência = mantidas")
+            # 1b) Lupa e Mesa (varredura do super admin): apaga a auditoria vencida e a audiência já passada; mantém a de data futura
+            dele = pg.evaluate("globalThis.__deletados || []"); print("   apagados na varredura:", [x for x in dele if "/audits/" in x or "/hearings/" in x])
+            assert any(x.endswith("/audits/a1") for x in dele) and not any(x.endswith("/audits/a2") for x in dele), dele
+            assert any(x.endswith("/hearings/hh1") for x in dele) and not any(x.endswith("/hearings/hh2") for x in dele), dele
+            print("1b) auditoria vencida e audiência passada apagadas; auditoria recente e audiência futura mantidas")
             # 2) aviso de 1 dia (há ato com menos de 24 h): foi mostrado e ficou marcado para não repetir no mesmo dia
             marcas = pg.evaluate("Object.keys(localStorage).filter(k => k.startsWith('retencao_aviso_'))"); print("   avisos marcados:", marcas)
             assert any(k.endswith("_1") for k in marcas), "faltou o aviso de 1 dia"; print("2) aviso de 1 dia mostrado (uma vez por dia)")

@@ -283,6 +283,7 @@ export const deletePromptFromDb = async (id: string): Promise<void> => {
 // Lê só as análises mais recentes (antes lia a coleção inteira a cada consulta). Docs sem o campo 'date' ficam de fora.
 const HISTORICO_LIMITE = 200;
 
+export const ehSuperAdminHistorico = () => _superAdminAtivo;
 export const getHistoryFromDbCompleto = async (origem: string = "hist_outros", limite: number = HISTORICO_LIMITE): Promise<SavedAnalysis[]> => {
   if (!auth.currentUser) return [];
   try {
@@ -2152,6 +2153,7 @@ export const subscribeToAudits = (callback: (audits: AuditedProcessRecord[]) => 
     const unitId = getActiveUnitId();
     const q = query(collection(db, getTenantPath('audits')));
     const unsub = onSnapshot(q, (snapshot) => {
+      try { const mud = ((snapshot as any).docChanges?.() || []).map((c: any) => c.doc).filter(Boolean); medirLeitura('lupa_ao_vivo', mud.length ? mud : snapshot.docs); } catch { /* sem medição */ }
       const all = snapshot.docs.map(d => {
         const data = d.data();
         return { id: d.id, ...data } as AuditedProcessRecord;

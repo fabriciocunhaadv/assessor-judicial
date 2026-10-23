@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { Hourglass, Loader2, Trash2, Search } from "lucide-react";
 import { assinarHistorico } from "../utils/historyDb";
-import { carregarConfigRetencao, limparHistoricoVencido, salvarConfigRetencao } from "../utils/retencaoDb";
+import { carregarConfigRetencao, limparHistoricoVencido, limparLupaEMesaVencidas, salvarConfigRetencao } from "../utils/retencaoDb";
 import { resumirValidade } from "../utils/retencaoRegras";
 import { useConfigRetencao } from "./EtiquetaValidade";
 import type { SavedAnalysis } from "../types";
@@ -27,7 +27,8 @@ export function RetencaoHistoricoPanel() {
     setOcupado(true);
     try {
       const x = await limparHistoricoVencido({ simular });
-      toast[x.candidatos || x.apagados ? "success" : "error"](simular ? `${x.candidatos} minuta(s) vencida(s) seriam apagadas agora.` : `${x.apagados} minuta(s) apagada(s)${x.falhas ? `, ${x.falhas} com falha` : ""}.`);
+      const y = await limparLupaEMesaVencidas({ simular });
+      toast.success(simular ? `Seriam apagadas agora: ${x.candidatos} minuta(s), ${y.auditorias} auditoria(s) da Lupa e ${y.audiencias} audiência(s) da Mesa.` : `Apagadas: ${x.apagados} minuta(s)${x.falhas ? ` (${x.falhas} com falha)` : ""}, ${y.auditorias} auditoria(s) da Lupa e ${y.audiencias} audiência(s) da Mesa.`);
     } finally { setOcupado(false); }
   };
   const botao = "px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50";
@@ -44,7 +45,7 @@ export function RetencaoHistoricoPanel() {
             : <button type="button" disabled={ocupado} onClick={() => mudar(true)} className={`${botao} bg-amber-600 hover:bg-amber-500 text-white`} data-testid="retencao-ligar">Ligar</button>}
         </div>
       </div>
-      <p className="text-xs text-slate-400 leading-relaxed">Cada minuta fica no Histórico por {dias} dias e depois é apagada do banco. O usuário é avisado com 3 dias e com 1 dia. As minutas feitas até 23/10/2026 não são apagadas na hora: ganham {dias} dias de carência a partir do dia em que a regra é ligada{cfg.ativadaEm ? ` (ligada em ${new Date(cfg.ativadaEm).toLocaleDateString("pt-BR")})` : ""}. A exclusão acontece quando alguém abre o sistema: cada usuário apaga as próprias minutas vencidas e o super admin apaga todas.</p>
+      <p className="text-xs text-slate-400 leading-relaxed">Cada minuta do Histórico, auditoria da Lupa e audiência da Mesa fica por {dias} dias e depois é apagada do banco (a audiência conta a partir da data marcada). O usuário é avisado com 3 dias e com 1 dia. As minutas feitas até 23/10/2026 não são apagadas na hora: ganham {dias} dias de carência a partir do dia em que a regra é ligada{cfg.ativadaEm ? ` (ligada em ${new Date(cfg.ativadaEm).toLocaleDateString("pt-BR")})` : ""}. A exclusão acontece quando alguém abre o sistema: cada usuário apaga as próprias minutas vencidas e o super admin apaga todas.</p>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
         {[["Vencidas", r.vencidas, "text-rose-300"], ["Menos de 24 h", r.ate1, "text-rose-300"], ["Até 3 dias", r.ate3, "text-amber-300"], ["Mais de 3 dias", r.ate7, "text-slate-100"], ["Com prazo (esta unidade)", r.total, "text-white"]].map(([t, n, c]) => (
           <div key={String(t)} className="bg-slate-950/60 border border-slate-800 rounded-xl p-3"><div className="text-slate-400">{t}</div><div className={`text-lg font-black ${c}`}>{n as number}</div></div>

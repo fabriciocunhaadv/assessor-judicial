@@ -1,4 +1,5 @@
 import { HearingRecord, HearingType } from '../types';
+import { medirLeitura } from "./medidorColeta";
 import { db, auth } from '../lib/firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { globalTenantId, cleanForFirestore, getActiveUnitId } from '../lib/firestoreUtils';
@@ -143,6 +144,7 @@ export const subscribeToHearingRecords = (
     return onSnapshot(
       q,
       (snapshot) => {
+        try { const mud = ((snapshot as any).docChanges?.() || []).map((c: any) => c.doc).filter(Boolean); medirLeitura('mesa_ao_vivo', mud.length ? mud : snapshot.docs); } catch { /* sem medição */ }
         if (!snapshot.empty) {
           const remoteRecords: HearingRecord[] = snapshot.docs.map((d) => {
             const data = d.data();

@@ -1,4 +1,6 @@
 import { MutiraoPrevidenciarioView } from './MutiraoPrevidenciarioView';
+import { EtiquetaValidade } from "./EtiquetaValidade";
+import { referenciaAudiencia } from "../utils/retencaoRegras";
 import { useModoJanela } from "../utils/areaPrincipal";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Zap,
@@ -1027,6 +1029,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
                           <span className="truncate">{h.scheduledDate || 'Data'} às {h.scheduledTime || 'Horário'}</span>
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <EtiquetaValidade date={referenciaAudiencia(h)} />
                           <span className="text-[9px] text-slate-500 uppercase">
                             {h.hearingType === 'instrucao_julgamento' ? 'Instrução' : h.hearingType}
                           </span>

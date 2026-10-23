@@ -49,6 +49,13 @@ export function resumirValidade(atos: Array<{ date?: any }>, cfg: ConfigRetencao
   return r;
 }
 
+/** Data de referência de uma audiência: a mais tardia entre a última alteração e o dia da audiência (audiência marcada para o futuro nunca vence antes de acontecer). */
+export function referenciaAudiencia(h: { updatedAt?: any; scheduledDate?: any } | null | undefined): number {
+  const up = Number(h?.updatedAt) || 0;
+  const dia = typeof h?.scheduledDate === "string" && /^\d{4}-\d{2}-\d{2}/.test(h.scheduledDate) ? Date.parse(h.scheduledDate.slice(0, 10) + "T23:59:59-03:00") : 0;
+  return Math.max(up, Number.isFinite(dia) ? dia : 0);
+}
+
 // ---- estado em memória (a tela e o historyDb leem daqui sem depender do Firebase) ----
 let _cfg: ConfigRetencao = configPadraoRetencao();
 export const configRetencaoAtual = (): ConfigRetencao => _cfg;

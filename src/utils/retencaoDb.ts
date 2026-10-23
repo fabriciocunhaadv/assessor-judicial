@@ -1,11 +1,12 @@
 // RETENÇÃO DO HISTÓRICO (parte que fala com o banco): lê e grava a configuração (settings/retencao_historico) e apaga os atos vencidos.
 // A exclusão roda no navegador de quem abre o sistema: cada usuário apaga as próprias minutas vencidas e o super admin apaga todas (é o que as regras do banco permitem).
-import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, query, setDoc, where } from "firebase/firestore";
 import toast from "react-hot-toast";
 import { db, auth } from "../lib/firebase";
-import { deleteHistoryFromDb, ehDonoDoAto, garantirIndiceHistorico, indiceHistoricoPath } from "../lib/firestoreUtils";
+import { deleteHistoryFromDb, ehDonoDoAto, ehSuperAdminHistorico, garantirIndiceHistorico, indiceHistoricoPath } from "../lib/firestoreUtils";
+import { listaDeGabinetes } from "./monitorErros";
 import { medirLeitura } from "./medidorColeta";
-import { ConfigRetencao, configRetencaoAtual, definirConfigRetencao, limiteDeCandidatos, normalizarConfigRetencao, resumirValidade, situacaoValidade } from "./retencaoRegras";
+import { ConfigRetencao, configRetencaoAtual, definirConfigRetencao, limiteDeCandidatos, normalizarConfigRetencao, referenciaAudiencia, resumirValidade, situacaoValidade } from "./retencaoRegras";
 
 const refConfig = () => doc(db, "settings", "retencao_historico");
 
@@ -47,12 +48,38 @@ export async function limparHistoricoVencido(opcoes: { simular?: boolean } = {})
   return out;
 }
 
+/** Varredura do SUPER ADMIN nas auditorias da Lupa e nas audiências da Mesa de todos os gabinetes. Lê só os registros já vencidos (e só até 25 por vez), que em seguida são apagados: nada é baixado sem necessidade. */
+export async function limparLupaEMesaVencidas(opcoes: { simular?: boolean } = {}): Promise<{ auditorias: number; audiencias: number }> {
+  const out = { auditorias: 0, audiencias: 0 };
+  const cfg = configRetencaoAtual();
+  if (!cfg.ativa || !auth.currentUser || !ehSuperAdminHistorico()) return out;
+  try {
+    const limite = limiteDeCandidatos(cfg);
+    for (const tid of await listaDeGabinetes()) {
+      for (const [sub, campo, rotulo] of [["audits", "date", "retencao_auditorias"], ["hearings", "updatedAt", "retencao_audiencias"]] as const) {
+        for (let volta = 0; volta < 4; volta++) {      // no máximo 100 registros por gabinete e por vez
+          let sn;
+          try { sn = await getDocs(query(collection(db, `gabinetes/${tid}/${sub}`), where(campo, "<", limite), limit(25))); } catch { break; }
+          medirLeitura(rotulo, sn.docs);
+          const vencidos = sn.docs.filter((d) => { const v: any = d.data(); return situacaoValidade(sub === "audits" ? v.date : referenciaAudiencia(v), cfg).fase === "vencido"; });
+          if (opcoes.simular) { if (sub === "audits") out.auditorias += vencidos.length; else out.audiencias += vencidos.length; break; }
+          let apagou = 0;
+          for (const d of vencidos) { try { await deleteDoc(d.ref); apagou++; } catch (e) { console.warn("[Retenção] não consegui apagar", sub, d.id, e); } }
+          if (sub === "audits") out.auditorias += apagou; else out.audiencias += apagou;
+          if (apagou === 0 || sn.docs.length < 25) break;
+        }
+      }
+    }
+  } catch (e) { console.warn("[Retenção] limpeza da Lupa e da Mesa falhou:", e); }
+  return out;
+}
+
 let _iniciada = false;
 /** Chamar uma vez ao abrir o sistema com o usuário logado: lê a configuração, limpa o que venceu e repete a cada 6 horas. */
 export function iniciarRetencao(): void {
   if (_iniciada || typeof window === "undefined") return;
   _iniciada = true;
-  const rodar = async () => { const c = await carregarConfigRetencao(); if (c.ativa) await limparHistoricoVencido(); };
+  const rodar = async () => { const c = await carregarConfigRetencao(); if (c.ativa) { await limparHistoricoVencido(); await limparLupaEMesaVencidas(); } };
   setTimeout(() => { void rodar(); }, 15_000);
   setInterval(() => { void rodar(); }, 6 * 3_600_000);
 }
