@@ -60,6 +60,7 @@ import {
 } from "../lib/firestoreUtils";
 import { useAuth } from "../lib/AuthContext";
 import { getMaskedApiKey } from "../utils/apiKeyManager";
+import { linkDeAcesso } from '../utils/linkAcesso';
 
 interface UserManagerModalProps {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({ isOpen, onCl
   const { userProfile, allowedUnits } = useAuth();
 
   const getInviteMessageText = (email: string) => {
-    const currentUrl = "https://assessor-judicial.ai.studio";
+    const currentUrl = linkDeAcesso();
     return `Olá!\n\nSeu acesso ao Gabinete Virtual do Assessor Judicial de IA foi liberado pela administração.\n\n` +
       `Para acessar o sistema:\n` +
       `1. Acesse o link: ${currentUrl}\n` +
@@ -137,7 +138,7 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({ isOpen, onCl
   };
 
   const getWhatsAppUrl = (email: string) => {
-    const currentUrl = "https://assessor-judicial.ai.studio";
+    const currentUrl = linkDeAcesso();
     const text = encodeURIComponent(
       `*Convite de Acesso ao Gabinete Virtual - Assessor Judicial de IA*\n\n` +
       `Olá! Seu acesso ao Gabinete Virtual foi liberado para o e-mail: *${email}*.\n\n` +

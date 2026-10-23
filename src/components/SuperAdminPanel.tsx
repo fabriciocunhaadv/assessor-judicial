@@ -68,6 +68,7 @@ import { collection, getDocs, setDoc, doc, deleteDoc } from 'firebase/firestore'
 import { MonitorErrosPanel } from './MonitorErrosPanel';
 import { MonitorOperacaoPanel } from './MonitorOperacaoPanel';
 import { db } from '../lib/firebase';
+import { linkDeAcesso } from '../utils/linkAcesso';
 import { 
   getAllTenantsWithMetrics, 
   updateTenantStatus, 
@@ -286,7 +287,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
   const [actionErrorMsg, setActionErrorMsg] = useState<string | null>(null);
 
   const getInviteMessageText = (email: string) => {
-    const currentUrl = "https://assessor-judicial.ai.studio";
+    const currentUrl = linkDeAcesso();
     return `Olá!\n\nSeu acesso ao Gabinete Virtual do Assessor Judicial de IA foi liberado pela administração.\n\n` +
       `Para acessar o sistema:\n` +
       `1. Acesse o link: ${currentUrl}\n` +
@@ -308,7 +309,7 @@ export const SuperAdminPanel: React.FC<SuperAdminPanelProps> = ({ isOpen, onClos
   };
 
   const getWhatsAppUrl = (email: string) => {
-    const currentUrl = "https://assessor-judicial.ai.studio";
+    const currentUrl = linkDeAcesso();
     const text = encodeURIComponent(
       `*Convite de Acesso ao Gabinete Virtual - Assessor Judicial de IA*\n\n` +
       `Olá! Seu acesso ao Gabinete Virtual foi liberado para o e-mail: *${email}*.\n\n` +

@@ -86,6 +86,7 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
   const [hiddenMessage, setHiddenMessage] = useState<boolean>(false);
   const [isTogglingNative, setIsTogglingNative] = useState<boolean>(false);
   const [nativeKeyInfo, setNativeKeyInfo] = useState<{ configured: boolean; maskedKey: string } | null>(null);
+  const [servidorTemChaveNativa, setServidorTemChaveNativa] = useState<boolean | null>(null);      // null = ainda não sabe (o cartão fica visível)
 
   const fetchNativeKeyInfo = async () => {
     try {
@@ -99,6 +100,7 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
           console.warn("Parse error");
         }
         setNativeKeyInfo(data);
+        if (typeof data?.hasNativeKey === "boolean") setServidorTemChaveNativa(data.hasNativeKey);
       }
     } catch (e) {
       console.warn("Erro ao obter info da chave nativa:", e);
@@ -532,7 +534,7 @@ export const ApiKeyConfigModal: React.FC<ApiKeyConfigModalProps> = ({
           </div>
 
           {/* Admin Dedicated Toggle Card */}
-          {isSuperAdmin && (
+          {isSuperAdmin && servidorTemChaveNativa !== false && (
             <div className="p-4 bg-slate-100 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-start sm:items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 sm:mt-0">
