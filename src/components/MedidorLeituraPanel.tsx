@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import { Gauge, RefreshCw, Copy, Loader2 } from "lucide-react";
-import { listarMedicoes } from "../utils/medidorEnvio";
+import { enviarMedicoes, listarMedicoes } from "../utils/medidorEnvio";
 import { formatarBytes, resumir, RegistroMedidor } from "../utils/medidorRegras";
 
 /** Quanto cada parte do sistema baixou do banco nos últimos dias (estimado por amostra). Serve para achar o que pesa na fatura do Firebase. */
@@ -9,7 +9,8 @@ export function MedidorLeituraPanel() {
   const [regs, setRegs] = useState<RegistroMedidor[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [dias, setDias] = useState(7);
-  const carregar = async () => { setCarregando(true); try { setRegs(await listarMedicoes(dias)); } finally { setCarregando(false); } };
+  // envia antes o que esta aba ainda tem na memória (o envio automático é a cada 5 minutos), para o relatório não ficar atrasado
+  const carregar = async () => { setCarregando(true); try { await enviarMedicoes(); setRegs(await listarMedicoes(dias)); } finally { setCarregando(false); } };
   useEffect(() => { void carregar(); }, [dias]);
   const r = useMemo(() => resumir(regs), [regs]);
   const texto = () => `Medidor de leitura do Firestore (estimado, últimos ${dias} dias). Total: ${formatarBytes(r.totalBytes)}\n\n` +
