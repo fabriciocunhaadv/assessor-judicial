@@ -1,3 +1,4 @@
+import { estadoIndiceHistorico, EstadoIndiceHistorico } from "../lib/firestoreUtils";
 import toast from "react-hot-toast";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -158,6 +159,14 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   }, [searchTerm, actFilter, categoryFilter, scopeFilter, viewMode]);
 
   const currentUid = auth.currentUser?.uid;
+
+  // estado da montagem do índice leve (primeira vez): evita a tela parecer "vazia" enquanto o Histórico é preparado
+  const [estadoIndice, setEstadoIndice] = useState<EstadoIndiceHistorico>(estadoIndiceHistorico());
+  useEffect(() => {
+    const aoMudar = (e: Event) => setEstadoIndice(((e as CustomEvent).detail || estadoIndiceHistorico()) as EstadoIndiceHistorico);
+    window.addEventListener("assessor-indice-estado", aoMudar);
+    return () => window.removeEventListener("assessor-indice-estado", aoMudar);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -534,7 +543,11 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-800">
-                  {history.length === 0 ? "Nenhum processo salvo no histórico" : "Nenhum resultado para os filtros atuais"}
+                  {history.length === 0
+                    ? (estadoIndice.fase === "verificando" || estadoIndice.fase === "montando"
+                        ? `Preparando o Histórico${estadoIndice.lidos ? ` (${estadoIndice.lidos} atos lidos)` : ""}… na primeira vez pode levar alguns minutos; a lista aparece sozinha.`
+                        : estadoIndice.fase === "falhou" ? `Não consegui preparar a lista leve (${estadoIndice.erro || "erro"}). Usando a leitura completa; se continuar vazio, clique em atualizar.` : "Nenhum processo salvo no histórico")
+                    : "Nenhum resultado para os filtros atuais"}
                 </p>
                 <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                   {history.length === 0

@@ -1,6 +1,6 @@
 import { db, auth } from './firebase';
 import { medirLeitura } from "../utils/medidorColeta";
-import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc, query, orderBy, limit, onSnapshot, where, increment, getCountFromServer, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc, query, orderBy, limit, onSnapshot, where, increment, getCountFromServer, writeBatch, startAfter, documentId } from 'firebase/firestore';
 import { resumoLeve, ehLeve, digitosDoProcesso } from '../utils/historicoLeve';
 import { CustomPrompt, GenerationResult, CabinetTesesData, ProjudiGuideData, UserProfile, UserRole, ChatMessage, MinuteData, SavedAnalysis, ApiUsageMetadata, SystemBroadcast, MinuteVersion, AuditedProcessRecord, CabinetCalendarSettings, SaaSTenant, CabinetBackupSnapshot, GlobalDatabaseSnapshot, CabinetFullPartitionData, CabinetMonthlyTokenUsage, ExecutionModuleType, ModuleTokenUsageStats } from '../types';
 import { JudgeParadigmModel } from '../data/defaultParadigms';
@@ -358,6 +358,11 @@ export const apagarIndiceHistorico = async (id: string): Promise<void> => {
   try { if (id) await deleteDoc(doc(db, indiceHistoricoPath(), id)); } catch { /* sem índice para apagar */ }
 };
 
+export type EstadoIndiceHistorico = { fase: 'verificando' | 'montando' | 'pronto' | 'falhou'; lidos?: number; erro?: string };
+let _estadoIndice: EstadoIndiceHistorico = { fase: 'verificando' };
+export const estadoIndiceHistorico = () => _estadoIndice;
+let _erroReconciliacao = '';
+const mudarEstadoIndice = (e: EstadoIndiceHistorico) => { _estadoIndice = e; try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('assessor-indice-estado', { detail: e })); } catch { /* sem janela */ } };
 const esperarMs = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 const metaIndiceRef = () => doc(db, getTenantPath('settings'), 'history_index_meta');
 
@@ -366,30 +371,49 @@ async function reconciliarIndiceHistorico(incluirLegado: boolean): Promise<boole
   try {
     const m = await getDoc(metaIndiceRef()); const md: any = m.exists() ? m.data() : {};
     if (md.reconciliandoAte && md.reconciliandoAte > Date.now()) {      // outro usuário está montando o índice agora
+      mudarEstadoIndice({ fase: 'montando' });
       for (let i = 0; i < 24; i++) { await esperarMs(5000); const x: any = (await getDoc(metaIndiceRef())).data() || {}; if (!x.reconciliandoAte || x.reconciliandoAte < Date.now()) return true; }
       return true;
     }
     await setDoc(metaIndiceRef(), { reconciliandoAte: Date.now() + 5 * 60000, por: auth.currentUser?.email || '' }, { merge: true });
     const caminhos = incluirLegado ? getHistoryCollectionPaths() : [getTenantPath('history')];
-    const fontes = new Map<string, { data: any; fonte: string }>();
-    for (const c of caminhos) {
-      try { const sn = await getDocs(collection(db, c)); medirLeitura('indice_reconciliar', sn.docs); sn.docs.forEach((d) => { if (!fontes.has(d.id)) fontes.set(d.id, { data: d.data(), fonte: c }); }); }
-      catch (e) { console.warn('[Histórico] não consegui ler', c, e); }
-    }
+    mudarEstadoIndice({ fase: 'montando', lidos: 0 });
     const noIndice = new Map<string, any>();
     (await getDocs(collection(db, indiceHistoricoPath()))).docs.forEach((d) => noIndice.set(d.id, d.data()));
-    let lote = writeBatch(db), emLote = 0;
-    const proximo = async () => { if (++emLote >= 400) { await lote.commit(); lote = writeBatch(db); emLote = 0; } };
-    for (const [id, { data, fonte }] of fontes) {
-      const atual = noIndice.get(id);
-      if (!atual || atual.fonte !== fonte) { lote.set(doc(db, indiceHistoricoPath(), id), cleanForFirestore(resumoLeve({ id, ...data }, fonte))); await proximo(); }
+    const fontes = new Set<string>();
+    let lote = writeBatch(db), emLote = 0, lidos = 0;
+    const proximo = async () => { if (++emLote >= 100) { await lote.commit(); lote = writeBatch(db); emLote = 0; } };
+    // caminho por caminho (o do gabinete primeiro), em páginas de 50 atos: a lista vai aparecendo na tela conforme cada página é gravada e a memória não explode
+    let falhouLeitura = '';
+    for (const c of caminhos) {
+      try {
+        let ultimo: any = null;
+        for (let pagina = 0; pagina < 400; pagina++) {
+          const sn = await getDocs(ultimo ? query(collection(db, c), orderBy(documentId()), startAfter(ultimo), limit(50)) : query(collection(db, c), orderBy(documentId()), limit(50)));
+          medirLeitura('indice_reconciliar', sn.docs);
+          if (sn.docs.length === 0) break;
+          for (const d of sn.docs) {
+            lidos++;
+            if (fontes.has(d.id)) continue;
+            fontes.add(d.id);
+            const atual = noIndice.get(d.id);
+            if (!atual || atual.fonte !== c) { lote.set(doc(db, indiceHistoricoPath(), d.id), cleanForFirestore(resumoLeve({ id: d.id, ...d.data() }, c))); await proximo(); }
+          }
+          if (emLote > 0) { await lote.commit(); lote = writeBatch(db); emLote = 0; }
+          mudarEstadoIndice({ fase: 'montando', lidos });
+          if (sn.docs.length < 50) break;
+          ultimo = sn.docs[sn.docs.length - 1];
+        }
+      } catch (e) { falhouLeitura = String((e as any)?.code || (e as any)?.message || e).slice(0, 160); console.warn('[Histórico] não consegui ler', c, e); }
     }
+    if (falhouLeitura) throw new Error('leitura do Histórico falhou: ' + falhouLeitura);      // não dá o índice por pronto se algum caminho não foi lido
     for (const [id, v] of noIndice) if (!fontes.has(id) && caminhos.includes(v.fonte)) { lote.delete(doc(db, indiceHistoricoPath(), id)); await proximo(); }
     if (emLote > 0) await lote.commit();
     await setDoc(metaIndiceRef(), { reconciliandoAte: 0, feitoEm: Date.now(), ...(incluirLegado ? { legadoFeito: true } : {}) }, { merge: true });
     return true;
   } catch (e) {
     console.warn('[Histórico] não consegui montar o índice leve:', e);
+    _erroReconciliacao = String((e as any)?.message || e).slice(0, 160);
     try { await setDoc(metaIndiceRef(), { reconciliandoAte: 0 }, { merge: true }); } catch { /* sem trava para soltar */ }
     return false;
   }
@@ -400,15 +424,18 @@ let _indiceVerificado: { chave: string; ate: number; p: Promise<boolean> } | nul
 export async function garantirIndiceHistorico(): Promise<boolean> {
   const chave = globalTenantId;
   if (_indiceVerificado && _indiceVerificado.chave === chave && Date.now() < _indiceVerificado.ate) return _indiceVerificado.p;
+  mudarEstadoIndice({ fase: 'verificando' });
   const p = (async () => {
     try {
       const md: any = (await getDoc(metaIndiceRef())).data() || {};
       const precisaLegado = isPrimaryCabinet(chave) && !md.legadoFeito;
       const nHist = (await getCountFromServer(collection(db, getTenantPath('history')))).data().count;
       const nIdx = (await getCountFromServer(query(collection(db, indiceHistoricoPath()), where('fonte', '==', getTenantPath('history'))))).data().count;
-      if (nHist === nIdx && !precisaLegado) return true;
-      return await reconciliarIndiceHistorico(precisaLegado);
-    } catch (e) { console.warn('[Histórico] verificação do índice falhou:', e); return false; }
+      if (nHist === nIdx && !precisaLegado) { mudarEstadoIndice({ fase: 'pronto' }); return true; }
+      const ok = await reconciliarIndiceHistorico(precisaLegado);
+      mudarEstadoIndice(ok ? { fase: 'pronto' } : { fase: 'falhou', erro: _erroReconciliacao || 'não consegui montar a lista leve' });
+      return ok;
+    } catch (e) { console.warn('[Histórico] verificação do índice falhou:', e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.message || e).slice(0, 160) }); return false; }
   })();
   _indiceVerificado = { chave, ate: Date.now() + (10 * 60000), p };
   p.then((ok) => { if (!ok && _indiceVerificado?.p === p) _indiceVerificado.ate = Date.now() + 2 * 60000; });      // falhou: tenta de novo em 2 minutos
@@ -440,15 +467,16 @@ export const getHistoryFromDb = async (origem: string = "hist_outros"): Promise<
 /** Lista AO VIVO: o Firestore avisa só o que mudou (um ato novo de outro usuário aparece na hora, sem baixar a lista de novo). */
 export const assinarIndiceHistorico = (cb: (lista: SavedAnalysis[]) => void, origem: string = "hist_ao_vivo"): (() => void) => {
   if (!auth.currentUser) return () => {};
-  let cancelado = false, desfazer: (() => void) | null = null;
-  void garantirIndiceHistorico().then((ok) => {
-    if (cancelado) return;
-    if (!ok) { void getHistoryFromDbCompleto(origem).then((l) => { if (!cancelado) cb(l); }).catch(() => {}); return; }
+  let cancelado = false, desfazer: (() => void) | null = null, caiuNoCompleto = false;
+  const usarCompleto = () => { if (caiuNoCompleto || cancelado) return; caiuNoCompleto = true; void getHistoryFromDbCompleto(origem).then((l) => { if (!cancelado) cb(l); }).catch(() => {}); };
+  // escuta o índice JÁ (a lista vai aparecendo conforme o índice é montado); a conferência de contagem roda em paralelo
+  try {
     desfazer = onSnapshot(consultaIndice(), (sn) => {
       try { const mud = ((sn as any).docChanges?.() || []).map((c: any) => c.doc).filter(Boolean); medirLeitura(origem, mud.length ? mud : sn.docs); } catch { /* sem medição */ }
-      cb(listaDoIndice(sn.docs));
-    }, (e) => console.warn('[Histórico] escuta do índice falhou:', e));
-  });
+      if (!caiuNoCompleto) cb(listaDoIndice(sn.docs));
+    }, (e) => { console.warn('[Histórico] escuta do índice falhou; usando a leitura completa:', e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.code || (e as any)?.message || e).slice(0, 160) }); usarCompleto(); });
+  } catch (e) { console.warn('[Histórico] não consegui escutar o índice:', e); usarCompleto(); }
+  void garantirIndiceHistorico().then((ok) => { if (!ok) usarCompleto(); });
   return () => { cancelado = true; if (desfazer) desfazer(); };
 };
 
