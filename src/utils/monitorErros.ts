@@ -2,6 +2,7 @@
 // gabinetes/{gabinete}/error_events/{assinatura} (as regras atuais do Firestore já permitem). O super admin lê tudo no painel "Monitor de erros",
 // pede o diagnóstico da IA e DECIDE se aceita ou recusa cada ajuste sugerido. Nada é corrigido sozinho.
 // Privacidade: nunca grava o texto dos autos; números de processo, CPF/CNPJ, e-mails e chaves são mascarados antes de gravar.
+import { medirLeitura } from "./medidorColeta";
 import { collection, doc, getDocs, setDoc, updateDoc, increment, arrayUnion } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 import { globalTenantId } from "../lib/firestoreUtils";
@@ -146,7 +147,8 @@ export async function listarErros(): Promise<ErroMonitorado[]> {
   const out: ErroMonitorado[] = [];
   for (const tid of await listaDeGabinetes()) {
     try {
-      (await getDocs(collection(db, "gabinetes", tid, "error_events"))).docs.forEach((d) => { const v: any = d.data(); out.push({ ...v, id: d.id, tenantId: tid, situacao: v.situacao || "novo", usuarios: v.usuarios || [], contagem: v.contagem || 1 }); });
+      const snapErros = await getDocs(collection(db, "gabinetes", tid, "error_events")); medirLeitura("erros_lista", snapErros.docs);
+      snapErros.docs.forEach((d) => { const v: any = d.data(); out.push({ ...v, id: d.id, tenantId: tid, situacao: v.situacao || "novo", usuarios: v.usuarios || [], contagem: v.contagem || 1 }); });
     } catch { /* gabinete sem registros ou sem acesso */ }
   }
   return out.sort((a, b) => b.ultimaEm - a.ultimaEm);

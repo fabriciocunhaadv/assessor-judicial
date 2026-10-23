@@ -1,6 +1,7 @@
 // Monitor de OPERAÇÃO: acompanha, de todos os usuários e gabinetes, o que o Studio fez (análise normal, Turbo, processos gigantes) e se veio da esteira da extensão ou do uso manual.
 // Cada operação grava um registro enxuto em gabinetes/{gabinete}/ops_events (sem partes, sem texto dos autos) e passa por regras que apontam anomalias, por exemplo
 // "prompt Criminal usado numa unidade de Juizado Cível". O super admin vê tudo no painel "Monitor de operação" e copia o pedido de correção para o Claude.
+import { medirLeitura } from "./medidorColeta";
 import { collection, doc, getDocs, setDoc } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 import { globalTenantId } from "../lib/firestoreUtils";
@@ -53,7 +54,7 @@ export async function registrarOperacao(op: { modulo: ModuloOperacao; origem?: "
 export async function listarOperacoes(limite = 600): Promise<OperacaoRegistrada[]> {
   const out: OperacaoRegistrada[] = [];
   for (const tid of await listaDeGabinetes()) {
-    try { (await getDocs(collection(db, "gabinetes", tid, "ops_events"))).docs.forEach((d) => { const v: any = d.data(); out.push({ ...v, id: d.id, tenantId: tid, anomalias: v.anomalias || [] }); }); } catch { /* gabinete sem registros ou sem acesso */ }
+    try { const snapOps = await getDocs(collection(db, "gabinetes", tid, "ops_events")); medirLeitura("ops_eventos", snapOps.docs); snapOps.docs.forEach((d) => { const v: any = d.data(); out.push({ ...v, id: d.id, tenantId: tid, anomalias: v.anomalias || [] }); }); } catch { /* gabinete sem registros ou sem acesso */ }
   }
   return out.sort((a, b) => b.ts - a.ts).slice(0, limite);
 }

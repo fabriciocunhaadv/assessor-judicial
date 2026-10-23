@@ -162,7 +162,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
       }
       loadHistory();
       const timer = setInterval(() => {
-        getHistory().then((data) => {
+        getHistory("hist_modal_8s").then((data) => {
           setHistory(data);
         }).catch(() => {});
       }, 8000);
@@ -173,7 +173,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
   const loadHistory = async () => {
     setIsLoading(true);
     try {
-      const data = await getHistory();
+      const data = await getHistory("hist_modal_abrir");
       setHistory(data);
     } finally {
       setIsLoading(false);

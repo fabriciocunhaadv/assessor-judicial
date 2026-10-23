@@ -1,4 +1,5 @@
 import { db, auth } from './firebase';
+import { medirLeitura } from "../utils/medidorColeta";
 import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc, query, orderBy, limit, onSnapshot, where, increment } from 'firebase/firestore';
 import { CustomPrompt, GenerationResult, CabinetTesesData, ProjudiGuideData, UserProfile, UserRole, ChatMessage, MinuteData, SavedAnalysis, ApiUsageMetadata, SystemBroadcast, MinuteVersion, AuditedProcessRecord, CabinetCalendarSettings, SaaSTenant, CabinetBackupSnapshot, GlobalDatabaseSnapshot, CabinetFullPartitionData, CabinetMonthlyTokenUsage, ExecutionModuleType, ModuleTokenUsageStats } from '../types';
 import { JudgeParadigmModel } from '../data/defaultParadigms';
@@ -200,6 +201,7 @@ export const subscribeToPrompts = (callback: (prompts: CustomPrompt[]) => void):
   if (!auth.currentUser) return () => {};
   try {
     return onSnapshot(collection(db, getTenantPath('prompts')), (snapshot) => {
+      try { const mud = ((snapshot as any).docChanges?.() || []).map((c: any) => c.doc).filter(Boolean); medirLeitura('prompts_escuta', mud.length ? mud : snapshot.docs); } catch { /* sem medição */ }
       const map = new Map<string, CustomPrompt>();
       snapshot.docs.forEach(d => {
         const data = d.data();
@@ -280,13 +282,15 @@ export const deletePromptFromDb = async (id: string): Promise<void> => {
 // Lê só as análises mais recentes (antes lia a coleção inteira a cada consulta). Docs sem o campo 'date' ficam de fora.
 const HISTORICO_LIMITE = 200;
 
-export const getHistoryFromDb = async (): Promise<SavedAnalysis[]> => {
+export const getHistoryFromDb = async (origem: string = "hist_outros"): Promise<SavedAnalysis[]> => {
   if (!auth.currentUser) return [];
   try {
     const map = new Map<string, SavedAnalysis>();
     const currentUnitId = getActiveUnitId();
+    const lidos: any[] = [];      // tudo o que veio do banco nesta carga (para o medidor de leitura)
 
     const addDocs = (snapDocs: any[]) => {
+      lidos.push(...snapDocs);
       snapDocs.forEach(d => {
         const data = d.data();
         const itemUnit = data.unitId || "montes_claros";
@@ -327,6 +331,7 @@ export const getHistoryFromDb = async (): Promise<SavedAnalysis[]> => {
       }
     }
 
+    medirLeitura(origem, lidos);
     const all = Array.from(map.values());
     return all.sort((a, b) => (b.date || 0) - (a.date || 0));
   } catch (err) {
@@ -472,6 +477,7 @@ export const updateProcessUnitInDb = async (
   if (!auth.currentUser || !processNumber) return 0;
   try {
     const snapshot = await getDocs(collection(db, getTenantPath('history')));
+    medirLeitura('atualiza_unidade', snapshot.docs);
     const cleanTargetNum = processNumber.replace(/[^\d]/g, '');
 
     const matchingDocs = snapshot.docs.filter((d) => {
@@ -552,6 +558,7 @@ export const updateProcessCategoryInDb = async (
   if (!auth.currentUser || !processNumber) return 0;
   try {
     const snapshot = await getDocs(collection(db, getTenantPath('history')));
+    medirLeitura('atualiza_categoria', snapshot.docs);
     const cleanTargetNum = processNumber.replace(/[^\d]/g, '');
 
     const matchingDocs = snapshot.docs.filter((d) => {
@@ -1011,6 +1018,7 @@ export const getUsageLogsFromDb = async (): Promise<LoggedExecution[]> => {
   if (!auth.currentUser) return [];
   try {
     const snapshot = await getDocs(collection(db, getTenantPath('usageLogs')));
+    medirLeitura('uso_logs', snapshot.docs);
     return snapshot.docs.map(d => {
       const data = d.data();
       return { id: d.id, ...data } as LoggedExecution;
@@ -1304,6 +1312,7 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
   if (!auth.currentUser) return [];
   try {
     const snapshot = await getDocs(collection(db, 'users'));
+    medirLeitura('usuarios_lista', snapshot.docs);
     const currentEmail = (auth.currentUser?.email || '').toLowerCase().trim();
     
     const userMap = new Map<string, UserProfile>();
@@ -1869,6 +1878,7 @@ export const getAuditsFromDb = async (): Promise<AuditedProcessRecord[]> => {
   if (!auth.currentUser) return [];
   try {
     const snapshot = await getDocs(collection(db, getTenantPath('audits')));
+    medirLeitura('auditorias', snapshot.docs);
     const unitId = getActiveUnitId();
     const all = snapshot.docs.map(d => {
       const data = d.data();
@@ -2037,6 +2047,7 @@ export const getAllTenantsWithMetrics = async (): Promise<SaaSTenant[]> => {
     
     // Get all users once to calculate unique user counts per tenant
     const usersSnap = await getDocs(collection(db, 'users'));
+    medirLeitura('usuarios_lista', usersSnap.docs);
     const usersByTenant: Record<string, number> = {};
     const seenUserKeys = new Set<string>();
 
@@ -2066,6 +2077,7 @@ export const getAllTenantsWithMetrics = async (): Promise<SaaSTenant[]> => {
 
       try {
         let promptsSnap = await getDocs(collection(db, `gabinetes/${effectivePathId}/prompts`));
+        medirLeitura('metricas_gabinetes', promptsSnap.docs);
         if (promptsSnap.empty && isPrimary) {
           promptsSnap = await getDocs(collection(db, `gabinetes/gabinete_default/prompts`));
         }
@@ -2074,6 +2086,7 @@ export const getAllTenantsWithMetrics = async (): Promise<SaaSTenant[]> => {
 
       try {
         let historySnap = await getDocs(collection(db, `gabinetes/${effectivePathId}/history`));
+        medirLeitura('metricas_gabinetes', historySnap.docs);
         if (historySnap.empty && isPrimary) {
           historySnap = await getDocs(collection(db, `gabinetes/gabinete_default/history`));
         }
@@ -2242,6 +2255,7 @@ export const getAllGlobalUsers = async (): Promise<UserProfile[]> => {
   if (!auth.currentUser) return [];
   try {
     const snap = await getDocs(collection(db, 'users'));
+    medirLeitura('usuarios_lista', snap.docs);
     const userMap = new Map<string, UserProfile>();
     const ghostDocsToDelete: string[] = [];
 
@@ -2470,6 +2484,7 @@ export const captureCabinetFullData = async (): Promise<CabinetBackupSnapshot['d
     // 5. Fetch Prompts
     try {
       const promptsSnap = await getDocs(collection(db, `gabinetes/${currentTenantId}/prompts`));
+      medirLeitura('snapshot_criar', promptsSnap.docs);
       snapshotData.prompts = promptsSnap.docs.map(d => ({ id: d.id, ...d.data() } as CustomPrompt));
     } catch (e) {
       console.warn("Could not read prompts for backup:", e);
@@ -2515,6 +2530,7 @@ export const fetchFullCabinetBackupSnapshot = async (
 
     const tId = backup.tenantId || currentTenantId;
     const chunksSnap = await getDocs(collection(db, `gabinetes/${tId}/backups/${backup.id}/chunks`));
+    medirLeitura('snapshot_restaurar', chunksSnap.docs);
     if (chunksSnap.size > 0) {
       const chunkList: { index: number; data: string }[] = [];
       chunksSnap.forEach(d => {
@@ -3055,6 +3071,7 @@ export const captureGlobalDatabaseData = async (): Promise<{
 
     // 2. Capture Users
     const usersSnap = await getDocs(collection(db, 'users'));
+    medirLeitura('usuarios_lista', usersSnap.docs);
     usersSnap.forEach(d => {
       const uData = { uid: d.id, ...d.data() } as UserProfile;
       resultData.users.push(uData);
@@ -4270,6 +4287,7 @@ export const getAllCabinetMonthlyUsage = async (monthKey?: string): Promise<Cabi
     // 3. Gabinetes vinculados a usuários cadastrados
     try {
       const usersSnap = await getDocs(collection(db, 'users'));
+    medirLeitura('usuarios_lista', usersSnap.docs);
       usersSnap.docs.forEach(uDoc => {
         const uData = uDoc.data();
         if (uData.tenantId && !tenantMap.has(uData.tenantId) && uData.tenantId !== 'unassigned') {
@@ -4496,6 +4514,7 @@ export const recordKeyRotationEventToDb = async (eventData: {
     if (!uid && email) {
       try {
         const usersSnap = await getDocs(collection(db, 'users'));
+    medirLeitura('usuarios_lista', usersSnap.docs);
         for (const uDoc of usersSnap.docs) {
           const uD = uDoc.data();
           if ((uD.email || '').toLowerCase().trim() === email) {

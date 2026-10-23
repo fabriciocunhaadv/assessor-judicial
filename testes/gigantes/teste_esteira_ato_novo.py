@@ -38,6 +38,11 @@ def main():
             ops = pg.evaluate("(globalThis.__setDocs || []).filter(d => d.dados && d.dados.modulo).map(d => ({ modulo: d.dados.modulo, origem: d.dados.origem, resultado: d.dados.resultado, processo: d.dados.processo, prompt: d.dados.promptTitle }))"); print("operações registradas:", ops)
             assert any(o["modulo"] == "normal" and o["origem"] == "esteira" and o["resultado"] == "ok" and o["processo"] == "5530114-61.2025.8.09.0166" for o in ops), ops
             assert r.get("ok") and len(novos) >= 1 and all(d["minuta"] for d in novos), docs
+            # medidor de leitura: ao esconder a aba, os totais das leituras do Histórico são enviados (gabinetes/.../medidor_leitura/{dia}_{usuário})
+            pg.evaluate("Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange'))"); pg.wait_for_timeout(1500)
+            med = pg.evaluate("(globalThis.__setDocs || []).filter(d => d.dados && d.dados.por && d.dados.uid).map(d => ({ id: d.id, por: Object.keys(d.dados.por), bytes: Object.values(d.dados.por).map(v => v.bytes) }))")
+            print("medidor:", med)
+            assert med and any(k.startswith("hist_") for m in med for k in m["por"]) and all(isinstance(x, (int, float)) for m in med for x in m["bytes"]), med
             b.close()
         print("OK")
     finally:

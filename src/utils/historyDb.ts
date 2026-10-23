@@ -178,7 +178,7 @@ const saveLocalHistory = (list: SavedAnalysis[]) => {
   }
 };
 
-export const getHistory = async (): Promise<SavedAnalysis[]> => {
+export const getHistory = async (origem?: string): Promise<SavedAnalysis[]> => {
   const localList = getLocalHistory();
   const tombstones = getTombstones();
 
@@ -209,7 +209,7 @@ export const getHistory = async (): Promise<SavedAnalysis[]> => {
   // If user is authenticated, Firestore is the absolute single source of truth
   if (auth.currentUser) {
     try {
-      const dbList = await getHistoryFromDb();
+      const dbList = await getHistoryFromDb(origem);
       // Filter out tombstones and corrupted entries immediately
       const cleanList = filterAndPrune(dbList);
       // Logado: o Firestore (com cache em IndexedDB) é a fonte única; NÃO grava no localStorage (limite ~5 MB).

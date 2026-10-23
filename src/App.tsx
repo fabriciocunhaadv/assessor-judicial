@@ -60,6 +60,7 @@ import { subscribeToTickets, getLocalTickets, isTicketModuleEnabled } from "./ut
 import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
 import { registrarOperacao } from "./utils/monitorOperacao";
+import { iniciarMedidor } from "./utils/medidorEnvio";
 import { retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
 import { findDossierForProcess, getProcessActsSummaryForPrompt } from "./utils/dossierUtils";
 import { ProcessTimelineModal } from "./components/ProcessTimelineModal";
@@ -302,7 +303,7 @@ export default function App() {
     setIsMinuteAuditorOpen(qual === "lupa"); setIsHearingWorkbenchModalOpen(qual === "mesa"); setIsTurboModalOpen(qual === "turbo");
   };
   // ao abrir o sistema logado: reenvia ao Histórico o que ficou pendente no disco (aba recarregada/fechada no meio da gravação)
-  useEffect(() => { if (user?.uid) retomarHistoricoPendente(); }, [user?.uid]);
+  useEffect(() => { if (user?.uid) { retomarHistoricoPendente(); iniciarMedidor(); } }, [user?.uid]);
   // o super admin pode excluir a minuta de qualquer usuário no Histórico (os demais, só a própria)
   useEffect(() => { definirSuperAdminHistorico(!!isSuperAdmin); }, [isSuperAdmin]);
   // Só "Nova Análise" (barra lateral) fecha o módulo aberto e volta ao formulário; as demais opções da barra lateral não fecham nada
@@ -415,7 +416,7 @@ export default function App() {
   // Sync history list for dossier grouping & memory injection
   useEffect(() => {
     const fetchHistory = () => {
-      getHistory().then(setHistoryList).catch(() => {});
+      getHistory("hist_app_60s").then(setHistoryList).catch(() => {});
     };
     fetchHistory();
     const timer = setInterval(fetchHistory, 60000);
