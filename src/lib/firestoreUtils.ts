@@ -283,7 +283,7 @@ export const deletePromptFromDb = async (id: string): Promise<void> => {
 // Lê só as análises mais recentes (antes lia a coleção inteira a cada consulta). Docs sem o campo 'date' ficam de fora.
 const HISTORICO_LIMITE = 200;
 
-export const getHistoryFromDbCompleto = async (origem: string = "hist_outros"): Promise<SavedAnalysis[]> => {
+export const getHistoryFromDbCompleto = async (origem: string = "hist_outros", limite: number = HISTORICO_LIMITE): Promise<SavedAnalysis[]> => {
   if (!auth.currentUser) return [];
   try {
     const map = new Map<string, SavedAnalysis>();
@@ -304,7 +304,7 @@ export const getHistoryFromDbCompleto = async (origem: string = "hist_outros"): 
 
     // 1. Fetch from current tenant path: gabinetes/{globalTenantId}/history
     try {
-      const snapshot = await getDocs(query(collection(db, getTenantPath('history')), orderBy('date', 'desc'), limit(HISTORICO_LIMITE)));
+      const snapshot = await getDocs(query(collection(db, getTenantPath('history')), orderBy('date', 'desc'), limit(limite)));
       addDocs(snapshot.docs);
     } catch (e) {
       console.warn("Could not fetch tenant history:", e);
@@ -314,18 +314,18 @@ export const getHistoryFromDbCompleto = async (origem: string = "hist_outros"): 
     if (isPrimaryCabinet(globalTenantId)) {
       if (globalTenantId !== 'gabinete_default') {
         try {
-          const defSnap = await getDocs(query(collection(db, 'gabinetes/gabinete_default/history'), orderBy('date', 'desc'), limit(HISTORICO_LIMITE)));
+          const defSnap = await getDocs(query(collection(db, 'gabinetes/gabinete_default/history'), orderBy('date', 'desc'), limit(limite)));
           addDocs(defSnap.docs);
         } catch {}
       }
       if (globalTenantId !== 'gab_rafael_machado') {
         try {
-          const rafSnap = await getDocs(query(collection(db, 'gabinetes/gab_rafael_machado/history'), orderBy('date', 'desc'), limit(HISTORICO_LIMITE)));
+          const rafSnap = await getDocs(query(collection(db, 'gabinetes/gab_rafael_machado/history'), orderBy('date', 'desc'), limit(limite)));
           addDocs(rafSnap.docs);
         } catch {}
       }
       try {
-        const rootSnap = await getDocs(query(collection(db, 'history'), orderBy('date', 'desc'), limit(HISTORICO_LIMITE)));
+        const rootSnap = await getDocs(query(collection(db, 'history'), orderBy('date', 'desc'), limit(limite)));
         addDocs(rootSnap.docs);
       } catch (e) {
         console.warn("Could not fetch root legacy history:", e);
@@ -339,6 +339,17 @@ export const getHistoryFromDbCompleto = async (origem: string = "hist_outros"): 
     console.warn("Could not fetch history from Firestore:", err);
     return [];
   }
+};
+
+/** Leitura de EMERGÊNCIA (o índice leve não está disponível): só os atos mais recentes e no máximo uma vez a cada 10 minutos por unidade. Sem este freio, uma falha do índice (cota, rede) virava leitura completa repetida, justo quando o banco está com problema. */
+const _fallbackCompleto = new Map<string, { ate: number; p: Promise<SavedAnalysis[]> }>();
+export const getHistoryFromDbFallback = (origem: string = "hist_fallback"): Promise<SavedAnalysis[]> => {
+  const chave = `${globalTenantId}|${getActiveUnitId()}`, m = _fallbackCompleto.get(chave);
+  if (m && Date.now() < m.ate) return m.p;
+  const p = getHistoryFromDbCompleto(origem, 40);
+  _fallbackCompleto.set(chave, { ate: Date.now() + 10 * 60_000, p });
+  p.catch(() => { _fallbackCompleto.delete(chave); });
+  return p;
 };
 
 
@@ -461,14 +472,14 @@ export const getHistoryFromDb = async (origem: string = "hist_outros"): Promise<
       return listaDoIndice(sn.docs);
     }
   } catch (e) { console.warn('[Histórico] índice leve indisponível; usando a leitura completa:', e); }
-  return getHistoryFromDbCompleto(origem);
+  return getHistoryFromDbFallback(origem);
 };
 
 /** Lista AO VIVO: o Firestore avisa só o que mudou (um ato novo de outro usuário aparece na hora, sem baixar a lista de novo). */
 export const assinarIndiceHistorico = (cb: (lista: SavedAnalysis[]) => void, origem: string = "hist_ao_vivo"): (() => void) => {
   if (!auth.currentUser) return () => {};
   let cancelado = false, desfazer: (() => void) | null = null, caiuNoCompleto = false;
-  const usarCompleto = () => { if (caiuNoCompleto || cancelado) return; caiuNoCompleto = true; void getHistoryFromDbCompleto(origem).then((l) => { if (!cancelado) cb(l); }).catch(() => {}); };
+  const usarCompleto = () => { if (caiuNoCompleto || cancelado) return; caiuNoCompleto = true; void getHistoryFromDbFallback(origem).then((l) => { if (!cancelado) cb(l); }).catch(() => {}); };
   // escuta o índice JÁ (a lista vai aparecendo conforme o índice é montado); a conferência de contagem roda em paralelo
   try {
     desfazer = onSnapshot(consultaIndice(), (sn) => {
