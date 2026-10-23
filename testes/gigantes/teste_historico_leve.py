@@ -64,10 +64,13 @@ def main():
             linha.locator("button:has-text('Carregar minuta')").first.click(); pg.clock.run_for(3000); pg.wait_for_timeout(1500)
             corpo = pg.locator("body").inner_text(); print("   corpo tem minuta:", "MINUTA-COMPLETA-" in corpo, "| fim do dispositivo:", "FIM-DO-DISPOSITIVO-COMPLETO" in corpo, "| modal fechou:", pg.locator("[data-testid=historico-barra]").count() == 0)
             assert "MINUTA-COMPLETA-" in corpo or "FIM-DO-DISPOSITIVO-COMPLETO" in corpo, "a minuta completa não foi carregada ao abrir o ato"; print("E) ao abrir o ato, a minuta completa foi carregada")
-            # F) índice com falta: a conferência de contagem refaz sozinha
+            # F) índice com falta: a conferência de contagem refaz, mas só depois de 30 minutos da última refação (cada refação lê o Histórico inteiro)
+            conferir = "async () => { const f = await import('/src/lib/firestoreUtils.ts'); f.invalidarIndiceHistorico(); const m = await import('/src/utils/historyDb.ts'); await m.getHistory('teste'); }"
             pg.evaluate("globalThis.__idx.delete('h2'); globalThis.__idx.delete('h9')"); pg.clock.run_for(11 * 60 * 1000)
-            pg.evaluate("async () => { const f = await import('/src/lib/firestoreUtils.ts'); f.invalidarIndiceHistorico(); const m = await import('/src/utils/historyDb.ts'); await m.getHistory('teste'); }"); pg.wait_for_timeout(800)
-            assert pg.evaluate("globalThis.__idx.has('h2')"), "o índice não foi refeito"; print("F) índice refeito pela conferência de contagem")
+            pg.evaluate(conferir); pg.wait_for_timeout(800)
+            assert not pg.evaluate("globalThis.__idx.has('h2')"), "refez cedo demais (menos de 30 min da última refação)"; print("F) índice com falta, mas refeito há menos de 30 min: aguarda (não lê tudo de novo)")
+            pg.clock.run_for(25 * 60 * 1000); pg.evaluate(conferir); pg.wait_for_timeout(800)
+            assert pg.evaluate("globalThis.__idx.has('h2')"), "o índice não foi refeito"; print("   passados 30 min: índice refeito pela conferência de contagem")
             assert not erros, erros
             b.close()
         print("OK")

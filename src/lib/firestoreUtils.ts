@@ -346,7 +346,7 @@ const _fallbackCompleto = new Map<string, { ate: number; p: Promise<SavedAnalysi
 export const getHistoryFromDbFallback = (origem: string = "hist_fallback"): Promise<SavedAnalysis[]> => {
   const chave = `${globalTenantId}|${getActiveUnitId()}`, m = _fallbackCompleto.get(chave);
   if (m && Date.now() < m.ate) return m.p;
-  const p = getHistoryFromDbCompleto(origem, 40);
+  const p = getHistoryFromDbCompleto('hist_emergencia', 40);
   _fallbackCompleto.set(chave, { ate: Date.now() + 10 * 60_000, p });
   p.catch(() => { _fallbackCompleto.delete(chave); });
   return p;
@@ -378,7 +378,7 @@ const esperarMs = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 const metaIndiceRef = () => doc(db, getTenantPath('settings'), 'history_index_meta');
 
 /** Cria o que falta no índice e remove o que sobra (atos já apagados). Só um usuário por vez (trava de 5 minutos); os demais esperam. */
-async function reconciliarIndiceHistorico(incluirLegado: boolean): Promise<boolean> {
+async function reconciliarIndiceHistorico(incluirLegado: boolean, motivo: string = ''): Promise<boolean> {
   try {
     const m = await getDoc(metaIndiceRef()); const md: any = m.exists() ? m.data() : {};
     if (md.reconciliandoAte && md.reconciliandoAte > Date.now()) {      // outro usuário está montando o índice agora
@@ -420,7 +420,7 @@ async function reconciliarIndiceHistorico(incluirLegado: boolean): Promise<boole
     if (falhouLeitura) throw new Error('leitura do Histórico falhou: ' + falhouLeitura);      // não dá o índice por pronto se algum caminho não foi lido
     for (const [id, v] of noIndice) if (!fontes.has(id) && caminhos.includes(v.fonte)) { lote.delete(doc(db, indiceHistoricoPath(), id)); await proximo(); }
     if (emLote > 0) await lote.commit();
-    await setDoc(metaIndiceRef(), { reconciliandoAte: 0, feitoEm: Date.now(), ...(incluirLegado ? { legadoFeito: true } : {}) }, { merge: true });
+    await setDoc(metaIndiceRef(), { reconciliandoAte: 0, feitoEm: Date.now(), ultimoMotivo: motivo, atosLidos: lidos, ...(incluirLegado ? { legadoFeito: true } : {}) }, { merge: true });
     return true;
   } catch (e) {
     console.warn('[Histórico] não consegui montar o índice leve:', e);
@@ -443,7 +443,9 @@ export async function garantirIndiceHistorico(): Promise<boolean> {
       const nHist = (await getCountFromServer(collection(db, getTenantPath('history')))).data().count;
       const nIdx = (await getCountFromServer(query(collection(db, indiceHistoricoPath()), where('fonte', '==', getTenantPath('history'))))).data().count;
       if (nHist === nIdx && !precisaLegado) { mudarEstadoIndice({ fase: 'pronto' }); return true; }
-      const ok = await reconciliarIndiceHistorico(precisaLegado);
+      // diferença pequena e o índice foi refeito há pouco (por qualquer usuário): espera, em vez de reler tudo de novo (cada refação lê o Histórico inteiro, dezenas de MB)
+      if (!precisaLegado && md.feitoEm && Date.now() - Number(md.feitoEm) < 30 * 60_000) { console.warn(`[Histórico] índice com diferença (${nHist} atos, ${nIdx} no índice); refeito há menos de 30 min, aguardando`); mudarEstadoIndice({ fase: 'pronto' }); return true; }
+      const ok = await reconciliarIndiceHistorico(precisaLegado, precisaLegado ? 'primeira montagem (inclui caminhos antigos)' : `contagem diferente: ${nHist} atos e ${nIdx} no índice`);
       mudarEstadoIndice(ok ? { fase: 'pronto' } : { fase: 'falhou', erro: _erroReconciliacao || 'não consegui montar a lista leve' });
       return ok;
     } catch (e) { console.warn('[Histórico] verificação do índice falhou:', e); mudarEstadoIndice({ fase: 'falhou', erro: String((e as any)?.message || e).slice(0, 160) }); return false; }
