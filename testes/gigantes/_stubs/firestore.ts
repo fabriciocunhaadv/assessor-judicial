@@ -7,7 +7,7 @@ export const collection = (..._a: any[]) => ({ _c: true, _path: String(_a[1] || 
 export const collectionGroup = (..._a: any[]) => ({ _c: true });
 export const doc = (..._a: any[]) => ({ _d: true, _id: String(_a[_a.length - 1] || "") });
 export const getDoc = async (..._a: any[]) => { const id = String((_a[0] as any)?._id || ""); const ex = ((globalThis as any).__setDocs || []).find((d: any) => d.id === id); if (ex) return { ...snap(), exists: () => true, data: () => ex.dados, id }; const sd = ((globalThis as any).__seedHistory || []).find((d: any) => d.id === id); return sd ? { ...snap(), exists: () => true, data: () => sd, id } : snap(); };
-export const getDocs = async (..._a: any[]) => { const ref: any = _a[0]; const path = String(ref?._path || ""); const seed = (globalThis as any).__seedHistory || []; return snap(path.endsWith("/history") ? seed.map((d: any) => ({ id: d.id, data: () => d })) : []); };
+export const getDocs = async (..._a: any[]) => { const ref: any = _a[0]; const path = String(ref?._path || ""); ((globalThis as any).__getDocsLog ||= []).push(path); const seed = (globalThis as any).__seedHistory || []; return snap(path.endsWith("/history") ? seed.map((d: any) => ({ id: d.id, data: () => d })) : []); };
 export const setDoc = async (...a: any[]) => {
   const w: any = globalThis;
   if (w.__falharSetDoc) { const e: any = new Error("Simulado: falha ao gravar"); e.code = "resource-exhausted"; throw e; }

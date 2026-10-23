@@ -278,7 +278,7 @@ export const reenviarHistoricoPendente = async (): Promise<void> => {
   try {
     for (const doDisco of await lerPendentesDoDisco()) if (!pendentesHistorico.has(doDisco.id)) pendentesHistorico.set(doDisco.id, doDisco);
     for (const [id, ato] of Array.from(pendentesHistorico.entries())) {
-      try { await enviarHistoricoParaNuvem(ato, 30000); pendentesHistorico.delete(id); await tirarPendenteDoDisco(id); try { toast.success(`Ato ${ato.processNumber || ""} gravado no Histórico.`, { duration: 6000 }); } catch { /* sem toast */ } }
+      try { await enviarHistoricoParaNuvem(ato, 30000); pendentesHistorico.delete(id); await tirarPendenteDoDisco(id); avisarHistoricoMudou(); try { toast.success(`Ato ${ato.processNumber || ""} gravado no Histórico.`, { duration: 6000 }); } catch { /* sem toast */ } }
       catch (e) { console.warn("[Histórico] reenvio falhou:", descreverErroHistorico(e)); }
     }
   } finally { reenviandoHistorico = false; }
@@ -293,7 +293,17 @@ const iniciarReenvioHistorico = () => {
 /** Chamar uma vez ao abrir o sistema com o usuário logado: reenvia o que ficou pendente no disco (aba recarregada/fechada no meio da gravação). */
 export const retomarHistoricoPendente = () => { iniciarReenvioHistorico(); void reenviarHistoricoPendente(); };
 
+/** Aviso (sem rede) de que o Histórico mudou nesta aba: quem mostra a lista recarrega no momento certo, em vez de baixar tudo de tempos em tempos. */
+export const HISTORICO_MUDOU = "assessor-historico-mudou";
+export const avisarHistoricoMudou = () => { try { if (typeof window !== "undefined") window.dispatchEvent(new Event(HISTORICO_MUDOU)); } catch { /* sem janela */ } };
+
 export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: boolean; erro?: string }> => {
+  const r = await salvarNoHistoricoInterno(analysis);
+  avisarHistoricoMudou();
+  return r;
+};
+
+const salvarNoHistoricoInterno = async (analysis: SavedAnalysis): Promise<{ ok: boolean; erro?: string }> => {
   if (!analysis || !analysis.id) return { ok: false, erro: "ato sem identificador" };
   if (isCorruptedHistoryItem(analysis)) {
     console.warn("Blocked attempt to save corrupted/error analysis to history:", analysis.id);
@@ -340,6 +350,10 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: bool
 };
 
 export const deleteFromHistory = async (id: string, opcoes?: { sistema?: boolean }): Promise<void> => {
+  try { await excluirDoHistoricoInterno(id, opcoes); } finally { avisarHistoricoMudou(); }
+};
+
+const excluirDoHistoricoInterno = async (id: string, opcoes?: { sistema?: boolean }): Promise<void> => {
   if (!id) return;
   // cada usuário só exclui a PRÓPRIA minuta (a limpeza automática de registro corrompido passa { sistema: true })
   if (!opcoes?.sistema && auth.currentUser) {

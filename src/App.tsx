@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { PromptSelectorAndEditor } from "./components/PromptSelectorAndEditor";
@@ -61,7 +61,7 @@ import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
 import { registrarOperacao } from "./utils/monitorOperacao";
 import { iniciarMedidor } from "./utils/medidorEnvio";
-import { retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
+import { HISTORICO_MUDOU, retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
 import { findDossierForProcess, getProcessActsSummaryForPrompt } from "./utils/dossierUtils";
 import { ProcessTimelineModal } from "./components/ProcessTimelineModal";
 import { LegislativeLookupModal } from "./components/LegislativeLookupModal";
@@ -413,15 +413,25 @@ export default function App() {
     }
   };
 
-  // Sync history list for dossier grouping & memory injection
+  // Lista do Histórico para agrupar dossiês e alimentar a memória. Não é mais baixada "de tempos em tempos" (cada carga trazia dezenas de MB por aba):
+  // só recarrega quando algo muda (nova análise, janela do Histórico, troca de unidade, ato gravado/excluído) e quando a aba volta depois de muito tempo parada.
+  const ultimaCargaHistorico = useRef(0);
+  const carregarHistoricoApp = useCallback((origem: string) => {
+    ultimaCargaHistorico.current = Date.now();
+    getHistory(origem).then(setHistoryList).catch(() => {});
+  }, []);
   useEffect(() => {
-    const fetchHistory = () => {
-      getHistory("hist_app_60s").then(setHistoryList).catch(() => {});
-    };
-    fetchHistory();
-    const timer = setInterval(fetchHistory, 60000);
-    return () => clearInterval(timer);
-  }, [generationResult, isHistoryModalOpen, activeUnit?.id]);
+    const t = setTimeout(() => carregarHistoricoApp("hist_app_evento"), 1500);
+    return () => clearTimeout(t);
+  }, [generationResult, isHistoryModalOpen, activeUnit?.id, carregarHistoricoApp]);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const aoMudar = () => { if (t) clearTimeout(t); t = setTimeout(() => carregarHistoricoApp("hist_app_evento"), 2000); };
+    const aoVoltar = () => { if (document.visibilityState === "visible" && Date.now() - ultimaCargaHistorico.current > 15 * 60 * 1000) carregarHistoricoApp("hist_app_foco"); };
+    window.addEventListener(HISTORICO_MUDOU, aoMudar);
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => { if (t) clearTimeout(t); window.removeEventListener(HISTORICO_MUDOU, aoMudar); document.removeEventListener("visibilitychange", aoVoltar); };
+  }, [carregarHistoricoApp]);
 
   // Detected process dossier for active input (finds all previously authored acts for this process)
   const activeProcessDossier = useMemo(() => {

@@ -42,6 +42,7 @@ import {
   importHistoryFromJson,
   isCorruptedHistoryItem,
   marcarLancadoProjudi,
+  HISTORICO_MUDOU,
 } from "../utils/historyDb";
 import { auth } from "../lib/firebase";
 import { getUserProfile } from "../lib/firestoreUtils";
@@ -161,12 +162,11 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
         getUserProfile(auth.currentUser.uid).then(setUserProfile).catch(() => {});
       }
       loadHistory();
-      const timer = setInterval(() => {
-        getHistory("hist_modal_8s").then((data) => {
-          setHistory(data);
-        }).catch(() => {});
-      }, 8000);
-      return () => clearInterval(timer);
+      // Sem atualização de 8 em 8 segundos (cada carga baixava dezenas de MB): recarrega quando um ato é gravado ou excluído nesta aba; o botão de atualizar cobre o resto.
+      let t: ReturnType<typeof setTimeout> | null = null;
+      const aoMudar = () => { if (t) clearTimeout(t); t = setTimeout(() => { getHistory("hist_modal_evento").then(setHistory).catch(() => {}); }, 2000); };
+      window.addEventListener(HISTORICO_MUDOU, aoMudar);
+      return () => { if (t) clearTimeout(t); window.removeEventListener(HISTORICO_MUDOU, aoMudar); };
     }
   }, [isOpen, activeUnit?.id]);
 

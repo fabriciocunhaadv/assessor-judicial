@@ -6,6 +6,9 @@ export interface RegistroMedidor { data: string; uid: string; email: string; nom
 export const ROTULO_ORIGEM: Record<string, string> = {
   hist_app_60s: "Histórico: atualização automática de 60 s (todas as abas)",
   hist_modal_8s: "Histórico: atualização automática de 8 s (janela aberta)",
+  hist_app_evento: "Histórico (aba): recarga por evento (nova análise, janela, troca de unidade)",
+  hist_app_foco: "Histórico (aba): ao voltar depois de mais de 15 min parada",
+  hist_modal_evento: "Histórico (janela aberta): recarga por ato gravado ou excluído",
   hist_modal_abrir: "Histórico: ao abrir ou atualizar a janela",
   hist_outros: "Histórico: outros usos (assistente, teses, limpeza)",
   atualiza_unidade: "Ler a coleção inteira para trocar a unidade de um processo",
