@@ -1,3 +1,4 @@
+import toast from "react-hot-toast";
 import React, { useState, useEffect, useRef } from "react";
 import {
   X,
@@ -42,7 +43,9 @@ import {
   importHistoryFromJson,
   isCorruptedHistoryItem,
   marcarLancadoProjudi,
-  HISTORICO_MUDOU,
+  assinarHistorico,
+  abrirAtoCompleto,
+  getHistoryCompleto,
 } from "../utils/historyDb";
 import { auth } from "../lib/firebase";
 import { getUserProfile } from "../lib/firestoreUtils";
@@ -161,12 +164,10 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
       if (auth.currentUser) {
         getUserProfile(auth.currentUser.uid).then(setUserProfile).catch(() => {});
       }
-      loadHistory();
-      // Sem atualização de 8 em 8 segundos (cada carga baixava dezenas de MB): recarrega quando um ato é gravado ou excluído nesta aba; o botão de atualizar cobre o resto.
-      let t: ReturnType<typeof setTimeout> | null = null;
-      const aoMudar = () => { if (t) clearTimeout(t); t = setTimeout(() => { getHistory("hist_modal_evento").then(setHistory).catch(() => {}); }, 2000); };
-      window.addEventListener(HISTORICO_MUDOU, aoMudar);
-      return () => { if (t) clearTimeout(t); window.removeEventListener(HISTORICO_MUDOU, aoMudar); };
+      // Lista AO VIVO e LEVE: o Firestore avisa só o que mudou (ato novo de outro usuário aparece na hora) e a minuta completa só é baixada ao abrir o ato.
+      setIsLoading(true);
+      const parar = assinarHistorico((lista) => { setHistory(lista); setIsLoading(false); });
+      return parar;
     }
   }, [isOpen, activeUnit?.id]);
 
@@ -275,15 +276,24 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
     }
   };
 
+  /** A lista traz só o resumo de cada ato; a minuta completa é baixada agora, ao abrir. */
+  const abrirAto = async (item: SavedAnalysis) => {
+    const completo = await abrirAtoCompleto(item).catch(() => null);
+    if (!completo) { toast.error("Não consegui abrir esta minuta (ela pode ter sido excluída ou a conexão falhou). Tente atualizar a lista."); return false; }
+    onLoadAnalysis(completo);
+    return true;
+  };
+
   const showFeedback = (msg: string) => {
     setFeedbackMessage(msg);
     setTimeout(() => setFeedbackMessage(null), 4000);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (history.length === 0) return;
-    exportHistoryJson(history);
-    showFeedback(`Backup de ${history.length} análise(s) baixado com sucesso!`);
+    const completo = await getHistoryCompleto("hist_exportar");      // o backup precisa das minutas inteiras (a lista só tem o resumo)
+    exportHistoryJson(completo);
+    showFeedback(`Backup de ${completo.length} análise(s) baixado com sucesso!`);
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -617,7 +627,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                         <GitCommit className="w-3 h-3 shrink-0" /><span>Linha do tempo ({dossier.totalActs})</span>
                       </button>
                       <button
-                        onClick={() => { if (latestAct) { onLoadAnalysis(latestAct); onClose(); } }}
+                        onClick={async () => { if (latestAct && (await abrirAto(latestAct))) onClose(); }}
                         className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-2xs transition cursor-pointer whitespace-nowrap"
                         title="Carregar a última minuta elaborada deste processo"
                       >
@@ -647,14 +657,14 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                 const actTitle = item.result?.minute?.title || item.promptTitle || "MINUTA JUDICIAL";
                 const isMine = currentUid && item.createdBy === currentUid;
                 const canDelete = podeExcluirAto(item, currentUid);
-                const hasChat = item.chatMessages && item.chatMessages.length > 0;
+                const nChat = (item as any).chatCount ?? item.chatMessages?.length ?? 0;
+                const hasChat = nChat > 0;
                 
                 return (
                   <div
                     key={item.id}
-                    onClick={() => {
-                      onLoadAnalysis(item);
-                      onClose();
+                    onClick={async () => {
+                      if (await abrirAto(item)) onClose();
                     }}
                     className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs hover:border-indigo-300 hover:shadow-md transition cursor-pointer group flex flex-col justify-between space-y-3"
                   >
@@ -696,7 +706,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
                           {hasChat && (
                             <span className="px-1.5 py-0.5 rounded-md bg-slate-50 text-slate-800 border border-slate-200 text-[10px] font-bold flex items-center gap-1">
                               <MessageSquare className="w-3 h-3 text-slate-900" />
-                              <span>Chat ({item.chatMessages?.length})</span>
+                              <span>Chat ({nChat})</span>
                             </span>
                           )}
                         </div>
@@ -883,8 +893,8 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
             isOpen={Boolean(activeTimelineDossier)}
             onClose={() => setActiveTimelineDossier(null)}
             dossier={activeTimelineDossier}
-            onLoadAnalysis={(analysis) => {
-              onLoadAnalysis(analysis);
+            onLoadAnalysis={async (analysis) => {
+              if (!(await abrirAto(analysis))) return;
               setActiveTimelineDossier(null);
               onClose();
             }}

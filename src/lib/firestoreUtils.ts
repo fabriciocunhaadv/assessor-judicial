@@ -1,6 +1,7 @@
 import { db, auth } from './firebase';
 import { medirLeitura } from "../utils/medidorColeta";
-import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc, query, orderBy, limit, onSnapshot, where, increment } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc, query, orderBy, limit, onSnapshot, where, increment, getCountFromServer, writeBatch } from 'firebase/firestore';
+import { resumoLeve, ehLeve, digitosDoProcesso } from '../utils/historicoLeve';
 import { CustomPrompt, GenerationResult, CabinetTesesData, ProjudiGuideData, UserProfile, UserRole, ChatMessage, MinuteData, SavedAnalysis, ApiUsageMetadata, SystemBroadcast, MinuteVersion, AuditedProcessRecord, CabinetCalendarSettings, SaaSTenant, CabinetBackupSnapshot, GlobalDatabaseSnapshot, CabinetFullPartitionData, CabinetMonthlyTokenUsage, ExecutionModuleType, ModuleTokenUsageStats } from '../types';
 import { JudgeParadigmModel } from '../data/defaultParadigms';
 import { SavedKnowledgeDoc } from '../utils/knowledgeDb';
@@ -282,7 +283,7 @@ export const deletePromptFromDb = async (id: string): Promise<void> => {
 // Lê só as análises mais recentes (antes lia a coleção inteira a cada consulta). Docs sem o campo 'date' ficam de fora.
 const HISTORICO_LIMITE = 200;
 
-export const getHistoryFromDb = async (origem: string = "hist_outros"): Promise<SavedAnalysis[]> => {
+export const getHistoryFromDbCompleto = async (origem: string = "hist_outros"): Promise<SavedAnalysis[]> => {
   if (!auth.currentUser) return [];
   try {
     const map = new Map<string, SavedAnalysis>();
@@ -340,8 +341,132 @@ export const getHistoryFromDb = async (origem: string = "hist_outros"): Promise<
   }
 };
 
+
+// ===== HISTÓRICO LEVE: índice com o resumo de cada ato (gabinetes/{gabinete}/history_index) =====
+// A lista do Histórico lê só o índice (cerca de 1 a 3 KB por ato). A minuta completa e o texto dos autos (centenas de KB) só são baixados ao abrir o ato.
+const INDICE_LIMITE = 300;
+export const indiceHistoricoPath = () => getTenantPath('history_index');
+
+/** Grava (ou refaz) o resumo de um ato no índice. Melhor esforço: se falhar, a verificação de contagem refaz depois. */
+export const gravarIndiceHistorico = async (completo: any, fonte?: string): Promise<void> => {
+  try {
+    if (!completo?.id) return;
+    await setDoc(doc(db, indiceHistoricoPath(), completo.id), cleanForFirestore(resumoLeve(completo, fonte || getTenantPath('history'))));
+  } catch (e) { console.warn('[Histórico] índice leve não atualizado (a verificação de contagem refaz depois):', e); }
+};
+export const apagarIndiceHistorico = async (id: string): Promise<void> => {
+  try { if (id) await deleteDoc(doc(db, indiceHistoricoPath(), id)); } catch { /* sem índice para apagar */ }
+};
+
+const esperarMs = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
+const metaIndiceRef = () => doc(db, getTenantPath('settings'), 'history_index_meta');
+
+/** Cria o que falta no índice e remove o que sobra (atos já apagados). Só um usuário por vez (trava de 5 minutos); os demais esperam. */
+async function reconciliarIndiceHistorico(incluirLegado: boolean): Promise<boolean> {
+  try {
+    const m = await getDoc(metaIndiceRef()); const md: any = m.exists() ? m.data() : {};
+    if (md.reconciliandoAte && md.reconciliandoAte > Date.now()) {      // outro usuário está montando o índice agora
+      for (let i = 0; i < 24; i++) { await esperarMs(5000); const x: any = (await getDoc(metaIndiceRef())).data() || {}; if (!x.reconciliandoAte || x.reconciliandoAte < Date.now()) return true; }
+      return true;
+    }
+    await setDoc(metaIndiceRef(), { reconciliandoAte: Date.now() + 5 * 60000, por: auth.currentUser?.email || '' }, { merge: true });
+    const caminhos = incluirLegado ? getHistoryCollectionPaths() : [getTenantPath('history')];
+    const fontes = new Map<string, { data: any; fonte: string }>();
+    for (const c of caminhos) {
+      try { const sn = await getDocs(collection(db, c)); medirLeitura('indice_reconciliar', sn.docs); sn.docs.forEach((d) => { if (!fontes.has(d.id)) fontes.set(d.id, { data: d.data(), fonte: c }); }); }
+      catch (e) { console.warn('[Histórico] não consegui ler', c, e); }
+    }
+    const noIndice = new Map<string, any>();
+    (await getDocs(collection(db, indiceHistoricoPath()))).docs.forEach((d) => noIndice.set(d.id, d.data()));
+    let lote = writeBatch(db), emLote = 0;
+    const proximo = async () => { if (++emLote >= 400) { await lote.commit(); lote = writeBatch(db); emLote = 0; } };
+    for (const [id, { data, fonte }] of fontes) {
+      const atual = noIndice.get(id);
+      if (!atual || atual.fonte !== fonte) { lote.set(doc(db, indiceHistoricoPath(), id), cleanForFirestore(resumoLeve({ id, ...data }, fonte))); await proximo(); }
+    }
+    for (const [id, v] of noIndice) if (!fontes.has(id) && caminhos.includes(v.fonte)) { lote.delete(doc(db, indiceHistoricoPath(), id)); await proximo(); }
+    if (emLote > 0) await lote.commit();
+    await setDoc(metaIndiceRef(), { reconciliandoAte: 0, feitoEm: Date.now(), ...(incluirLegado ? { legadoFeito: true } : {}) }, { merge: true });
+    return true;
+  } catch (e) {
+    console.warn('[Histórico] não consegui montar o índice leve:', e);
+    try { await setDoc(metaIndiceRef(), { reconciliandoAte: 0 }, { merge: true }); } catch { /* sem trava para soltar */ }
+    return false;
+  }
+}
+
+let _indiceVerificado: { chave: string; ate: number; p: Promise<boolean> } | null = null;
+/** Confere (no máximo a cada 10 minutos) se o índice acompanha o Histórico, comparando contagens (leitura barata, sem baixar documentos). Falso = usar a leitura completa. */
+export async function garantirIndiceHistorico(): Promise<boolean> {
+  const chave = globalTenantId;
+  if (_indiceVerificado && _indiceVerificado.chave === chave && Date.now() < _indiceVerificado.ate) return _indiceVerificado.p;
+  const p = (async () => {
+    try {
+      const md: any = (await getDoc(metaIndiceRef())).data() || {};
+      const precisaLegado = isPrimaryCabinet(chave) && !md.legadoFeito;
+      const nHist = (await getCountFromServer(collection(db, getTenantPath('history')))).data().count;
+      const nIdx = (await getCountFromServer(query(collection(db, indiceHistoricoPath()), where('fonte', '==', getTenantPath('history'))))).data().count;
+      if (nHist === nIdx && !precisaLegado) return true;
+      return await reconciliarIndiceHistorico(precisaLegado);
+    } catch (e) { console.warn('[Histórico] verificação do índice falhou:', e); return false; }
+  })();
+  _indiceVerificado = { chave, ate: Date.now() + (10 * 60000), p };
+  p.then((ok) => { if (!ok && _indiceVerificado?.p === p) _indiceVerificado.ate = Date.now() + 2 * 60000; });      // falhou: tenta de novo em 2 minutos
+  return p;
+}
+/** Força nova conferência na próxima leitura (usar depois de operações em massa). */
+export const invalidarIndiceHistorico = () => { _indiceVerificado = null; };
+
+const listaDoIndice = (docs: any[]): SavedAnalysis[] => {
+  const unidade = getActiveUnitId(), out: SavedAnalysis[] = [];
+  for (const d of docs) { const v: any = d.data(); if ((v.unitId || 'montes_claros') !== unidade) continue; out.push({ id: d.id, ...v } as SavedAnalysis); }
+  return out.sort((a, b) => (b.date || 0) - (a.date || 0));
+};
+const consultaIndice = () => query(collection(db, indiceHistoricoPath()), orderBy('date', 'desc'), limit(INDICE_LIMITE));
+
+/** Lista do Histórico (versão LEVE: sem minuta nem texto dos autos). Se o índice não estiver disponível, cai na leitura completa de antes. */
+export const getHistoryFromDb = async (origem: string = "hist_outros"): Promise<SavedAnalysis[]> => {
+  if (!auth.currentUser) return [];
+  try {
+    if (await garantirIndiceHistorico()) {
+      const sn = await getDocs(consultaIndice());
+      medirLeitura(origem, sn.docs);
+      return listaDoIndice(sn.docs);
+    }
+  } catch (e) { console.warn('[Histórico] índice leve indisponível; usando a leitura completa:', e); }
+  return getHistoryFromDbCompleto(origem);
+};
+
+/** Lista AO VIVO: o Firestore avisa só o que mudou (um ato novo de outro usuário aparece na hora, sem baixar a lista de novo). */
+export const assinarIndiceHistorico = (cb: (lista: SavedAnalysis[]) => void, origem: string = "hist_ao_vivo"): (() => void) => {
+  if (!auth.currentUser) return () => {};
+  let cancelado = false, desfazer: (() => void) | null = null;
+  void garantirIndiceHistorico().then((ok) => {
+    if (cancelado) return;
+    if (!ok) { void getHistoryFromDbCompleto(origem).then((l) => { if (!cancelado) cb(l); }).catch(() => {}); return; }
+    desfazer = onSnapshot(consultaIndice(), (sn) => {
+      try { const mud = ((sn as any).docChanges?.() || []).map((c: any) => c.doc).filter(Boolean); medirLeitura(origem, mud.length ? mud : sn.docs); } catch { /* sem medição */ }
+      cb(listaDoIndice(sn.docs));
+    }, (e) => console.warn('[Histórico] escuta do índice falhou:', e));
+  });
+  return () => { cancelado = true; if (desfazer) desfazer(); };
+};
+
+/** Abre o ato COMPLETO (minuta, texto dos autos, conversa) a partir do resumo da lista. Um ato que já é completo volta como está. */
+export const carregarAtoCompleto = async (leve: any): Promise<SavedAnalysis | null> => {
+  if (!leve?.id) return null;
+  if (!ehLeve(leve)) return leve as SavedAnalysis;
+  const caminhos = Array.from(new Set([leve.fonte, ...getHistoryCollectionPaths()].filter(Boolean))) as string[];
+  for (const c of caminhos) {
+    try { const ex = await getDoc(doc(db, c, leve.id)); if (ex.exists()) { medirLeitura('ato_completo', [ex]); return { ...(ex.data() as any), id: ex.id } as SavedAnalysis; } }
+    catch (e) { console.warn('[Histórico] não consegui abrir o ato em', c, e); }
+  }
+  return null;
+};
+
 export const saveHistoryToDb = async (analysis: SavedAnalysis): Promise<void> => {
   if (!auth.currentUser) return;
+  if (ehLeve(analysis)) throw new Error("ato em versão resumida (lista) não pode ser gravado por cima do ato completo");
   const user = auth.currentUser;
   const unitId = getActiveUnitId();
   // a marcação "lançado no Projudi" não pode se perder quando o ato é salvo de novo (por exemplo, ao editar a minuta)
@@ -361,6 +486,7 @@ export const saveHistoryToDb = async (analysis: SavedAnalysis): Promise<void> =>
   });
 
   await setDoc(refDoc, dataToSave);
+  await gravarIndiceHistorico({ ...dataToSave, id: analysis.id });
 };
 
 /** Confere, depois de gravar, se o ato está mesmo na nuvem (e em qual unidade). Serve para nunca dar um ato por salvo sem estar. */
@@ -411,6 +537,7 @@ export const updateAnalysisChatAndMinute = async (
     }
 
     await updateDoc(docRef, updatePayload);
+    await gravarIndiceHistorico({ ...currentData, ...updatePayload, id: analysisId });
   } catch (err) {
     console.warn("Could not update chat in Firestore history:", err);
   }
@@ -427,6 +554,7 @@ export const updateAnalysisLancadoInDb = async (analysisId: string, quando: numb
       const existing = await getDoc(docRef);
       if (!existing.exists()) continue;
       await updateDoc(docRef, { lancadoProjudi: quando });
+      try { await updateDoc(doc(db, indiceHistoricoPath(), analysisId), { lancadoProjudi: quando }); } catch { /* sem resumo desse ato no índice: a conferência de contagem cria */ }
       gravou = true;
     } catch (e) {
       console.warn("Could not update lancadoProjudi at", caminho, e);
@@ -464,10 +592,38 @@ export const updateAnalysisUnitInDb = async (
     });
 
     await updateDoc(docRef, updatePayload);
+    await gravarIndiceHistorico({ ...currentData, ...updatePayload, id: analysisId });
   } catch (err) {
     console.error("Error updating analysis unit in Firestore:", err);
     throw err;
   }
+};
+
+/** Atos COMPLETOS de um processo no caminho do gabinete. Acha pelo índice leve e baixa só esses atos; sem índice, lê a coleção como antes. */
+const docsCompletosDoProcesso = async (processNumber: string, rotulo: string): Promise<Array<{ id: string; data: () => any }>> => {
+  const caminho = getTenantPath('history'), limpo = digitosDoProcesso(processNumber);
+  try {
+    if (await garantirIndiceHistorico()) {
+      const filtro = limpo.length >= 5 ? where('numeroLimpo', '==', limpo) : where('processNumber', '==', processNumber);
+      const sn = await getDocs(query(collection(db, indiceHistoricoPath()), filtro));
+      medirLeitura(rotulo + '_indice', sn.docs);
+      const out: any[] = [];
+      for (const d of sn.docs) {
+        if (((d.data() as any).fonte || caminho) !== caminho) continue;
+        const ex = await getDoc(doc(db, caminho, d.id));
+        if (ex.exists()) out.push(ex);
+      }
+      medirLeitura(rotulo, out);
+      return out;
+    }
+  } catch (e) { console.warn('[Histórico] busca pelo índice falhou; lendo a coleção completa:', e); }
+  const snapshot = await getDocs(collection(db, caminho));
+  medirLeitura(rotulo, snapshot.docs);
+  return snapshot.docs.filter((d) => {
+    const data = d.data() as SavedAnalysis;
+    const itemNum = (data.processNumber || data.result?.minute?.processNumber || "").replace(/[^\d]/g, '');
+    return (limpo.length >= 5 && itemNum === limpo) || (data.processNumber === processNumber);
+  });
 };
 
 export const updateProcessUnitInDb = async (
@@ -476,15 +632,7 @@ export const updateProcessUnitInDb = async (
 ): Promise<number> => {
   if (!auth.currentUser || !processNumber) return 0;
   try {
-    const snapshot = await getDocs(collection(db, getTenantPath('history')));
-    medirLeitura('atualiza_unidade', snapshot.docs);
-    const cleanTargetNum = processNumber.replace(/[^\d]/g, '');
-
-    const matchingDocs = snapshot.docs.filter((d) => {
-      const data = d.data() as SavedAnalysis;
-      const itemNum = (data.processNumber || data.result?.minute?.processNumber || "").replace(/[^\d]/g, '');
-      return (cleanTargetNum.length >= 5 && itemNum === cleanTargetNum) || (data.processNumber === processNumber);
-    });
+    const matchingDocs = await docsCompletosDoProcesso(processNumber, 'atualiza_unidade');
 
     if (matchingDocs.length === 0) return 0;
 
@@ -507,7 +655,7 @@ export const updateProcessUnitInDb = async (
               }
             : {}),
         });
-        return updateDoc(doc(db, getTenantPath('history'), d.id), updatePayload);
+        return updateDoc(doc(db, getTenantPath('history'), d.id), updatePayload).then(() => gravarIndiceHistorico({ ...currentData, ...updatePayload, id: d.id }));
       })
     );
 
@@ -545,6 +693,7 @@ export const updateAnalysisCategoryInDb = async (
     });
 
     await updateDoc(docRef, updatePayload);
+    await gravarIndiceHistorico({ ...currentData, ...updatePayload, id: analysisId });
   } catch (err) {
     console.error("Error updating analysis category in Firestore:", err);
     throw err;
@@ -557,15 +706,7 @@ export const updateProcessCategoryInDb = async (
 ): Promise<number> => {
   if (!auth.currentUser || !processNumber) return 0;
   try {
-    const snapshot = await getDocs(collection(db, getTenantPath('history')));
-    medirLeitura('atualiza_categoria', snapshot.docs);
-    const cleanTargetNum = processNumber.replace(/[^\d]/g, '');
-
-    const matchingDocs = snapshot.docs.filter((d) => {
-      const data = d.data() as SavedAnalysis;
-      const itemNum = (data.processNumber || data.result?.minute?.processNumber || "").replace(/[^\d]/g, '');
-      return (cleanTargetNum.length >= 5 && itemNum === cleanTargetNum) || (data.processNumber === processNumber);
-    });
+    const matchingDocs = await docsCompletosDoProcesso(processNumber, 'atualiza_categoria');
 
     if (matchingDocs.length === 0) return 0;
 
@@ -586,7 +727,7 @@ export const updateProcessCategoryInDb = async (
               }
             : {}),
         });
-        return updateDoc(doc(db, getTenantPath('history'), d.id), updatePayload);
+        return updateDoc(doc(db, getTenantPath('history'), d.id), updatePayload).then(() => gravarIndiceHistorico({ ...currentData, ...updatePayload, id: d.id }));
       })
     );
 
@@ -636,6 +777,7 @@ export const deleteHistoryFromDb = async (id: string, opcoes?: { forcar?: boolea
     console.error(`Error deleting history doc ${id} from Firestore across all paths:`, rejected[0].reason);
     throw rejected[0].reason;
   }
+  await apagarIndiceHistorico(id);
 };
 
 export const deleteDossierFromDb = async (processNumber: string, unitId?: string): Promise<number> => {
@@ -645,6 +787,25 @@ export const deleteDossierFromDb = async (processNumber: string, unitId?: string
     const cleanTargetNum = processNumber.replace(/[^\d]/g, '');
     const paths = getHistoryCollectionPaths();
     let totalDeleted = 0;
+
+    // pelo índice leve: acha os atos do processo sem baixar as coleções inteiras
+    if (cleanTargetNum.length >= 5) {
+      try {
+        if (await garantirIndiceHistorico()) {
+          const sn = await getDocs(query(collection(db, indiceHistoricoPath()), where('numeroLimpo', '==', cleanTargetNum)));
+          medirLeitura('apagar_dossie_indice', sn.docs);
+          const alvos = sn.docs.filter((d) => {
+            const data: any = d.data();
+            const itemUnit = data.unitId || "montes_claros";
+            if (targetUnit !== "montes_claros" && itemUnit !== targetUnit) return false;
+            if (targetUnit === "montes_claros" && itemUnit !== "montes_claros" && !!data.unitId) return false;
+            return ehDonoDoAto(data.createdBy, auth.currentUser?.uid);      // só as minutas do próprio usuário
+          });
+          for (const d of alvos) { await deleteHistoryFromDb(d.id, { forcar: true }); totalDeleted++; }
+          return totalDeleted;
+        }
+      } catch (e) { console.warn('[Histórico] exclusão do dossiê pelo índice falhou; usando a leitura completa:', e); totalDeleted = 0; }
+    }
 
     for (const collPath of paths) {
       try {
@@ -2075,22 +2236,18 @@ export const getAllTenantsWithMetrics = async (): Promise<SaaSTenant[]> => {
       const isPrimary = isPrimaryCabinet(tId);
       const effectivePathId = tId;
 
+      // Contagem feita pelo próprio Firestore (consulta de contagem): não baixa nenhum documento (antes baixava prompts, minutas e modelos inteiros só para contar).
+      const contar = async (caminho: string): Promise<number> => { const n = (await getCountFromServer(collection(db, caminho))).data().count; medirLeitura('metricas_contagem', []); return n; };
       try {
-        let promptsSnap = await getDocs(collection(db, `gabinetes/${effectivePathId}/prompts`));
-        medirLeitura('metricas_gabinetes', promptsSnap.docs);
-        if (promptsSnap.empty && isPrimary) {
-          promptsSnap = await getDocs(collection(db, `gabinetes/gabinete_default/prompts`));
-        }
-        promptsCount = promptsSnap.size;
+        let n = await contar(`gabinetes/${effectivePathId}/prompts`);
+        if (n === 0 && isPrimary) n = await contar(`gabinetes/gabinete_default/prompts`);
+        promptsCount = n;
       } catch {}
 
       try {
-        let historySnap = await getDocs(collection(db, `gabinetes/${effectivePathId}/history`));
-        medirLeitura('metricas_gabinetes', historySnap.docs);
-        if (historySnap.empty && isPrimary) {
-          historySnap = await getDocs(collection(db, `gabinetes/gabinete_default/history`));
-        }
-        historyCount = historySnap.size;
+        let n = await contar(`gabinetes/${effectivePathId}/history`);
+        if (n === 0 && isPrimary) n = await contar(`gabinetes/gabinete_default/history`);
+        historyCount = n;
       } catch {}
 
       let primaryUnitName = '';
@@ -2134,11 +2291,9 @@ export const getAllTenantsWithMetrics = async (): Promise<SaaSTenant[]> => {
       }
 
       try {
-        let paradSnap = await getDocs(collection(db, `gabinetes/${effectivePathId}/judge_paradigms`));
-        if (paradSnap.empty && isPrimary) {
-          paradSnap = await getDocs(collection(db, `gabinetes/gabinete_default/judge_paradigms`));
-        }
-        paradigmsCount = paradSnap.size;
+        let n = await contar(`gabinetes/${effectivePathId}/judge_paradigms`);
+        if (n === 0 && isPrimary) n = await contar(`gabinetes/gabinete_default/judge_paradigms`);
+        paradigmsCount = n;
       } catch {}
 
       const effectiveUserCount = isPrimary

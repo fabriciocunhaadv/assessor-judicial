@@ -52,7 +52,7 @@ import ReactMarkdown from "react-markdown";
 import { CabinetTesesData, SuggestedCabinetThesis, CabinetThesesScanResult } from "../types";
 import { KnowledgeBasePanel } from "./KnowledgeBasePanel";
 import { saveCabinetTeses, resetCabinetTeses } from "../utils/tesesDb";
-import { getHistory } from "../utils/historyDb";
+import { getHistoryCompleto } from "../utils/historyDb";
 import { getActiveUnitId, globalTenantId, saveParadigmsToDb } from "../lib/firestoreUtils";
 import {
   JudgeParadigmModel,
@@ -1268,7 +1268,7 @@ ${cleanText}
     setScanProgress("Coletando histórico de minutas e modelos de decisão do gabinete ativo...");
 
     try {
-      const historyItems = await getHistory();
+      const historyItems = await getHistoryCompleto("teses_minerar");      // a mineração precisa do texto completo das minutas (só roda quando o usuário clica)
       const currentParadigms = getJudgeParadigms();
       const activeUnit = getActiveUnitId() || "montes_claros";
 

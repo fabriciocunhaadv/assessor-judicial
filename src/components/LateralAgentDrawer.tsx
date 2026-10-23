@@ -26,7 +26,7 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "react-hot-toast";
 import { getApiHeaders, hasCustomApiKey, getMaskedApiKey } from "../utils/apiKeyManager";
 import { SavedAnalysis } from "../types";
-import { getHistory } from "../utils/historyDb";
+import { getHistory, abrirAtoCompleto } from "../utils/historyDb";
 import { recordApiExecution } from "../utils/apiUsageTracker";
 
 export interface LateralAgentMessage {
@@ -345,7 +345,8 @@ export const LateralAgentDrawer: React.FC<LateralAgentDrawerProps> = ({
 
     try {
       // Consulta se a mensagem faz menção a algum processo arquivado no histórico do gabinete
-      const matchedItem = await findMatchingProcessInHistory(query);
+      const achado = await findMatchingProcessInHistory(query);
+      const matchedItem = achado ? ((await abrirAtoCompleto(achado)) || achado) : null;      // a lista traz só o resumo; a sinopse e o texto dos autos vêm do ato completo
       let matchedProcessPayload: any = undefined;
 
       if (matchedItem) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { PromptSelectorAndEditor } from "./components/PromptSelectorAndEditor";
@@ -61,7 +61,7 @@ import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
 import { registrarOperacao } from "./utils/monitorOperacao";
 import { iniciarMedidor } from "./utils/medidorEnvio";
-import { HISTORICO_MUDOU, retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
+import { assinarHistorico, retomarHistoricoPendente, saveToHistory, getHistory, deleteFromHistory, isCorruptedHistoryItem, SavedAnalysis } from "./utils/historyDb";
 import { findDossierForProcess, getProcessActsSummaryForPrompt } from "./utils/dossierUtils";
 import { ProcessTimelineModal } from "./components/ProcessTimelineModal";
 import { LegislativeLookupModal } from "./components/LegislativeLookupModal";
@@ -413,25 +413,12 @@ export default function App() {
     }
   };
 
-  // Lista do Histórico para agrupar dossiês e alimentar a memória. Não é mais baixada "de tempos em tempos" (cada carga trazia dezenas de MB por aba):
-  // só recarrega quando algo muda (nova análise, janela do Histórico, troca de unidade, ato gravado/excluído) e quando a aba volta depois de muito tempo parada.
-  const ultimaCargaHistorico = useRef(0);
-  const carregarHistoricoApp = useCallback((origem: string) => {
-    ultimaCargaHistorico.current = Date.now();
-    getHistory(origem).then(setHistoryList).catch(() => {});
-  }, []);
+  // Lista do Histórico (LEVE: só o resumo de cada ato) para agrupar dossiês e alimentar a memória. É uma escuta ao vivo: o Firestore avisa só o que mudou,
+  // então um ato gravado por outra pessoa aparece na hora sem baixar a lista de novo. A minuta completa só é baixada quando o ato é aberto.
   useEffect(() => {
-    const t = setTimeout(() => carregarHistoricoApp("hist_app_evento"), 1500);
-    return () => clearTimeout(t);
-  }, [generationResult, isHistoryModalOpen, activeUnit?.id, carregarHistoricoApp]);
-  useEffect(() => {
-    let t: ReturnType<typeof setTimeout> | null = null;
-    const aoMudar = () => { if (t) clearTimeout(t); t = setTimeout(() => carregarHistoricoApp("hist_app_evento"), 2000); };
-    const aoVoltar = () => { if (document.visibilityState === "visible" && Date.now() - ultimaCargaHistorico.current > 15 * 60 * 1000) carregarHistoricoApp("hist_app_foco"); };
-    window.addEventListener(HISTORICO_MUDOU, aoMudar);
-    document.addEventListener("visibilitychange", aoVoltar);
-    return () => { if (t) clearTimeout(t); window.removeEventListener(HISTORICO_MUDOU, aoMudar); document.removeEventListener("visibilitychange", aoVoltar); };
-  }, [carregarHistoricoApp]);
+    if (!user?.uid) return;
+    return assinarHistorico(setHistoryList);
+  }, [user?.uid, activeUnit?.id]);
 
   // Detected process dossier for active input (finds all previously authored acts for this process)
   const activeProcessDossier = useMemo(() => {

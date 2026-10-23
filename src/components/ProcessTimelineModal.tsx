@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { abrirAtoCompleto } from "../utils/historyDb";
 import ReactMarkdown from 'react-markdown';
 import {
   X,
@@ -48,6 +49,16 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
   isAdmin = false,
 }) => {
   const [selectedPreviewAct, setSelectedPreviewAct] = useState<SavedAnalysis | null>(null);
+  // a lista traz só o resumo de cada ato: o texto da prévia é baixado quando ela é aberta
+  const [previaCompleta, setPreviaCompleta] = useState<Record<string, SavedAnalysis>>({});
+  const alternarPrevia = async (act: SavedAnalysis) => {
+    if (selectedPreviewAct?.id === act.id) { setSelectedPreviewAct(null); return; }
+    setSelectedPreviewAct(act);
+    if ((act as any).leve && !previaCompleta[act.id]) {
+      const c = await abrirAtoCompleto(act).catch(() => null);
+      if (c) setPreviaCompleta((p) => ({ ...p, [act.id]: c }));
+    }
+  };
   const [copiedNumber, setCopiedNumber] = useState(false);
   const [isConfirmingDeleteAll, setIsConfirmingDeleteAll] = useState(false);
   const [actToDelete, setActToDelete] = useState<SavedAnalysis | null>(null);
@@ -165,8 +176,9 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
               const dateStr = new Date(act.date).toLocaleDateString("pt-BR");
               const timeStr = new Date(act.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
               const paradigmUsed = act.result?.paradigmUsed;
-              const hasChat = act.chatMessages && act.chatMessages.length > 0;
-              const hasVersions = (act.versions && act.versions.length > 1) || (act.result?.versions && act.result.versions.length > 1);
+              const nChat = (act as any).chatCount ?? act.chatMessages?.length ?? 0;
+              const hasChat = nChat > 0;
+              const hasVersions = ((act as any).versoesCount ?? Math.max(act.versions?.length || 0, act.result?.versions?.length || 0)) > 1;
 
               return (
                 <div key={act.id} className="relative flex items-start gap-2.5 sm:gap-4 group">
@@ -216,7 +228,7 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
                           {hasChat && (
                             <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold flex items-center gap-1">
                               <MessageSquare className="w-3 h-3 text-slate-500" />
-                              <span>Chat ({act.chatMessages?.length})</span>
+                              <span>Chat ({nChat})</span>
                             </span>
                           )}
                           {hasVersions && (
@@ -272,7 +284,7 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
 
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setSelectedPreviewAct(selectedPreviewAct?.id === act.id ? null : act)}
+                          onClick={() => alternarPrevia(act)}
                           className="flex-1 sm:flex-initial justify-center px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1 transition cursor-pointer whitespace-nowrap"
                         >
                           <Eye className="w-3.5 h-3.5 text-slate-500" />
@@ -297,10 +309,10 @@ export const ProcessTimelineModal: React.FC<ProcessTimelineModalProps> = ({
                       <div className="mt-4 p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono max-h-72 overflow-y-auto border border-slate-800 space-y-3 animate-in fade-in duration-150">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-[11px] text-slate-400">
                           <span>Texto Integral Formatado da Minuta</span>
-                          <span>{act.result?.minute?.fullFormattedText?.length || 0} caracteres</span>
+                          <span>{(previaCompleta[act.id] || act).result?.minute?.fullFormattedText?.length || 0} caracteres</span>
                         </div>
                         <div className="leading-relaxed text-[11px] text-slate-300 markdown-body bg-transparent" style={{'--color-fg-default': '#cbd5e1'} as React.CSSProperties}>
-                          <ReactMarkdown>{act.result?.minute?.fullFormattedText || "Sem texto formatado."}</ReactMarkdown>
+                          <ReactMarkdown>{(previaCompleta[act.id] || act).result?.minute?.fullFormattedText || ((act as any).leve && !previaCompleta[act.id] ? "Carregando a minuta…" : "Sem texto formatado.")}</ReactMarkdown>
                         </div>
                       </div>
                     )}

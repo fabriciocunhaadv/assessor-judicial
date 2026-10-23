@@ -1,5 +1,5 @@
 import { SavedAnalysis } from "../types";
-import { getHistoryFromDb, saveHistoryToDb, deleteHistoryFromDb, conferirAtoNaNuvem, lerCriadorDoAto, ehDonoDoAto, ERRO_NAO_E_DONO_DO_ATO, globalTenantId } from "../lib/firestoreUtils";
+import { getHistoryFromDb, getHistoryFromDbCompleto, assinarIndiceHistorico, carregarAtoCompleto, saveHistoryToDb, deleteHistoryFromDb, conferirAtoNaNuvem, lerCriadorDoAto, ehDonoDoAto, ERRO_NAO_E_DONO_DO_ATO, globalTenantId } from "../lib/firestoreUtils";
 
 /** Só quem gerou a minuta pode excluí-la (ato sem dono registrado é de todos). Usado pela tela do Histórico para mostrar ou esconder os botões de excluir. */
 export const podeExcluirAto = (ato: { createdBy?: string } | null | undefined, uid?: string | null): boolean => !!ato && ehDonoDoAto(ato.createdBy, uid);
@@ -44,6 +44,7 @@ const removeTombstone = (id: string) => {
 
 export const isCorruptedHistoryItem = (item: SavedAnalysis): boolean => {
   if (!item || !item.id) return true;
+  if ((item as any).leve) return !!(item as any).corrompido;      // resumo da lista: o veredito foi calculado quando o ato foi resumido
   if ((item.result as any)?.error || (item.result as any)?.isError) return true;
   if (!item.result?.minute && !item.originalMinute) return true;
   return false;
@@ -178,52 +179,77 @@ const saveLocalHistory = (list: SavedAnalysis[]) => {
   }
 };
 
+/** Tira da lista o que foi excluído ou está corrompido (e apaga o corrompido da nuvem) e conserta o que dá para consertar. */
+const filtrarEReparar = (list: SavedAnalysis[], tombstones: Set<string>): SavedAnalysis[] => {
+  const clean: SavedAnalysis[] = [];
+  const corruptedIds: string[] = [];
+
+  for (const item of list) {
+    if (!item || !item.id || tombstones.has(item.id)) continue;
+    if (isCorruptedHistoryItem(item)) {
+      corruptedIds.push(item.id);
+    } else {
+      clean.push(repairHistoryItem(item));
+    }
+  }
+
+  if (corruptedIds.length > 0) {
+    console.warn(`[History] Pruning ${corruptedIds.length} corrupted/incomplete history items:`, corruptedIds);
+    corruptedIds.forEach((id) => {
+      addTombstone(id);
+      deleteHistoryFromDb(id, { forcar: true }).catch(() => {});      // limpeza automática de registro corrompido: não é exclusão do usuário
+    });
+  }
+
+  return clean;
+};
+
+/** Lista final que a tela mostra: nuvem + atos ainda não gravados + marcas de "lançado" locais. */
+const montarListaDoHistorico = (dbList: SavedAnalysis[]): SavedAnalysis[] => {
+  const tombstones = getTombstones();
+  const cleanList = filtrarEReparar(dbList, tombstones);
+  // Logado: o Firestore (com cache em IndexedDB) é a fonte única; NÃO grava no localStorage (limite ~5 MB).
+  const marcas = lerMarcas();
+  for (const [id, ato] of pendentesHistorico) if (!cleanList.some((x) => x.id === id) && !tombstones.has(id)) cleanList.unshift(ato);      // ainda não gravado na nuvem: aparece mesmo assim
+  return cleanList.map((it) => (Object.prototype.hasOwnProperty.call(marcas, it.id) ? { ...it, lancadoProjudi: marcas[it.id] } : it));
+};
+
+/** Lista do Histórico. Vem em versão LEVE (sem minuta nem texto dos autos); para abrir um ato use abrirAtoCompleto. */
 export const getHistory = async (origem?: string): Promise<SavedAnalysis[]> => {
   const localList = getLocalHistory();
-  const tombstones = getTombstones();
-
-  const filterAndPrune = (list: SavedAnalysis[]): SavedAnalysis[] => {
-    const clean: SavedAnalysis[] = [];
-    const corruptedIds: string[] = [];
-
-    for (const item of list) {
-      if (!item || !item.id || tombstones.has(item.id)) continue;
-      if (isCorruptedHistoryItem(item)) {
-        corruptedIds.push(item.id);
-      } else {
-        clean.push(repairHistoryItem(item));
-      }
-    }
-
-    if (corruptedIds.length > 0) {
-      console.warn(`[History] Pruning ${corruptedIds.length} corrupted/incomplete history items:`, corruptedIds);
-      corruptedIds.forEach((id) => {
-        addTombstone(id);
-        deleteHistoryFromDb(id, { forcar: true }).catch(() => {});      // limpeza automática de registro corrompido: não é exclusão do usuário
-      });
-    }
-
-    return clean;
-  };
 
   // If user is authenticated, Firestore is the absolute single source of truth
   if (auth.currentUser) {
     try {
-      const dbList = await getHistoryFromDb(origem);
-      // Filter out tombstones and corrupted entries immediately
-      const cleanList = filterAndPrune(dbList);
-      // Logado: o Firestore (com cache em IndexedDB) é a fonte única; NÃO grava no localStorage (limite ~5 MB).
-      const marcas = lerMarcas();
-      for (const [id, ato] of pendentesHistorico) if (!cleanList.some((x) => x.id === id) && !tombstones.has(id)) cleanList.unshift(ato);      // ainda não gravado na nuvem: aparece mesmo assim
-      return cleanList.map((it) => (Object.prototype.hasOwnProperty.call(marcas, it.id) ? { ...it, lancadoProjudi: marcas[it.id] } : it));
+      return montarListaDoHistorico(await getHistoryFromDb(origem));
     } catch (err) {
       console.warn("Could not fetch history from DB, falling back to local cache:", err);
-      return filterAndPrune(localList);
+      return filtrarEReparar(localList, getTombstones());
     }
   }
 
-  return filterAndPrune(localList);
+  return filtrarEReparar(localList, getTombstones());
 };
+
+/** Lista AO VIVO (leve): chama `cb` agora e toda vez que outro usuário (ou esta aba) grava, altera ou exclui um ato, sem baixar a lista de novo. Devolve a função de parar. */
+export const assinarHistorico = (cb: (lista: SavedAnalysis[]) => void): (() => void) => {
+  let ultima: SavedAnalysis[] = [], parado = false;
+  const emitir = () => { if (!parado) { try { cb(montarListaDoHistorico(ultima)); } catch (e) { console.warn("[Histórico] lista ao vivo:", e); } } };
+  const parar = assinarIndiceHistorico((lista) => { ultima = lista; emitir(); });
+  const aoMudar = () => emitir();      // ato desta aba ainda sem gravar na nuvem, ou excluído: reaparece/some na hora, sem rede
+  if (typeof window !== "undefined") window.addEventListener(HISTORICO_MUDOU, aoMudar);
+  return () => { parado = true; parar(); if (typeof window !== "undefined") window.removeEventListener(HISTORICO_MUDOU, aoMudar); };
+};
+
+/** Histórico COMPLETO (minutas e textos dos autos de todos os atos). Pesado: só para o que precisa mesmo (backup, mineração de teses). */
+export const getHistoryCompleto = async (origem: string = "hist_completo"): Promise<SavedAnalysis[]> => {
+  if (!auth.currentUser) return getHistory(origem);
+  try { return montarListaDoHistorico(await getHistoryFromDbCompleto(origem)); }
+  catch (err) { console.warn("Could not fetch full history:", err); return getHistory(origem); }
+};
+
+/** Abre um ato da lista: baixa a minuta completa só agora. Devolve null se o ato não existe mais. */
+export const abrirAtoCompleto = (item: SavedAnalysis): Promise<SavedAnalysis | null> => carregarAtoCompleto(item);
 
 // ===== Gravação do Histórico na nuvem: limite de tamanho, prazo, fila de pendentes e reenvio =====
 
@@ -305,6 +331,7 @@ export const saveToHistory = async (analysis: SavedAnalysis): Promise<{ ok: bool
 
 const salvarNoHistoricoInterno = async (analysis: SavedAnalysis): Promise<{ ok: boolean; erro?: string }> => {
   if (!analysis || !analysis.id) return { ok: false, erro: "ato sem identificador" };
+  if ((analysis as any).leve) return { ok: false, erro: "ato em versão resumida (lista): abra o ato completo antes de gravar" };      // nunca grava o resumo por cima da minuta
   if (isCorruptedHistoryItem(analysis)) {
     console.warn("Blocked attempt to save corrupted/error analysis to history:", analysis.id);
     return { ok: false, erro: "o ato veio incompleto (sem minuta) e não foi gravado" };
