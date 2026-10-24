@@ -31,13 +31,19 @@ def main():
         log = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PM}/__log").read().decode()); print("normal:", [(x.get("leg"), x.get("legtxt")) for x in log if x.get("res") == 200])
         oks = [x for x in log if x.get("res") == 200]
         assert oks[-1].get("leg") and oks[-1].get("legtxt"), "o texto oficial do art. 489 deve chegar à etapa 2"
-        assert not oks[0].get("leg"), "a etapa 1 ainda não tem minuta para conferir"
+        assert oks[0].get("leg") and oks[0].get("legtxt"), "a etapa 1 também deve receber o texto oficial dos artigos citados nos autos"
         urllib.request.urlopen(f"http://127.0.0.1:{PM}/__reset")
         rq = urllib.request.Request(f"http://127.0.0.1:{PS}/api/generate-minute-turbo", data=json.dumps({"processText": autos, "actType": "auto"}).encode(), headers={"Content-Type": "application/json", "x-gemini-api-key": "AQ.Ab8-chave-um-aaaaaaaa"})
         try: urllib.request.urlopen(rq, timeout=300).read()
         except Exception as e: print("turbo respondeu:", str(e)[:80])
         log = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PM}/__log").read().decode()); print("turbo:", [(x.get("leg"), x.get("legtxt")) for x in log])
         assert any(x.get("legtxt") for x in log), "o texto oficial deve chegar ao Turbo"
+        for rota, corpo in [("/api/chat-agaia", {"message": "Explique o art. 489 do CPC", "currentMinute": {"fundamentacao": "x"}, "conversationHistory": []}), ("/api/lateral-agent-chat", {"message": "Explique o art. 489 do CPC", "mode": "geral"})]:
+            urllib.request.urlopen(f"http://127.0.0.1:{PM}/__reset")
+            try: urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{PS}{rota}", data=json.dumps(corpo).encode(), headers={"Content-Type": "application/json", "x-gemini-api-key": "AQ.Ab8-chave-um-aaaaaaaa"}), timeout=120).read()
+            except Exception as e: print(rota, "respondeu:", str(e)[:60])
+            log = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PM}/__log").read().decode()); print(rota, [(x.get("leg"), x.get("legtxt")) for x in log])
+            assert any(x.get("legtxt") for x in log), f"o texto oficial deve chegar em {rota}"
         st = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PS}/api/legislacao-status", timeout=120).read().decode()); print("diagnóstico:", st["ok"], "de", st["total"]); assert st["ok"] == st["total"]
         print("OK")
     finally:

@@ -210,6 +210,11 @@ app.use(express.urlencoded({ limit: "200mb", extended: true }));
 
 app.use("/api/advogado-peticao", petitionRouter);
 
+// Texto oficial (planalto.gov.br) dos artigos citados nestes textos, para o prompt; qualquer falha devolve vazio e a resposta segue como antes
+async function blocoLegislacao(textos: any[], max = 8, timeoutMs = 6000): Promise<string> {
+    try { return (await consultarLegislacao(textos.map((t) => String(t || "").slice(0, 200000)), { maxArtigos: max, timeoutMs })).bloco; } catch { return ""; }
+}
+
 app.get("/api/native-key-info", (req, res) => res.json({ hasNativeKey: !!process.env.GEMINI_API_KEY }));
 app.post("/api/test-api-key", async (req, res) => {
     try {
@@ -826,7 +831,7 @@ ${cabinetTesesText ? `\n# CADERNO DE TESES E DIRETRIZES DO GABINETE:\n${cabinetT
            });
         }
         
-        const userPrompt = `${historyPrompt}\nUsuário: ${message}`;
+        const userPrompt = `${historyPrompt}\nUsuário: ${message}` + await blocoLegislacao([message, currentMinute?.fundamentacao, currentMinute?.dispositivo, originalProcessText]);
         
         const options = {
             apiKey: apiKey,
@@ -977,7 +982,7 @@ ${contextSection}`;
             }).join("\n") + "\n\n";
         }
 
-        const promptText = `${systemPrompt}\n\n${historyPrompt}Pergunta/Demanda do Assessor/Magistrado:\n${message.trim()}`;
+        const promptText = `${systemPrompt}\n\n${historyPrompt}Pergunta/Demanda do Assessor/Magistrado:\n${message.trim()}` + await blocoLegislacao([message]);
 
         const options = {
             apiKey: apiKey,
@@ -1824,7 +1829,7 @@ Realize a conferência completa e gere o JSON rigoroso conforme o esquema acima.
             customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
             timeoutMs: 150000,
             maxCycles: 2,
-            contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt }, ...cobL.partes] }],
+            contents: [{ role: "user", parts: [{ text: auditSystemInstruction + "\n\n" + auditUserPrompt + await blocoLegislacao([auditUserPrompt]) }, ...cobL.partes] }],
             config: {
                 systemInstruction: "Você é um juiz de direito auditor rigoroso. Responda apenas com JSON válido e completo." + cobL.regra + notaDossieL + defesaInjecaoL,
                 responseMimeType: "application/json"
@@ -2027,7 +2032,7 @@ Você DEVE responder ESTRITAMENTE em formato JSON com o seguinte schema:
                 res,
                 customModelQueue: ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
                 maxCycles: 2,
-                contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
+                contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n" + userPrompt + await blocoLegislacao([userPrompt], 6) }] }],
                 config: {
                     systemInstruction: "Você é um assistente de audiências judiciais que responde apenas com objetos JSON estritos e válidos.",
                     responseMimeType: "application/json"
@@ -2195,7 +2200,7 @@ Redija em linguagem jurídica formal, concisa e direta para ser ditada e constar
                 apiKey,
                 keyPool: extractApiKeyPool(req),
                 res,
-                contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                contents: [{ role: "user", parts: [{ text: systemPrompt + await blocoLegislacao([systemPrompt], 6) }] }],
                 config: { systemInstruction: "Redija o texto de deliberação judicial para ata de audiência." }
             };
 
@@ -2223,7 +2228,7 @@ Redija a sentença em mesa (relatório sucinto/dispensado na forma da lei, funda
                 apiKey,
                 keyPool: extractApiKeyPool(req),
                 res,
-                contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+                contents: [{ role: "user", parts: [{ text: systemPrompt + await blocoLegislacao([systemPrompt], 6) }] }],
                 config: { systemInstruction: "Redija sentença em mesa para termo de audiência." }
             };
 
@@ -5236,6 +5241,12 @@ if (executionStage === 2 && stage1Snapshot && typeof stage1Snapshot === "object"
 } else {
     console.log("[Assessor Judicial] Disparando ETAPA 1: Assessor Fático (Extração e Confronto Probatório Bruto)...");
     setProg(progId, "Etapa 1 — assessor fático: extraindo partes, fatos e provas dos autos…", 12, 56);
+    // LEGISLAÇÃO OFICIAL já na etapa 1: artigos que os autos citam (petições, decisões anteriores) são conferidos no texto do Planalto; falha silenciosa
+    try {
+        setProg(progId, "Etapa 1 — consultando a legislação oficial (Planalto)…", 10, 56);
+        const legAutos = await consultarLegislacao([(accumulatedPdfText || safeProcessText || "").slice(0, 200000)], { maxArtigos: 10, timeoutMs: 8000 });
+        if (legAutos.bloco) { stage1SystemInstruction += legAutos.bloco; console.log(`[Legislação] etapa 1: ${legAutos.consultados} artigo(s) citado(s) nos autos conferido(s) no Planalto.`); }
+    } catch (e) { console.warn("[Legislação] etapa 1 ignorada:", e); }
     stage1SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: activePromptTitle, categoria: req.body.promptCategory || '', unidade: processInfo?.comarca || '' }) + regraCobertura;
     const stage1StartTimer = Date.now();
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage1ContentsParts, stage1SystemInstruction) / 10000) * 3000);      // maior para autos grandes

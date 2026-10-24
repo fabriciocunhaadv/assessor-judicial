@@ -5,6 +5,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
+import { consultarLegislacao } from "../src/utils/legislacaoPlanalto";
 
 async function processFileToPart(ai: any, file: any): Promise<any> {
   if (file.extractedText) {
@@ -611,7 +612,10 @@ ${groundingInfo.links.map(l => `- [${l.title}](${l.url})`).join("\n")}`
       console.warn("Google Grounding durante redação da petição falhou silenciosamente:", err);
     }
 
-    contentsParts.push({ text: promptUser });
+    // artigos citados na demanda conferidos no texto oficial do Planalto (falha silenciosa)
+    let blocoLeg = "";
+    try { blocoLeg = (await consultarLegislacao([String(promptUser || "").slice(0, 200000)], { maxArtigos: 8, timeoutMs: 6000 })).bloco; } catch { /* segue sem o bloco */ }
+    contentsParts.push({ text: promptUser + blocoLeg });
 
     const response = await generateWithRetry(ai, {
       model: "gemini-3.8-flash",
