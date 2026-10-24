@@ -278,6 +278,11 @@ export async function testarLegislacao(texto: string): Promise<any> {
 }
 
 /** Diagnóstico: quais diplomas o servidor consegue consultar agora (sem devolver conteúdo). */
-export async function diagnosticoLegislacao(): Promise<Array<{ id: string; ok: boolean }>> {
-  return Promise.all(DIPLOMAS.map(async (d) => ({ id: d.id, ok: !!(await linhasDoDiploma(d, 10000)) })));
+export async function diagnosticoLegislacao(): Promise<Array<{ id: string; ok: boolean; linhas: number; artigos: number; motivo?: string }>> {
+  // "ok" só quando a página abriu E a leitura reconhece artigos nela (antes bastava a página abrir: uma página lida errado passava como boa)
+  return Promise.all(DIPLOMAS.map(async (d) => {
+    negativos.delete(d.id); const l = await linhasDoDiploma(d, 10000);
+    const artigos = l ? l.filter((x) => /^Art\.?\s*\d/i.test(x)).length : 0;
+    return { id: d.id, ok: !!l && artigos >= 2, linhas: l ? l.length : 0, artigos, ...(l ? (artigos < 2 ? { motivo: "abriu, mas a leitura não reconheceu os artigos" } : {}) : { motivo: motivoFalha.get(d.url) || "sem resposta" }) };
+  }));
 }
