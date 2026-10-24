@@ -177,6 +177,20 @@ const negativos = new Map<string, number>();      // lei que não achei: não fi
 const VALIDADE_MS = 12 * 3600_000, NEGATIVO_MS = 30 * 60_000;
 const baseUrl = (u: string) => u.replace("https://www.planalto.gov.br/", process.env.PLANALTO_BASE || "https://www.planalto.gov.br/");
 
+/** Bytes da página -> texto. Algumas páginas do Planalto estão gravadas em UTF-16 (um byte zero entre as letras); lidas como Windows-1252 viravam "\\0A\\0r\\0t". */
+export function decodificarPagina(buf: ArrayBuffer | Uint8Array, contentType = ""): string {
+  const b = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  const trocar = (x: Uint8Array) => { const o = new Uint8Array(x.length - (x.length % 2)); for (let i = 0; i < o.length; i += 2) { o[i] = x[i + 1]; o[i + 1] = x[i]; } return o; };
+  const le = (x: Uint8Array) => new TextDecoder("utf-16le").decode(x);
+  if (b.length >= 2 && b[0] === 0xff && b[1] === 0xfe) return le(b.subarray(2));
+  if (b.length >= 2 && b[0] === 0xfe && b[1] === 0xff) return le(trocar(b.subarray(2)));
+  const amostra = b.subarray(0, Math.min(b.length, 600)); let pares = 0, impares = 0;
+  for (let i = 0; i < amostra.length; i++) if (amostra[i] === 0) (i % 2 === 0 ? pares++ : impares++);
+  if (amostra.length >= 20 && (pares + impares) / amostra.length > 0.25) return impares > pares ? le(b) : le(trocar(b));      // zeros nas posições ímpares = UTF-16 little-endian; nas pares = big-endian
+  const cs = /charset=([\w-]+)/i.exec(contentType)?.[1] || (/<meta[^>]+charset=["']?([\w-]+)/i.exec(Buffer.from(b.subarray(0, 2000)).toString("latin1"))?.[1]) || "windows-1252";
+  try { return new TextDecoder(cs).decode(b); } catch { return new TextDecoder("windows-1252").decode(b); }
+}
+
 const motivoFalha = new Map<string, string>();      // url -> por que não consegui (para o teste manual)
 async function baixarLinhas(url: string, timeoutMs: number): Promise<string[] | null> {
   const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), timeoutMs);
@@ -184,8 +198,7 @@ async function baixarLinhas(url: string, timeoutMs: number): Promise<string[] | 
     const r = await fetch(baseUrl(url), { signal: ctl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; AssessorJudicial/1.0)", "Accept": "text/html" } });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const buf = await r.arrayBuffer();
-    const cs = /charset=([\w-]+)/i.exec(r.headers.get("content-type") || "")?.[1] || (/<meta[^>]+charset=["']?([\w-]+)/i.exec(Buffer.from(buf).subarray(0, 2000).toString("latin1"))?.[1]) || "windows-1252";
-    let html: string; try { html = new TextDecoder(cs).decode(buf); } catch { html = new TextDecoder("windows-1252").decode(buf); }
+    const html = decodificarPagina(buf, r.headers.get("content-type") || "");
     const linhas = htmlParaLinhas(html);
     if (linhas.length < 20) { motivoFalha.set(url, `página com poucas linhas de texto (${linhas.length}; ${buf.byteLength} bytes)`); return null; }
     motivoFalha.delete(url); return linhas;

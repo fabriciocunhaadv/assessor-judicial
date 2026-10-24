@@ -1,5 +1,5 @@
 // Consulta à legislação oficial: acha os artigos citados, localiza o texto na página do Planalto (simulada) e monta o bloco do prompt. Rodar: npx tsx testes/gigantes/teste_legislacao_planalto.ts
-import { extrairCitacoes, extrairTudo, candidatosDoAto, htmlParaLinhas, trechoDoArtigo, consultarLegislacao } from '../../src/utils/legislacaoPlanalto';
+import { decodificarPagina, extrairCitacoes, extrairTudo, candidatosDoAto, htmlParaLinhas, trechoDoArtigo, consultarLegislacao } from '../../src/utils/legislacaoPlanalto';
 let f = 0; const ok = (c: boolean, n: string) => { console.log(c ? 'ok' : 'FALHA', n); if (!c) f++; };
 const ids = (t: string) => extrairCitacoes(t).map((c) => `${c.diploma.id}:${c.artigo}`).sort().join(',');
 ok(ids('conforme o art. 489, § 1º, do CPC') === 'cpc:489', 'art. 489 do CPC');
@@ -77,4 +77,14 @@ ok((trechoDoArtigo(ls2, '6')?.texto || '').includes('violação dos direitos hum
 (globalThis as any).fetch = async () => ({ ok: false, status: 403, headers: { get: () => '' }, arrayBuffer: async () => new ArrayBuffer(0) });
 const { testarLegislacao } = await import('../../src/utils/legislacaoPlanalto');
 const tt = await testarLegislacao('art. 5º da Lei 11.340/2006'); ok(tt.reconhecidos[0].diplomaLocalizado === false && /403/.test(tt.reconhecidos[0].motivoDaFalha || ''), 'teste manual informa o motivo da falha: ' + tt.reconhecidos[0].motivoDaFalha);
+// ---- página gravada em UTF-16 (como a da Lei 11.340): big-endian sem marca, little-endian com marca ----
+const paginaTxt = '<html><body>' + Array.from({ length: 30 }, (_, i) => `<p>Apresentação ${i}</p>`).join('') + '<p>Art. 5º Para os efeitos desta Lei, configura violência doméstica.</p><p>Art. 6º Fim.</p></body></html>';
+const be = new Uint8Array(paginaTxt.length * 2); for (let i = 0; i < paginaTxt.length; i++) { const c = paginaTxt.charCodeAt(i); be[2 * i] = c >> 8; be[2 * i + 1] = c & 255; }
+const leBytes = new Uint8Array(paginaTxt.length * 2 + 2); leBytes[0] = 0xff; leBytes[1] = 0xfe; for (let i = 0; i < paginaTxt.length; i++) { const c = paginaTxt.charCodeAt(i); leBytes[2 + 2 * i] = c & 255; leBytes[3 + 2 * i] = c >> 8; }
+const leSemMarca = new Uint8Array(paginaTxt.length * 2); for (let i = 0; i < paginaTxt.length; i++) { const c = paginaTxt.charCodeAt(i); leSemMarca[2 * i] = c & 255; leSemMarca[2 * i + 1] = c >> 8; }
+for (const [nome, bytes] of [['UTF-16 big-endian sem marca', be], ['UTF-16 little-endian com marca', leBytes], ['UTF-16 little-endian sem marca', leSemMarca]] as const) {
+  const l16 = htmlParaLinhas(decodificarPagina(bytes, 'text/html'));
+  ok(!!trechoDoArtigo(l16, '5')?.texto.includes('violência doméstica') && !trechoDoArtigo(l16, '5')?.texto.includes('\u0000'), nome + ': artigo 5 lido');
+}
+ok(decodificarPagina(Buffer.from('<p>Art. 1º ação</p>', 'latin1'), 'text/html; charset=windows-1252').includes('1º ação'), 'página comum em Windows-1252 continua certa');
 process.exit(f ? 1 : 0);
