@@ -35,6 +35,8 @@ import {
   getAllBindingPrecedents,
 } from "../utils/bindingPrecedents";
 import { extractTextFromPdf } from "../utils/pdfExtractor";
+import { sincronizarPrecedentes, importarPrecedentes } from "../utils/precedentesDb";
+import { isPrimaryCabinet, globalTenantId } from "../lib/firestoreUtils";
 import { getApiHeaders } from "../utils/apiKeyManager";
 
 interface BindingPrecedentsModalProps {
@@ -66,17 +68,19 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    // Buscar precedentes customizados do servidor diretamente para memória do componente
+    // A lista do gabinete vem do banco (só baixa tudo quando mudou). Os PDFs que antes ficavam só no arquivo do servidor são levados para o banco na primeira vez.
     fetch("/api/custom-precedents")
       .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.precedents) && data.precedents.length > 0) {
-          setServerPrecedents(data.precedents);
-          addCustomBindingPrecedents(data.precedents);
-          setPrecedentsVersion((v) => v + 1);
-        }
+      .catch(() => ({ precedents: [] }))
+      .then(async (data) => {
+        // o arquivo do servidor é único (não separa gabinetes): só o gabinete principal leva dele para o banco
+        const doServidor: BindingPrecedent[] = isPrimaryCabinet(globalTenantId) && Array.isArray(data?.precedents) ? data.precedents.filter((p: any) => p?.sourceFile) : [];
+        await sincronizarPrecedentes(doServidor);
+        if (doServidor.length) await importarPrecedentes(doServidor);      // PDFs que ficaram só no servidor (ex.: banco fora do ar na hora de anexar)
+        return getCustomBindingPrecedents();
       })
-      .catch((err) => console.warn("Não foi possível carregar custom precedents:", err));
+      .then((lista) => { setServerPrecedents(lista); setPrecedentsVersion((v) => v + 1); })
+      .catch((err) => console.warn("Não foi possível carregar os precedentes do gabinete:", err));
 
     // Rotina semanal: se passou mais de 7 dias da última sincronização, executa automaticamente
     const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -176,7 +180,8 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
       // Se o documento já estava previamente indexado no banco do servidor
       if (data.alreadyIndexed) {
         if (data.allPrecedents && Array.isArray(data.allPrecedents)) {
-          setServerPrecedents(data.allPrecedents);
+          await importarPrecedentes(data.allPrecedents.filter((p: any) => p?.sourceFile));      // garante que também estão no banco
+          setServerPrecedents(getCustomBindingPrecedents());
         }
         setPrecedentsVersion((v) => v + 1);
         setSelectedTribunal("CUSTOM");
@@ -186,12 +191,16 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
         return;
       }
 
-      if (data.allPrecedents && Array.isArray(data.allPrecedents)) {
-        setServerPrecedents(data.allPrecedents);
-        addCustomBindingPrecedents(data.allPrecedents);
-      } else if (Array.isArray(data.precedents) && data.precedents.length > 0) {
-        setServerPrecedents((prev) => [...data.precedents, ...prev]);
-        addCustomBindingPrecedents(data.precedents);
+      // grava no banco do gabinete (fica salvo para todos os usuários e sobrevive a nova implantação do sistema)
+      const doPdf: BindingPrecedent[] = (Array.isArray(data.allPrecedents) ? data.allPrecedents : Array.isArray(data.precedents) ? data.precedents : []).filter((p: any) => p?.sourceFile);
+      if (doPdf.length > 0) {
+        setPdfUploadStatus("Salvando os julgados no banco do gabinete...");
+        try {
+          await importarPrecedentes(doPdf);
+          setServerPrecedents(getCustomBindingPrecedents());
+        } catch (errBanco: any) {
+          throw new Error(`Os julgados foram lidos, mas NÃO foram salvos no banco do gabinete (${errBanco?.message || "falha ao gravar"}). Tente anexar o PDF de novo.`);
+        }
       }
 
       setPrecedentsVersion((v) => v + 1);

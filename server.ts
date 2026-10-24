@@ -5,7 +5,7 @@ import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { petitionRouter } from './server/petitionAdvogadoRoutes';
-import { matchApplicableBindingPrecedents } from './src/utils/bindingPrecedents';
+import { matchApplicableBindingPrecedents, sanearPrecedentesRecebidos } from './src/utils/bindingPrecedents';
 import { lerFicha } from './src/utils/fichaTolerante';
 import { getApplicableTaxonomySummary } from './src/data/legalTaxonomy';
 import { filterInnocuousCertificates, cleanJudicialPdfText } from './src/utils/judicialTextCleaner';
@@ -4437,7 +4437,10 @@ if (!res.headersSent) {
 }
 
 const combinedContextForPrecedents = [safeProcessText || "", accumulatedPdfText || "", actType || "", actSubtype || "", specificInstructions || "", customPromptText || "", paradigmModelText || ""].join(" ");
-const matchedPrecedents = matchApplicableBindingPrecedents(combinedContextForPrecedents);
+// os julgados que o gabinete anexou (PDF) ficam no banco; o navegador separa os que se aplicam ao processo e os manda junto (o servidor não lê o banco)
+const precedentesDoGabinete = sanearPrecedentesRecebidos(req.body?.precedentesDoGabinete);
+const matchedPrecedents = matchApplicableBindingPrecedents(combinedContextForPrecedents, precedentesDoGabinete, 10);
+if (precedentesDoGabinete.length) console.log(`[Precedentes] ${precedentesDoGabinete.length} julgado(s) anexado(s) pelo gabinete aplicável(is); ${matchedPrecedents.filter((p) => !!p.sourceFile).length} entram na minuta.`);
 const taxonomySummary = getApplicableTaxonomySummary(combinedContextForPrecedents);
 
 let liveGroundingPrecedents = "";
@@ -4682,7 +4685,7 @@ Sua missão é:
 
 if (matchedPrecedents.length > 0) {
     stage2SystemInstruction += `\n\n[ALIMENTAÇÃO AUTOMÁTICA DE SÚMULAS, TESES VINCULANTES E INFORMATIVOS (STF • STJ • TNU • TJGO)]:\n` +
-        matchedPrecedents.map((p, idx) => `${idx + 1}. [${p.tribunal} • ${p.number} - ${p.title}]: "${p.statement}" (Fonte: ${p.sourceUrl})`).join("\n") +
+        matchedPrecedents.map((p, idx) => `${idx + 1}. [${p.tribunal} • ${p.number} - ${p.title}]: "${p.statement}" (Fonte: ${p.sourceFile ? `documento anexado pelo gabinete: ${p.sourceFile}` : p.sourceUrl})`).join("\n") +
         `\nDIRETRIZ JURISPRUDENCIAL VINCULANTE: Harmonize a fundamentação e o dispositivo com as súmulas/teses vinculantes superiores e do TJGO.\n`;
 }
 

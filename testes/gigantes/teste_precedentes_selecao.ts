@@ -1,0 +1,23 @@
+// Seleção dos julgados anexados no navegador: só os que se aplicam, mais relevantes primeiro, sem acento, e o corpo da requisição continua JSON válido. Rodar: npx tsx testes/gigantes/teste_precedentes_selecao.ts
+const mem: Record<string, string> = {};
+(globalThis as any).window = {}; (globalThis as any).localStorage = { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v; } };
+const { selecionarPrecedentesAnexados, matchApplicableBindingPrecedents, sanearPrecedentesRecebidos } = await import('../../src/utils/bindingPrecedents');
+const { anexarPrecedentesAoCorpo } = await import('../../src/utils/precedentesNaAnalise');
+let f = 0; const ok = (c: boolean, n: string) => { console.log(c ? 'ok' : 'FALHA', n); if (!c) f++; };
+const mk = (id: string, tags: string[], title: string, sourceFile: string | undefined = 'x.pdf') => ({ id, tribunal: 'TJGO', type: 'informativo_tjgo', number: `Inf ${id}`, title, statement: 'tese ' + id, sourceUrl: '', tags, area: 'Geral', ...(sourceFile ? { sourceFile } : {}) });
+mem['assessor_custom_precedents'] = JSON.stringify([mk('a', ['seguro prestamista', 'consignado'], 'Seguro prestamista em consignado'), mk('b', ['astronomia'], 'Estrelas e planetas'), mk('c', ['consignado'], 'Margem consignável'), mk('d', ['seguro prestamista'], 'Curado no código', undefined)]);
+const autos = 'Ação sobre SEGURO PRESTAMISTA em empréstimo consignado contratado por aposentada.';
+const sel = selecionarPrecedentesAnexados(autos);
+ok(sel.map((p) => p.id).join(',') === 'a', 'só o aplicável (nota mínima 3), sem os escritos no código: ' + sel.map((p) => p.id));
+ok(selecionarPrecedentesAnexados('texto sem relação').length === 0, 'sem relação: nada');
+ok(selecionarPrecedentesAnexados('seguro prestamista'.replace('o', 'ó')).length >= 0, 'acento não quebra');
+const corpo = JSON.stringify({ processText: autos, customPromptText: 'x', n: 1 });
+const novo = anexarPrecedentesAoCorpo(corpo); const j = JSON.parse(novo);
+ok(Array.isArray(j.precedentesDoGabinete) && j.precedentesDoGabinete.length === 1 && j.n === 1, 'corpo continua JSON válido e leva o julgado aplicável');
+ok(anexarPrecedentesAoCorpo(novo) === novo, 'não duplica');
+ok(anexarPrecedentesAoCorpo('{"processText":"nada a ver"}') === '{"processText":"nada a ver"}', 'sem julgado aplicável o corpo não muda');
+ok(anexarPrecedentesAoCorpo('não é json') === 'não é json', 'corpo inválido: intacto');
+const srv = matchApplicableBindingPrecedents(autos, sanearPrecedentesRecebidos(j.precedentesDoGabinete), 10);
+ok(srv.some((p) => p.id === 'a'), 'o servidor inclui o julgado anexado entre os escolhidos');
+ok(sanearPrecedentesRecebidos([{ number: 'N', statement: 'S'.repeat(9000), tags: Array(50).fill('t') }])[0].statement.length === 3500, 'o servidor limita o tamanho do que recebe');
+process.exit(f ? 1 : 0);

@@ -61,6 +61,8 @@ import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
 import { registrarOperacao } from "./utils/monitorOperacao";
 import { iniciarMedidor } from "./utils/medidorEnvio";
+import { instalarEnvioDePrecedentes } from "./utils/precedentesNaAnalise";
+import { sincronizarPrecedentes } from "./utils/precedentesDb";
 import { detectarUnidadeDosAutos, unidadesParaAvisar } from "./utils/unidadeDosAutos";
 import { avisarVencimentos, carregarConfigRetencao, iniciarRetencao } from "./utils/retencaoDb";
 import { useConfigRetencao } from "./components/EtiquetaValidade";
@@ -625,6 +627,10 @@ export default function App() {
       if (unsubscribe) unsubscribe();
     };
   }, [user?.uid, user?.email, userProfile?.tenantId, activeTenantId, isSuperAdmin, isAdmin, isJudge, isUnauthorized, isDeactivated]);
+
+  // Súmulas/teses anexadas pelo gabinete: traz do banco (1 leitura mínima quando nada mudou) e passa a mandá-las junto das análises
+  useEffect(() => { instalarEnvioDePrecedentes(); }, []);
+  useEffect(() => { if (user?.uid && (activeTenantId || userProfile?.tenantId)) void sincronizarPrecedentes(); }, [user?.uid, activeTenantId, userProfile?.tenantId]);
 
   // Unidade(s) que os autos indicam (cabeçalho/nome da comarca); o aviso destacado deixa o usuário escolher a correta
   const unidadesSugeridas = useMemo(() => {

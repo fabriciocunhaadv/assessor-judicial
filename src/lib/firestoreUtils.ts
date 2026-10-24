@@ -5284,3 +5284,38 @@ export const importPastTokenUsageHistory = async (): Promise<RetroactiveImportRe
     monthsAffected: Array.from(affectedMonthsSet).sort()
   };
 };
+
+// ===== PRECEDENTES DO GABINETE (súmulas, teses e informativos anexados por PDF) =====
+// Ficam no banco, por gabinete (gabinetes/{t}/precedentes/{id}); um documento de controle (settings/precedentes_meta) guarda a "versão" da lista.
+// Os navegadores só baixam a lista inteira quando a versão muda; no dia a dia é 1 leitura minúscula.
+const precedentesMetaRef = () => doc(db, getTenantPath('settings'), 'precedentes_meta');
+
+export const lerVersaoPrecedentes = async (): Promise<number | null> => {
+  if (!auth.currentUser) return null;
+  const ex = await getDoc(precedentesMetaRef());
+  return ex.exists() ? Number((ex.data() as any)?.versao || 0) : null;
+};
+
+export const lerPrecedentesDoGabinete = async (): Promise<any[]> => {
+  if (!auth.currentUser) return [];
+  const sn = await getDocs(collection(db, getTenantPath('precedentes')));
+  medirLeitura('precedentes_gabinete', sn.docs);
+  return sn.docs.map((d) => ({ ...(d.data() as any), id: d.id }));
+};
+
+/** Grava os julgados no banco (em lotes) e avança a versão da lista. Devolve a nova versão. */
+export const gravarPrecedentesDoGabinete = async (itens: any[]): Promise<number> => {
+  if (!auth.currentUser || !itens.length) return 0;
+  for (let i = 0; i < itens.length; i += 400) {
+    const lote = writeBatch(db);
+    for (const it of itens.slice(i, i + 400)) {
+      const id = String(it.id || '').replace(/\//g, '_');
+      if (!id) continue;
+      lote.set(doc(db, getTenantPath('precedentes'), id), cleanForFirestore({ ...it, id, tenant: globalTenantId, anexadoPor: auth.currentUser.uid }));
+    }
+    await lote.commit();
+  }
+  const versao = Date.now();
+  await setDoc(precedentesMetaRef(), { versao, total: itens.length, atualizadoEm: versao, atualizadoPor: auth.currentUser.uid }, { merge: true });
+  return versao;
+};

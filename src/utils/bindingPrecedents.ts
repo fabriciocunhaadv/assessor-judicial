@@ -8,6 +8,8 @@ export interface BindingPrecedent {
   sourceUrl: string;
   tags: string[];
   area: "Direito Administrativo / Servidor" | "Direito do Consumidor" | "Direito Bancário" | "Processo Civil / Execução" | "Fazenda Pública" | "Geral";
+  sourceFile?: string;      // PDF anexado pelo gabinete de onde o item foi extraído
+  importedAt?: string;
 }
 
 export const BINDING_SOURCES = [
@@ -543,68 +545,76 @@ export function searchBindingPrecedents(query: string, filterTribunal?: "ALL" | 
   });
 }
 
+const semAcento = (t: string) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+/** Texto do processo usado na busca: início e fim dos autos (onde estão a inicial e as últimas petições), sem acento, para a busca ser rápida mesmo com centenas de itens. */
+const contextoParaBusca = (t: string) => semAcento(t.length > 120000 ? t.slice(0, 60000) + " " + t.slice(-60000) : t);
+/** Chave para reconhecer o mesmo julgado repetido (mesmo número e título). */
+export const chaveDoPrecedente = (p: { number?: string; title?: string }) => semAcento(`${p?.number || ""} ${p?.title || ""}`).replace(/\s+/g, " ").trim();
+
+function pontuarPrecedente(precedent: BindingPrecedent, normalized: string): number {
+  let score = 0;
+  // Direct number or theme match
+  const numClean = semAcento(precedent.number);
+  if (numClean.length >= 4 && normalized.includes(numClean)) score += 10;
+  // Keyword & tags match
+  for (const tag of precedent.tags || []) {
+    const t = semAcento(tag);
+    if (t.length >= 3 && normalized.includes(t)) score += 2;
+  }
+  // Title keywords
+  for (const w of semAcento(precedent.title).split(/\s+/).filter((x) => x.length > 4)) {
+    if (normalized.includes(w)) score += 1;
+  }
+  // Subject area relevance
+  if (precedent.area === "Fazenda Pública" && (normalized.includes("fazenda publica") || normalized.includes("municipio") || normalized.includes("estado de goias") || normalized.includes("servidor"))) score += 2;
+  if (precedent.area === "Direito Bancário" && (normalized.includes("banco") || normalized.includes("emprestimo") || normalized.includes("rmc") || normalized.includes("financiamento") || normalized.includes("cartao"))) score += 2;
+  if (precedent.area === "Direito do Consumidor" && (normalized.includes("consumidor") || normalized.includes("cdc") || normalized.includes("spc") || normalized.includes("serasa") || normalized.includes("negativacao"))) score += 2;
+  // Regional TJGO relevance bonus
+  if (precedent.tribunal === "TJGO" && (normalized.includes("tjgo") || normalized.includes("goias") || normalized.includes("comarca de"))) score += 3;
+  return score;
+}
+
+function melhoresPrecedentes(universo: BindingPrecedent[], contextText: string, limite: number): BindingPrecedent[] {
+  if (!contextText || typeof contextText !== "string" || contextText.trim().length === 0) return [];
+  const normalized = contextoParaBusca(contextText);
+  const vistos = new Set<string>();
+  const pontuados: Array<{ p: BindingPrecedent; score: number }> = [];
+  for (const p of universo) {
+    if (!p || !p.id || vistos.has(p.id)) continue;
+    vistos.add(p.id);
+    const score = pontuarPrecedente(p, normalized);
+    if (score >= 3) pontuados.push({ p, score });
+  }
+  // os de maior pontuação primeiro (antes saíam os 8 primeiros da lista, não os mais relevantes); empate: o anexado pelo gabinete antes do nativo
+  pontuados.sort((a, b) => b.score - a.score || Number(!!b.p.sourceFile) - Number(!!a.p.sourceFile));
+  return pontuados.slice(0, limite).map((x) => x.p);
+}
+
 /**
  * Motor automático de busca contextual: cruza o texto completo do processo, petições,
- * relatórios e tipo de ação com as bases oficiais vinculantes do STF, STJ, TNU e TJGO,
- * retornando automaticamente todos os precedentes aplicáveis para alimentação do prompt.
+ * relatórios e tipo de ação com as bases vinculantes do STF, STJ, TNU e TJGO e com os julgados
+ * anexados pelo gabinete (PDFs), retornando os mais relevantes para alimentar o prompt.
+ * `extras` são os julgados anexados que o navegador já separou para este processo (o servidor não lê o banco).
  */
-export function matchApplicableBindingPrecedents(contextText: string): BindingPrecedent[] {
-  if (!contextText || typeof contextText !== "string" || contextText.trim().length === 0) {
-    return [];
-  }
+export function matchApplicableBindingPrecedents(contextText: string, extras: BindingPrecedent[] = [], limite = 8): BindingPrecedent[] {
+  return melhoresPrecedentes([...extras, ...getAllBindingPrecedents()], contextText, limite);
+}
 
-  const normalized = contextText.toLowerCase();
-  const matched: BindingPrecedent[] = [];
-  const allList = getAllBindingPrecedents();
+/** No navegador: separa, entre os julgados anexados pelo gabinete (PDF), os que se aplicam a este processo; vão junto da requisição de análise. */
+export function selecionarPrecedentesAnexados(contextText: string, limite = 12): BindingPrecedent[] {
+  return melhoresPrecedentes(getCustomBindingPrecedents().filter((p) => !!(p as any)?.sourceFile), contextText, limite);
+}
 
-  for (const precedent of allList) {
-    let score = 0;
-
-    // Direct number or theme match
-    const numClean = precedent.number.toLowerCase();
-    if (normalized.includes(numClean)) {
-      score += 10;
-    }
-
-    // Keyword & tags match
-    for (const tag of precedent.tags) {
-      if (normalized.includes(tag.toLowerCase())) {
-        score += 2;
-      }
-    }
-
-    // Title keywords
-    const titleWords = precedent.title.toLowerCase().split(/\s+/).filter(w => w.length > 4);
-    for (const w of titleWords) {
-      if (normalized.includes(w)) {
-        score += 1;
-      }
-    }
-
-    // Subject area relevance
-    if (precedent.area === "Fazenda Pública" && (normalized.includes("fazenda pública") || normalized.includes("município") || normalized.includes("estado de goiás") || normalized.includes("servidor público") || normalized.includes("insalubridade") || normalized.includes("quinquênio"))) {
-      score += 2;
-    }
-    if (precedent.area === "Direito Bancário" && (normalized.includes("banco") || normalized.includes("empréstimo") || normalized.includes("rmc") || normalized.includes("rcc") || normalized.includes("consignado") || normalized.includes("fraude bancária") || normalized.includes("cartão de crédito"))) {
-      score += 2;
-    }
-    if (precedent.area === "Direito do Consumidor" && (normalized.includes("consumidor") || normalized.includes("cdc") || normalized.includes("spc") || normalized.includes("serasa") || normalized.includes("inscrição indevida") || normalized.includes("energia") || normalized.includes("plano de saúde"))) {
-      score += 2;
-    }
-
-    // Regional TJGO relevance bonus
-    if (precedent.tribunal === "TJGO" && (normalized.includes("tjgo") || normalized.includes("goiás") || normalized.includes("goias") || normalized.includes("comarca de") || normalized.includes("equatorial") || normalized.includes("saneago") || normalized.includes("ipasgo") || normalized.includes("goiasprev") || normalized.includes("turmas recursais"))) {
-      score += 3;
-    }
-
-    // If score passes threshold, include automatically
-    if (score >= 3) {
-      matched.push(precedent);
-    }
-  }
-
-  // Limit to top 8 most relevant to maintain prompt focus
-  return matched.slice(0, 8);
+/** Aceita só campos de texto de tamanho razoável vindos da requisição (o servidor não confia no que o navegador manda). */
+export function sanearPrecedentesRecebidos(lista: any): BindingPrecedent[] {
+  if (!Array.isArray(lista)) return [];
+  const txt = (v: any, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+  return lista.slice(0, 15).filter((p) => p && p.number && p.statement).map((p, i) => ({
+    id: txt(p.id, 120) || `anexo-${i}`, tribunal: (["STF", "STJ", "TNU", "TJGO"].includes(p.tribunal) ? p.tribunal : "TJGO") as any,
+    type: txt(p.type, 40) as any, number: txt(p.number, 160), title: txt(p.title, 300), statement: txt(p.statement, 3500),
+    sourceUrl: txt(p.sourceUrl, 300), sourceFile: txt(p.sourceFile, 200) || "Documento anexado",
+    tags: Array.isArray(p.tags) ? p.tags.slice(0, 25).map((t: any) => txt(t, 60)).filter(Boolean) : [], area: txt(p.area, 80) as any,
+  }));
 }
 
 export const GROUNDING_STORAGE_KEY = "assessor_grounding_enabled";

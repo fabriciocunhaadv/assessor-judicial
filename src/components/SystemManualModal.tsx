@@ -1631,6 +1631,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                         <li>Painel do Super Admin: os tokens das leituras em lotes e do OCR passam a ser contados; a chave gratuita dos assessores não custa nem baixa o saldo; contadores à prova de gravações simultâneas.</li>
                         <li>Extensão pela Chrome Web Store (o botão das Configurações foi retirado) e tarja de instalação quando ela não está no navegador.</li>
                         <li>Aviso destacado de unidade: se os autos parecem ser de outra comarca do usuário, o sistema mostra os nomes e deixa escolher “Usar a unidade dos autos” ou “Continuar com a atual”. Histórico mais leve: 40 resumos por vez, com “Ver mais”.</li>
+                        <li>Súmulas, teses e informativos anexados por PDF ficam salvos no banco do gabinete (não se perdem em nova implantação) e os que se aplicam ao processo entram na minuta (2ª etapa), ordenados por relevância.</li>
                       </ul>
                     </div>
                   </div>

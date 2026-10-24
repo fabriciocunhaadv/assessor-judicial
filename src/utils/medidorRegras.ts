@@ -4,6 +4,7 @@ export interface Medida { chamadas: number; docs: number; bytes: number }
 export interface RegistroMedidor { data: string; uid: string; email: string; nome: string; por: Record<string, Medida> }
 
 export const ROTULO_ORIGEM: Record<string, string> = {
+  precedentes_gabinete: "Súmulas e teses anexadas do gabinete (só quando a lista muda)",
   hist_app_60s: "Histórico: atualização automática de 60 s (todas as abas)",
   hist_modal_8s: "Histórico: atualização automática de 8 s (janela aberta)",
   hist_app_evento: "Histórico (aba): recarga por evento (nova análise, janela, troca de unidade)",
