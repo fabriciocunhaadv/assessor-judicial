@@ -69,4 +69,12 @@ art. 22 desta Lei: </span></p>
 const ls = htmlParaLinhas(sujo);
 const a5 = trechoDoArtigo(ls, '5'); ok(!!a5 && a5.texto.includes('configura violência doméstica') && a5.texto.includes('conforme art. 22 desta Lei') && !a5.texto.includes('Constatada'), 'art. 5 com palavra partida em trechos e texto quebrado no meio: ' + (a5 ? a5.texto.slice(0, 90) : 'null'));
 const a22 = trechoDoArtigo(ls, '22'); ok(!!a22 && a22.texto.includes('Constatada a prática'), 'art. 22 com quebra de linha entre "Art." e o número: ' + (a22 ? a22.texto.slice(0, 60) : 'null'));
+// ---- página sem marcas de parágrafo (só quebras de linha do arquivo) e motivo da falha ----
+const semP = `<html><body><pre>\n${Array.from({ length: 30 }, (_, i) => `Apresentação ${i}`).join('\n')}\nArt.\n5o Para os efeitos desta Lei, configura violência doméstica.\nArt. 6o A violência doméstica constitui violação dos direitos humanos.\n</pre></body></html>`;
+const ls2 = htmlParaLinhas(semP);
+ok(ls2.length >= 20 && (trechoDoArtigo(ls2, '5')?.texto || '').includes('configura violência doméstica'), 'página sem <p>, "Art." sozinho na linha: ' + ls2.length + ' linhas');
+ok((trechoDoArtigo(ls2, '6')?.texto || '').includes('violação dos direitos humanos'), 'art. 6 da página sem <p>');
+(globalThis as any).fetch = async () => ({ ok: false, status: 403, headers: { get: () => '' }, arrayBuffer: async () => new ArrayBuffer(0) });
+const { testarLegislacao } = await import('../../src/utils/legislacaoPlanalto');
+const tt = await testarLegislacao('art. 5º da Lei 11.340/2006'); ok(tt.reconhecidos[0].diplomaLocalizado === false && /403/.test(tt.reconhecidos[0].motivoDaFalha || ''), 'teste manual informa o motivo da falha: ' + tt.reconhecidos[0].motivoDaFalha);
 process.exit(f ? 1 : 0);

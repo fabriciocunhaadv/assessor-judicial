@@ -132,18 +132,27 @@ ENTIDADES.ccedil = "ç"; ENTIDADES.Ccedil = "Ç"; ENTIDADES.ntilde = "ñ";
 const decodificarEntidades = (s: string) => s.replace(/&([a-zA-Z]+);/g, (m, n) => ENTIDADES[n] ?? m).replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
 
 /** HTML do Planalto -> linhas de texto (uma por parágrafo). */
-export function htmlParaLinhas(html: string): string[] {
+function limparHtml(html: string, manterQuebrasDoArquivo: boolean): string[] {
   // marcas de bloco (parágrafo, linha, quebra) viram quebra de linha; marcas de célula viram espaço; as demais (span, font, a, b, sup...) somem SEM deixar espaço,
   // porque páginas exportadas de editores de texto partem uma palavra em vários trechos ("A" + "rt. 5"): trocar por espaço quebraria "Art."
-  // quebras de linha e tabulações do arquivo-fonte são só espaço (o Planalto quebra o texto no meio do parágrafo, até entre "Art." e o número)
+  // por padrão, quebras de linha e tabulações do arquivo-fonte são só espaço (o Planalto quebra o texto no meio do parágrafo, até entre "Art." e o número)
   const t = decodificarEntidades(html
-    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[\r\n\t]+/g, manterQuebrasDoArquivo ? "\n" : " ")
     .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<\/?(?:p|div|tr|li|ul|ol|table|tbody|h\d|blockquote|center|dl|dt|dd|pre|hr|br)\b[^>]*>/gi, "\n")
     .replace(/<\/?(?:td|th)\b[^>]*>/gi, " ")
     .replace(/<[^>]+>/g, ""));
-  return t.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const linhas = t.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (!manterQuebrasDoArquivo) return linhas;
+  // páginas sem marcas de parágrafo: o "Art." pode ter ficado sozinho numa linha; junta com a seguinte
+  const out: string[] = [];
+  for (let i = 0; i < linhas.length; i++) out.push(/^art\.?$/i.test(linhas[i]) && linhas[i + 1] ? `${linhas[i]} ${linhas[++i]}` : linhas[i]);
+  return out;
+}
+export function htmlParaLinhas(html: string): string[] {
+  const l = limparHtml(html, false);
+  return l.length >= 20 ? l : limparHtml(html, true);      // página sem marcas de parágrafo: usa as quebras do próprio arquivo
 }
 
 export interface TextoArtigo { texto: string; revogado: boolean }
@@ -168,6 +177,7 @@ const negativos = new Map<string, number>();      // lei que não achei: não fi
 const VALIDADE_MS = 12 * 3600_000, NEGATIVO_MS = 30 * 60_000;
 const baseUrl = (u: string) => u.replace("https://www.planalto.gov.br/", process.env.PLANALTO_BASE || "https://www.planalto.gov.br/");
 
+const motivoFalha = new Map<string, string>();      // url -> por que não consegui (para o teste manual)
 async function baixarLinhas(url: string, timeoutMs: number): Promise<string[] | null> {
   const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), timeoutMs);
   try {
@@ -177,8 +187,9 @@ async function baixarLinhas(url: string, timeoutMs: number): Promise<string[] | 
     const cs = /charset=([\w-]+)/i.exec(r.headers.get("content-type") || "")?.[1] || (/<meta[^>]+charset=["']?([\w-]+)/i.exec(Buffer.from(buf).subarray(0, 2000).toString("latin1"))?.[1]) || "windows-1252";
     let html: string; try { html = new TextDecoder(cs).decode(buf); } catch { html = new TextDecoder("windows-1252").decode(buf); }
     const linhas = htmlParaLinhas(html);
-    return linhas.length < 20 ? null : linhas;
-  } catch { return null; }
+    if (linhas.length < 20) { motivoFalha.set(url, `página com poucas linhas de texto (${linhas.length}; ${buf.byteLength} bytes)`); return null; }
+    motivoFalha.delete(url); return linhas;
+  } catch (e: any) { motivoFalha.set(url, e?.name === "AbortError" ? "tempo esgotado" : String(e?.message || e).slice(0, 120)); return null; }
   finally { clearTimeout(to); }
 }
 const guardar = (id: string, linhas: string[], url?: string) => { if (cache.size >= 40) cache.delete(cache.keys().next().value as string); cache.set(id, { em: Date.now(), linhas, url }); };
@@ -247,7 +258,7 @@ export async function consultarLegislacao(textos: string[], opts: { maxArtigos?:
 /** Teste manual: dado um texto como "art. 6º da Lei 8.987/1995", mostra o que foi reconhecido e onde a lei foi localizada. */
 export async function testarLegislacao(texto: string): Promise<any> {
   const ex = extrairTudo(texto, 6);
-  const itens = await Promise.all(ex.citacoes.map(async (c) => { const l = await linhasDoDiploma(c.diploma, 15000); const tr = l ? trechoDoArtigo(l, c.artigo) : null; return { diploma: c.diploma.nome, artigo: c.artigo, diplomaLocalizado: !!l, url: cache.get(c.diploma.id)?.url || null, linhasDaPagina: l ? l.length : 0, artigoLocalizado: !!tr, revogado: tr?.revogado || false, inicio: tr ? tr.texto.slice(0, 160) : null,
+  const itens = await Promise.all(ex.citacoes.map(async (c) => { negativos.delete(c.diploma.id); cache.delete(c.diploma.id); const l = await linhasDoDiploma(c.diploma, 15000); const tr = l ? trechoDoArtigo(l, c.artigo) : null; return { diploma: c.diploma.nome, artigo: c.artigo, diplomaLocalizado: !!l, motivoDaFalha: l ? undefined : (motivoFalha.get(c.diploma.url) || (c.diploma.ref ? "não achei a lei nos endereços tentados" : "sem resposta")), url: cache.get(c.diploma.id)?.url || null, linhasDaPagina: l ? l.length : 0, artigoLocalizado: !!tr, revogado: tr?.revogado || false, inicio: tr ? tr.texto.slice(0, 160) : null,
     // quando o artigo não é achado: como a página escreve os artigos (para ajustar a leitura)
     amostraDoMeioDaPagina: !tr && l ? l.slice(Math.floor(l.length / 2), Math.floor(l.length / 2) + 6).map((x) => x.slice(0, 100)) : undefined, amostraDeArtigos: !tr && l ? l.filter((x) => /\bArt\.?\s*\d/i.test(x)).slice(0, 8).map((x) => x.slice(0, 80)) : undefined, linhasComOArtigo: !tr && l ? l.filter((x) => new RegExp(`\\b${c.artigo.replace(/\D.*$/, "")}\\b`).test(x) && /art/i.test(x)).slice(0, 5).map((x) => x.slice(0, 100)) : undefined }; }));
   return { reconhecidos: itens, locaisNaoConsultadas: ex.locais };
