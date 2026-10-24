@@ -4395,7 +4395,7 @@ const combinedContextForPrecedents = [safeProcessText || "", accumulatedPdfText 
 const precedentesDoGabinete = sanearPrecedentesRecebidos(req.body?.precedentesDoGabinete);
 const matchedPrecedents = matchApplicableBindingPrecedents(combinedContextForPrecedents, precedentesDoGabinete, 10);
 // o que foi realmente consultado nesta análise: volta junto da minuta para a tela mostrar ao usuário
-const fontesConsultadas: { legislacao: string[]; naoLocalizados: string[]; indisponiveis: string[]; locais: string[]; precedentes: string[] } = { legislacao: [], naoLocalizados: [], indisponiveis: [], locais: [], precedentes: matchedPrecedents.map((p) => `${p.tribunal} • ${p.number}`) };
+const fontesConsultadas: { legislacao: string[]; naoLocalizados: string[]; indisponiveis: string[]; locais: string[]; precedentes: string[] } = { legislacao: [], naoLocalizados: [], indisponiveis: [], locais: [], precedentes: [...new Set(matchedPrecedents.map((p) => `${p.tribunal} • ${p.number}`))] };
 const somarFontes = (l: { conferidos?: string[]; naoAchados?: string[]; falhas?: string[]; locais?: string[] }, alvo: any = fontesConsultadas) => { for (const [k, v] of [["legislacao", l.conferidos], ["naoLocalizados", l.naoAchados], ["indisponiveis", l.falhas], ["locais", l.locais]] as const) for (const x of v || []) if (!alvo[k].includes(x)) alvo[k].push(x); };
 const fontesParaTela = (f: any = fontesConsultadas) => (f.legislacao.length || f.naoLocalizados.length || f.indisponiveis.length || f.locais.length || f.precedentes.length) ? f : undefined;
 if (precedentesDoGabinete.length) console.log(`[Precedentes] ${precedentesDoGabinete.length} julgado(s) anexado(s) pelo gabinete aplicável(is); ${matchedPrecedents.filter((p) => !!p.sourceFile).length} entram na minuta.`);

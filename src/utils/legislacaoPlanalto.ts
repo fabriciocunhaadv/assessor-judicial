@@ -238,7 +238,9 @@ export async function consultarLegislacao(textos: string[], opts: { maxArtigos?:
 /** Teste manual: dado um texto como "art. 6º da Lei 8.987/1995", mostra o que foi reconhecido e onde a lei foi localizada. */
 export async function testarLegislacao(texto: string): Promise<any> {
   const ex = extrairTudo(texto, 6);
-  const itens = await Promise.all(ex.citacoes.map(async (c) => { const l = await linhasDoDiploma(c.diploma, 15000); const tr = l ? trechoDoArtigo(l, c.artigo) : null; return { diploma: c.diploma.nome, artigo: c.artigo, diplomaLocalizado: !!l, url: cache.get(c.diploma.id)?.url || null, artigoLocalizado: !!tr, revogado: tr?.revogado || false, inicio: tr ? tr.texto.slice(0, 160) : null }; }));
+  const itens = await Promise.all(ex.citacoes.map(async (c) => { const l = await linhasDoDiploma(c.diploma, 15000); const tr = l ? trechoDoArtigo(l, c.artigo) : null; return { diploma: c.diploma.nome, artigo: c.artigo, diplomaLocalizado: !!l, url: cache.get(c.diploma.id)?.url || null, linhasDaPagina: l ? l.length : 0, artigoLocalizado: !!tr, revogado: tr?.revogado || false, inicio: tr ? tr.texto.slice(0, 160) : null,
+    // quando o artigo não é achado: como a página escreve os artigos (para ajustar a leitura)
+    amostraDeArtigos: !tr && l ? l.filter((x) => /\bArt\.?\s*\d/i.test(x)).slice(0, 8).map((x) => x.slice(0, 80)) : undefined, linhasComOArtigo: !tr && l ? l.filter((x) => new RegExp(`\\b${c.artigo.replace(/\D.*$/, "")}\\b`).test(x) && /art/i.test(x)).slice(0, 5).map((x) => x.slice(0, 100)) : undefined }; }));
   return { reconhecidos: itens, locaisNaoConsultadas: ex.locais };
 }
 
