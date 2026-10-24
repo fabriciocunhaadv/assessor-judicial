@@ -49,5 +49,6 @@ export const runTransaction = async (_d: any, f: any) => f({ get: async () => sn
 export class Timestamp { static now() { return new Timestamp(); } static fromDate(d: Date) { return new Timestamp(); } toMillis() { return Date.now(); } toDate() { return new Date(); } }
 export const onSnapshot = (_ref: any, cb: any, _err?: any) => {
   if (ehIdx((_ref as any)?._path)) { const f = () => cb({ ...snap(docsIdx((_ref as any)?._cl)), docChanges: () => docsIdx((_ref as any)?._cl).map((doc) => ({ doc })) }); ouvintesIdx.push(f); ((globalThis as any).__idxEscutas = ((globalThis as any).__idxEscutas || 0) + 1); setTimeout(f, 30); return () => { const i = ouvintesIdx.indexOf(f); if (i >= 0) ouvintesIdx.splice(i, 1); }; }
+  if (String((_ref as any)?._id || "") === "units" && (globalThis as any).__seedUnits) { setTimeout(() => { try { cb({ ...snap([]), exists: () => true, data: () => ({ units: (globalThis as any).__seedUnits }) }); } catch {} }, 30); return () => {}; }
   setTimeout(() => { try { cb(snap([])); } catch {} }, 30); return () => {};
 };

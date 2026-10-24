@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import { Building2, Plus, Check, ChevronDown, Sparkles, MapPin, Settings2, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, Building2, Plus, Check, ChevronDown, Sparkles, MapPin, Settings2, ShieldCheck } from 'lucide-react';
 import { JudicialUnit, DEFAULT_UNITS } from '../types';
 import { useAuth } from '../lib/AuthContext';
 import { QuickAddUnitModal } from './QuickAddUnitModal';
 
 interface ProcessUnitSelectorProps {
   onOpenUnitManager?: () => void;
-  detectedUnitName?: string | null;
+  unidadesSugeridas?: JudicialUnit[];
   onApplyDetectedUnit?: (unit: JudicialUnit) => void;
 }
 
 export const ProcessUnitSelector: React.FC<ProcessUnitSelectorProps> = ({
   onOpenUnitManager,
-  detectedUnitName,
+  unidadesSugeridas = [],
   onApplyDetectedUnit,
 }) => {
   const { 
@@ -31,19 +31,11 @@ export const ProcessUnitSelector: React.FC<ProcessUnitSelectorProps> = ({
 
   const displayUnits = allowedUnits && allowedUnits.length > 0 ? allowedUnits : (activeUnit ? [activeUnit] : DEFAULT_UNITS);
 
-  // Check if detected unit matches any known unit in displayUnits
-  const matchedDetectedUnit = detectedUnitName
-    ? displayUnits.find((u) => {
-        if (!u || !u.name) return false;
-        const cleanName = u.name.toLowerCase();
-        const cleanDet = detectedUnitName.toLowerCase();
-        return cleanName.includes(cleanDet) || cleanDet.includes(cleanName);
-      })
-    : null;
-
-  const showDetectedBadge = Boolean(
-    matchedDetectedUnit && activeUnit && matchedDetectedUnit.id !== activeUnit.id
-  );
+  // aviso "continuar com a atual": vale só para esta sugestão e esta unidade; muda o processo/unidade, o aviso volta
+  const chaveAviso = `${activeUnit?.id || ""}|${unidadesSugeridas.map((u) => u.id).sort().join(",")}`;
+  const [dispensado, setDispensado] = useState<string>("");
+  useEffect(() => { if (unidadesSugeridas.length === 0) setDispensado(""); }, [unidadesSugeridas.length]);      // novo processo (autos limpos): o aviso volta a valer
+  const mostrarAviso = unidadesSugeridas.length > 0 && Boolean(activeUnit) && dispensado !== chaveAviso;
 
   return (
     <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 sm:p-3 space-y-2">
@@ -185,25 +177,32 @@ export const ProcessUnitSelector: React.FC<ProcessUnitSelectorProps> = ({
         )}
       </div>
 
-      {/* Auto-detected unit recommendation badge if detected from PDF */}
-      {showDetectedBadge && matchedDetectedUnit && (
-        <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between gap-2 text-xs text-amber-900 animate-in fade-in">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="truncate">
-              Detectada nos autos: <strong>{matchedDetectedUnit.name}</strong>
-            </span>
+      {/* Aviso destacado: os autos parecem ser de outra unidade */}
+      {mostrarAviso && (
+        <div role="alert" data-testid="aviso-unidade" className="p-3 bg-amber-50 border-2 border-amber-400 rounded-xl text-sm text-amber-950 shadow-sm space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="font-bold">Confira a unidade antes de gerar a minuta</p>
+              <p className="text-[13px] leading-snug">
+                Os autos parecem ser de <strong>{unidadesSugeridas.map((u) => u.name).join(" ou ")}</strong>, mas a unidade ativa é <strong>{activeUnit?.name}</strong>.
+                A minuta será salva na unidade ativa.
+              </p>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveUnit(matchedDetectedUnit);
-              if (onApplyDetectedUnit) onApplyDetectedUnit(matchedDetectedUnit);
-            }}
-            className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-md transition shrink-0 cursor-pointer"
-          >
-            Alternar para esta
-          </button>
+          <div className="flex flex-wrap gap-2 pl-7">
+            {unidadesSugeridas.map((u) => (
+              <button key={u.id} type="button" data-testid="aviso-unidade-trocar"
+                onClick={() => { setActiveUnit(u); if (onApplyDetectedUnit) onApplyDetectedUnit(u); }}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition cursor-pointer">
+                Usar {u.name}
+              </button>
+            ))}
+            <button type="button" data-testid="aviso-unidade-manter" onClick={() => setDispensado(chaveAviso)}
+              className="px-3 py-1.5 bg-white hover:bg-amber-100 border border-amber-400 text-amber-900 text-xs font-bold rounded-lg transition cursor-pointer">
+              Continuar com {activeUnit?.name}
+            </button>
+          </div>
         </div>
       )}
 
