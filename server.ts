@@ -6,6 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { petitionRouter } from './server/petitionAdvogadoRoutes';
 import { matchApplicableBindingPrecedents, sanearPrecedentesRecebidos } from './src/utils/bindingPrecedents';
+import { consultarLegislacao, diagnosticoLegislacao } from './src/utils/legislacaoPlanalto';
 import { lerFicha } from './src/utils/fichaTolerante';
 import { getApplicableTaxonomySummary } from './src/data/legalTaxonomy';
 import { filterInnocuousCertificates, cleanJudicialPdfText } from './src/utils/judicialTextCleaner';
@@ -753,6 +754,12 @@ Estrutura de cada objeto:
     }
 });
 
+// Diagnóstico (só informa quais leis o servidor consegue consultar agora no Planalto; não devolve conteúdo)
+app.get("/api/legislacao-status", async (_req, res) => {
+    try { const r = await diagnosticoLegislacao(); res.json({ ok: r.filter((x) => x.ok).length, total: r.length, diplomas: r }); }
+    catch (e: any) { res.status(500).json({ error: e?.message || "falha no diagnóstico" }); }
+});
+
 app.post("/api/chat-agaia", async (req, res) => {
     try {
         const apiKey = extractApiKey(req);
@@ -1065,6 +1072,8 @@ app.post("/api/generate-minute-turbo", async (req, res) => {
         const blocoPrecedentesTurbo = precedentesTurbo.length
             ? `\n\n[SÚMULAS, TESES VINCULANTES E INFORMATIVOS APLICÁVEIS (STF • STJ • TNU • TJGO)]:\n` + precedentesTurbo.map((p, i) => `${i + 1}. [${p.tribunal} • ${p.number} - ${p.title}]: "${p.statement}" (Fonte: ${p.sourceFile ? `documento anexado pelo gabinete: ${p.sourceFile}` : p.sourceUrl})`).join("\n") + `\nDIRETRIZ: harmonize a fundamentação e o dispositivo com estas súmulas/teses quando se aplicarem aos fatos dos autos; não cite precedente que não conste desta lista nem dos autos.\n`
             : "";
+        // artigos citados nos autos conferidos no texto oficial do Planalto (até 6 e 5 s no máximo, para o Turbo continuar rápido; falha silenciosa)
+        const blocoLegislacaoTurbo = (await consultarLegislacao([accumulatedText.slice(0, 150000)], { maxArtigos: 6, timeoutMs: 5000 })).bloco;
         let alertaInjecaoT: any = null, defesaInjecaoT = "";
         try { const r = detectarInjecao(accumulatedText); if (r.verificado) alertaInjecaoT = r; if (r.total > 0) { defesaInjecaoT = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][turbo] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
@@ -1207,7 +1216,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
                 { role: "user", parts: [{ text: userPrompt }, ...cobT.partes] }
             ],
             config: {
-                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: promptTitle, categoria: promptCategory, unidade: comarcaVara }) + cobT.regra + defesaInjecaoT + blocoPrecedentesTurbo,
+                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: promptTitle, categoria: promptCategory, unidade: comarcaVara }) + cobT.regra + defesaInjecaoT + blocoPrecedentesTurbo + blocoLegislacaoTurbo,
                 temperature: 0.1,
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
@@ -4557,6 +4566,12 @@ if (hasActiveParadigm) {
     stage1SystemInstruction += `\n\n[ESTRUTURA DE CASO IDÊNTICO E MINUTA PARADIGMA DE REFERÊNCIA - CLONAGEM ESTRUTURAL E DE ESTILO OBRIGATÓRIA]:\nO magistrado titular e o assessor vincularam a seguinte MINUTA PARADIGMA ${paradigmModelTitle ? `("${paradigmModelTitle}")` : ""} como padrão oficial e imutável de entendimento, estilo, formatação, redação, tópicos, fundamentação integral e dispositivo para este tipo de demanda idêntica:\n"""\n${paradigmModelText}\n"""\n\nREGRAS MANDATÓRIAS DE ESPELHAMENTO DE FORMATAÇÃO, ESTILO E ENTENDIMENTO (COM ISOLAMENTO FÁTICO):\n1. REPRODUÇÃO DA TESE JURÍDICA E JURISPRUDÊNCIA DO JUIZ (PROIBIDO RESUMIR A TESE): Espelhe e copie fielmente toda a TESE JURÍDICA, legislação, precedentes, acórdãos citados, súmulas e doutrina do modelo paradigma.\n2. PROIBIÇÃO ABSOLUTA DE ALUCINAÇÃO FÁTICA E ISOLAMENTO DO MODELO (REGRA DE OURO): Descarte os fatos antigos do paradigma e utilize ESTRITAMENTE os fatos e provas reais do processo em exame narrados na Minuta Preliminar Factual da Etapa 1.\n3. ESPELHAMENTO ESTRUTURAL: Mantenha rigorosamente a divisão de tópicos e subtópicos (I - RELATÓRIO, II - FUNDAMENTAÇÃO, 1. PRELIMINAR, 2. MÉRITO, etc.) e formatação Markdown.\n4. ADOÇÃO INTEGRAL DA LINHA DECISÓRIA E DISPOSITIVO: Aplique a mesma ratio decidendi e preserve a estrutura de comandos do dispositivo.\n`;
 }
 
+if (matchedPrecedents.length > 0) {
+    // os 5 julgados mais aplicáveis (súmulas nativas e anexados pelo gabinete) já na etapa 1, para a minuta preliminar nascer coerente com eles; a etapa 2 recebe a lista completa
+    stage1SystemInstruction += `\n\n[SÚMULAS, TESES VINCULANTES E INFORMATIVOS MAIS APLICÁVEIS (STF • STJ • TNU • TJGO)]:\n` +
+        matchedPrecedents.slice(0, 5).map((p, idx) => `${idx + 1}. [${p.tribunal} • ${p.number} - ${p.title}]: "${p.statement}" (Fonte: ${p.sourceFile ? `documento anexado pelo gabinete: ${p.sourceFile}` : p.sourceUrl})`).join("\n") +
+        `\nDIRETRIZ: ao levantar fatos e redigir a minuta preliminar, considere estes precedentes quando se aplicarem aos fatos dos autos; não cite precedente que não conste desta lista nem dos autos.\n`;
+}
 if (taxonomySummary) {
     stage1SystemInstruction += `\n\n[MAPEAMENTO TAXONÔMICO NORMATIVO & MICROSSISTEMAS]:\n${taxonomySummary}\n`;
 }
@@ -5842,6 +5857,13 @@ let stage2ErrorMsg = "";
 
 try {
     const stage2StartTimer = Date.now();
+    // LEGISLAÇÃO OFICIAL: os artigos citados na minuta preliminar e nos autos são conferidos no texto do Planalto (falha silenciosa: sem o site, segue como antes)
+    try {
+        setProg(progId, "Etapa 2 — consultando a legislação oficial (Planalto)…", 62, 97);
+        const leg = await consultarLegislacao([[stage1Json?.fundamentacao, stage1Json?.dispositivo].filter(Boolean).join("\n"), (accumulatedPdfText || safeProcessText || "").slice(0, 200000)], { maxArtigos: 10, timeoutMs: 8000 });
+        if (leg.bloco) { stage2SystemInstruction += leg.bloco; console.log(`[Legislação] ${leg.consultados} artigo(s) conferido(s) no Planalto${leg.naoAchados.length ? `; não localizado(s): ${leg.naoAchados.join("; ")}` : ""}.`); }
+        else if (leg.falhas.length) console.log(`[Legislação] sem acesso ao Planalto para: ${leg.falhas.join("; ")}.`);
+    } catch (e) { console.warn("[Legislação] consulta ignorada:", e); }
     stage2SystemInstruction += REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: activePromptTitle, categoria: req.body.promptCategory || '', unidade: processInfo?.comarca || '' }) + regraCobertura;
     const TIMEOUT_ETAPA = Math.min(300000, 100000 + Math.ceil(estimarTokens(stage2Prompt, stage2SystemInstruction) / 10000) * 3000);
     response = await generateWithFallbackAndRetry({

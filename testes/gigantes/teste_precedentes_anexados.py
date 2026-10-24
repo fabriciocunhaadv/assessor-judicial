@@ -24,7 +24,12 @@ def main():
             post({"customPromptText": "Prompt de teste", "actType": "auto", "processText": autos, **extra})
             return json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PM}/__log").read().decode())
         log = rodar({"precedentesDoGabinete": [anexo]}); print("com anexo:", [x.get("anexo") for x in log if x.get("res") == 200])
-        assert any(x.get("anexo") for x in log if x.get("res") == 200), "o julgado anexado não chegou à IA"
+        oks = [x.get("anexo") for x in log if x.get("res") == 200]
+        assert len(oks) >= 2 and all(oks), f"o julgado anexado deve chegar à IA nas duas etapas: {oks}"
+        autos2 = autos + " Aplica-se o art. 489 do CPC e o art. 6º do CDC."
+        urllib.request.urlopen(f"http://127.0.0.1:{PM}/__reset")
+        r = post({"customPromptText": "Prompt de teste", "actType": "auto", "processText": autos2})      # sem acesso ao Planalto aqui: a análise precisa terminar normalmente
+        assert r.get("minute"), "a análise não pode falhar quando o Planalto está inacessível"; print("com citação de artigos e Planalto inacessível: minuta gerada normalmente")
         log = rodar({}); assert not any(x.get("anexo") for x in log), "sem anexo não pode aparecer"; print("sem anexo: nada injetado")
         log = rodar({"precedentesDoGabinete": [{"id": "x", "number": "Súmula Z", "statement": "texto sem relação alguma com os autos desta causa", "tags": ["astronomia"]}]}); assert not any(x.get("anexo") for x in log), "julgado sem relação com os autos não pode entrar"; print("julgado sem relação: não entra")
         # Turbo: mesmo caminho (resposta em fluxo; só interessa o que a IA recebeu)

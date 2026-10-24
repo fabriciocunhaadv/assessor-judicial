@@ -1632,6 +1632,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                         <li>Extensão pela Chrome Web Store (o botão das Configurações foi retirado) e tarja de instalação quando ela não está no navegador.</li>
                         <li>Aviso destacado de unidade: se os autos parecem ser de outra comarca do usuário, o sistema mostra os nomes e deixa escolher “Usar a unidade dos autos” ou “Continuar com a atual”. Histórico mais leve: 40 resumos por vez, com “Ver mais”.</li>
                         <li>Súmulas, teses e informativos anexados por PDF ficam salvos no banco do gabinete (não se perdem em nova implantação) e os que se aplicam ao processo entram na minuta (2ª etapa e Turbo), ordenados por relevância. O botão “Sincronizar Agora” (que não consultava os tribunais) foi removido.</li>
+                        <li>Consulta à legislação oficial: os artigos citados nos autos e na minuta preliminar (CPC, CC, CDC, CF, CP, CPP, Lei 9.099 e outras 18 leis) são conferidos no texto do planalto.gov.br antes da 2ª etapa e no Turbo; se o site não responder, a minuta segue como antes. As súmulas e teses mais aplicáveis agora também chegam à 1ª etapa.</li>
                       </ul>
                     </div>
                   </div>
