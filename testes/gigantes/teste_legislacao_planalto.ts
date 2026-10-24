@@ -57,4 +57,16 @@ const rd2 = await consultarLegislacao(['art. 7º da Lei 8.987/95']); ok(rd2.bloc
 const rd3 = await consultarLegislacao(['art. 12 da Lei Municipal nº 1.234/2019']); ok(rd3.bloco.includes('NÃO CONSULTADO') && rd3.consultados === 0, 'lei municipal: aviso de que não foi consultada');
 (globalThis as any).fetch = async () => ({ ok: false, status: 404, headers: { get: () => '' }, arrayBuffer: async () => new ArrayBuffer(0) });
 const rd4 = await consultarLegislacao(['art. 1º da Lei 12.345/2011']); ok(rd4.bloco === '' && rd4.falhas.length === 1, 'lei que não existe no Planalto: sem bloco e sem erro');
+// ---- página exportada de editor de texto (como a da Lei 11.340): palavra partida em vários trechos e texto quebrado no meio do parágrafo ----
+const sujo = `<html><body>${Array.from({ length: 30 }, (_, i) => `<p>Apresentação ${i}</p>`).join('')}
+<p class=MsoNormal><span style='font-size:12.0pt'>A</span><span style='font-size:12.0pt'>rt. 5</span><sup><u>o</u></sup><span> Para os efeitos desta
+Lei, configura violência doméstica e familiar contra a mulher qualquer ação ou omissão baseada no gênero,
+conforme
+art. 22 desta Lei: </span></p>
+<p><span>Art.
+22</span>. Constatada a prática de violência doméstica, poderá o juiz aplicar medidas protetivas.</p>
+<p>Art. 23. Poderá o juiz.</p></body></html>`;
+const ls = htmlParaLinhas(sujo);
+const a5 = trechoDoArtigo(ls, '5'); ok(!!a5 && a5.texto.includes('configura violência doméstica') && a5.texto.includes('conforme art. 22 desta Lei') && !a5.texto.includes('Constatada'), 'art. 5 com palavra partida em trechos e texto quebrado no meio: ' + (a5 ? a5.texto.slice(0, 90) : 'null'));
+const a22 = trechoDoArtigo(ls, '22'); ok(!!a22 && a22.texto.includes('Constatada a prática'), 'art. 22 com quebra de linha entre "Art." e o número: ' + (a22 ? a22.texto.slice(0, 60) : 'null'));
 process.exit(f ? 1 : 0);

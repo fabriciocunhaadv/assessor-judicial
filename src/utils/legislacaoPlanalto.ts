@@ -133,7 +133,16 @@ const decodificarEntidades = (s: string) => s.replace(/&([a-zA-Z]+);/g, (m, n) =
 
 /** HTML do Planalto -> linhas de texto (uma por parágrafo). */
 export function htmlParaLinhas(html: string): string[] {
-  const t = decodificarEntidades(html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<\/(p|div|tr|li|h\d)>|<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " "));
+  // marcas de bloco (parágrafo, linha, quebra) viram quebra de linha; marcas de célula viram espaço; as demais (span, font, a, b, sup...) somem SEM deixar espaço,
+  // porque páginas exportadas de editores de texto partem uma palavra em vários trechos ("A" + "rt. 5"): trocar por espaço quebraria "Art."
+  // quebras de linha e tabulações do arquivo-fonte são só espaço (o Planalto quebra o texto no meio do parágrafo, até entre "Art." e o número)
+  const t = decodificarEntidades(html
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<\/?(?:p|div|tr|li|ul|ol|table|tbody|h\d|blockquote|center|dl|dt|dd|pre|hr|br)\b[^>]*>/gi, "\n")
+    .replace(/<\/?(?:td|th)\b[^>]*>/gi, " ")
+    .replace(/<[^>]+>/g, ""));
   return t.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
 }
 
@@ -240,7 +249,7 @@ export async function testarLegislacao(texto: string): Promise<any> {
   const ex = extrairTudo(texto, 6);
   const itens = await Promise.all(ex.citacoes.map(async (c) => { const l = await linhasDoDiploma(c.diploma, 15000); const tr = l ? trechoDoArtigo(l, c.artigo) : null; return { diploma: c.diploma.nome, artigo: c.artigo, diplomaLocalizado: !!l, url: cache.get(c.diploma.id)?.url || null, linhasDaPagina: l ? l.length : 0, artigoLocalizado: !!tr, revogado: tr?.revogado || false, inicio: tr ? tr.texto.slice(0, 160) : null,
     // quando o artigo não é achado: como a página escreve os artigos (para ajustar a leitura)
-    amostraDeArtigos: !tr && l ? l.filter((x) => /\bArt\.?\s*\d/i.test(x)).slice(0, 8).map((x) => x.slice(0, 80)) : undefined, linhasComOArtigo: !tr && l ? l.filter((x) => new RegExp(`\\b${c.artigo.replace(/\D.*$/, "")}\\b`).test(x) && /art/i.test(x)).slice(0, 5).map((x) => x.slice(0, 100)) : undefined }; }));
+    amostraDoMeioDaPagina: !tr && l ? l.slice(Math.floor(l.length / 2), Math.floor(l.length / 2) + 6).map((x) => x.slice(0, 100)) : undefined, amostraDeArtigos: !tr && l ? l.filter((x) => /\bArt\.?\s*\d/i.test(x)).slice(0, 8).map((x) => x.slice(0, 80)) : undefined, linhasComOArtigo: !tr && l ? l.filter((x) => new RegExp(`\\b${c.artigo.replace(/\D.*$/, "")}\\b`).test(x) && /art/i.test(x)).slice(0, 5).map((x) => x.slice(0, 100)) : undefined }; }));
   return { reconhecidos: itens, locaisNaoConsultadas: ex.locais };
 }
 
