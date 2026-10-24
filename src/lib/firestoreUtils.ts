@@ -357,7 +357,11 @@ export const getHistoryFromDbFallback = (origem: string = "hist_fallback"): Prom
 // ===== HISTÓRICO LEVE: índice com o resumo de cada ato (gabinetes/{gabinete}/history_index) =====
 // A lista do Histórico lê só o índice (cerca de 1 a 3 KB por ato). A minuta completa e o texto dos autos (centenas de KB) só são baixados ao abrir o ato.
 const INDICE_LIMITE = 300;
-export const indiceHistoricoPath = () => getTenantPath('history_index');
+// Todos os nomes do gabinete principal (gabinete_default, gab_rafael_machado, montes_claros, fazenda_nova...) enxergam o MESMO Histórico (os caminhos antigos são lidos juntos),
+// então também usam UM índice só. Antes cada nome montava o seu, relendo os mesmos atos.
+const TENANT_INDICE_PRINCIPAL = 'gab_rafael_machado';
+const tenantDoIndice = () => (isPrimaryCabinet(globalTenantId) ? TENANT_INDICE_PRINCIPAL : globalTenantId);
+export const indiceHistoricoPath = () => `gabinetes/${tenantDoIndice()}/history_index`;
 
 /** Grava (ou refaz) o resumo de um ato no índice. Melhor esforço: se falhar, a verificação de contagem refaz depois. */
 export const gravarIndiceHistorico = async (completo: any, fonte?: string): Promise<void> => {
@@ -376,7 +380,7 @@ export const estadoIndiceHistorico = () => _estadoIndice;
 let _erroReconciliacao = '';
 const mudarEstadoIndice = (e: EstadoIndiceHistorico) => { _estadoIndice = e; try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('assessor-indice-estado', { detail: e })); } catch { /* sem janela */ } };
 const esperarMs = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
-const metaIndiceRef = () => doc(db, getTenantPath('settings'), 'history_index_meta');
+const metaIndiceRef = () => doc(db, `gabinetes/${tenantDoIndice()}/settings`, 'history_index_meta');
 
 /** Cria o que falta no índice e remove o que sobra (atos já apagados). Só um usuário por vez (trava de 5 minutos); os demais esperam. */
 async function reconciliarIndiceHistorico(incluirLegado: boolean, motivo: string = ''): Promise<boolean> {
@@ -431,28 +435,81 @@ async function reconciliarIndiceHistorico(incluirLegado: boolean, motivo: string
   }
 }
 
+/** Caminhos do Histórico que o índice acompanha: no gabinete principal, o do usuário e os antigos; nos demais, só o do próprio gabinete. */
+const caminhosDoIndice = (): string[] => (isPrimaryCabinet(globalTenantId) ? getHistoryCollectionPaths() : [getTenantPath('history')]);
+
+/** Conta atos e resumos (só contagem, sem baixar documentos). */
+async function contarHistoricoEIndice(caminhos: string[]): Promise<{ nHist: number; nIdx: number }> {
+  const [partes, nIdx] = await Promise.all([
+    Promise.all(caminhos.map(async (c) => (await getCountFromServer(collection(db, c))).data().count)),
+    getCountFromServer(query(collection(db, indiceHistoricoPath()), where('fonte', 'in', caminhos))).then((r) => r.data().count),
+  ]);
+  return { nHist: partes.reduce((a, b) => a + b, 0), nIdx };
+}
+
+/** Refação BARATA: quando faltam poucos resumos (atos gravados por abas antigas, por exemplo), lê só os atos mais recentes de cada caminho e cria o que falta, em vez de reler o Histórico inteiro. */
+async function reconciliarRapido(caminhos: string[], diferenca: number): Promise<{ escritos: number; igual: boolean }> {
+  const K = Math.min(120, Math.max(30, diferenca + 20));
+  let escritos = 0;
+  for (const c of caminhos) {
+    let sn: any;
+    try { sn = await getDocs(query(collection(db, c), orderBy('date', 'desc'), limit(K))); } catch (e) { console.warn('[Histórico] refação rápida: não consegui ler', c, e); continue; }
+    medirLeitura('indice_reconciliar_rapido', sn.docs);
+    const ids: string[] = sn.docs.map((d: any) => d.id), existentes = new Map<string, any>();
+    for (let i = 0; i < ids.length; i += 10) {
+      const r = await getDocs(query(collection(db, indiceHistoricoPath()), where(documentId(), 'in', ids.slice(i, i + 10))));
+      r.docs.forEach((d) => existentes.set(d.id, d.data()));
+    }
+    let lote = writeBatch(db), emLote = 0;
+    for (const d of sn.docs) {
+      const atual = existentes.get(d.id);
+      if (atual && atual.fonte === c) continue;
+      lote.set(doc(db, indiceHistoricoPath(), d.id), cleanForFirestore(resumoLeve({ id: d.id, ...d.data() }, c))); emLote++; escritos++;
+      if (emLote >= 100) { await lote.commit(); lote = writeBatch(db); emLote = 0; }
+    }
+    if (emLote > 0) await lote.commit();
+    if (escritos > 0) { const { nHist, nIdx } = await contarHistoricoEIndice(caminhos); if (nHist === nIdx) return { escritos, igual: true }; }
+  }
+  const { nHist, nIdx } = await contarHistoricoEIndice(caminhos);
+  return { escritos, igual: nHist === nIdx };
+}
+
+const SEIS_HORAS = 6 * 3_600_000;
 let _indiceVerificado: { chave: string; ate: number; p: Promise<boolean> } | null = null;
-/** Confere (no máximo a cada 10 minutos) se o índice acompanha o Histórico, comparando contagens (leitura barata, sem baixar documentos). Falso = usar a leitura completa. */
+/** Confere (no máximo a cada 10 minutos) se o índice acompanha o Histórico, comparando contagens (leitura barata, sem baixar documentos). Falso = usar a leitura completa.
+ *  Faltou resumo: refação rápida (só os atos mais recentes). A leitura completa só na primeira montagem ou, se a rápida não resolver, no máximo a cada 6 horas. */
 export async function garantirIndiceHistorico(): Promise<boolean> {
-  const chave = globalTenantId;
+  const chave = tenantDoIndice();
   if (_indiceVerificado && _indiceVerificado.chave === chave && Date.now() < _indiceVerificado.ate) return _indiceVerificado.p;
   mudarEstadoIndice({ fase: 'verificando' });
   const p = (async () => {
     try {
       const md: any = (await getDoc(metaIndiceRef())).data() || {};
-      const precisaLegado = isPrimaryCabinet(chave) && !md.legadoFeito;
-      const nHist = (await getCountFromServer(collection(db, getTenantPath('history')))).data().count;
-      const nIdx = (await getCountFromServer(query(collection(db, indiceHistoricoPath()), where('fonte', '==', getTenantPath('history'))))).data().count;
+      const primario = isPrimaryCabinet(globalTenantId);
+      const precisaLegado = primario && !md.legadoFeito;
+      const caminhos = caminhosDoIndice();
+      const { nHist, nIdx } = await contarHistoricoEIndice(caminhos);
       if (nHist === nIdx && !precisaLegado) { mudarEstadoIndice({ fase: 'pronto' }); return true; }
-      // a refação anterior não conseguiu igualar as contagens (divergência estrutural, por exemplo ato duplicado em caminhos antigos): não insiste, só tenta de novo em 6 horas
-      if (!precisaLegado && md.divergenciaPersistenteEm && Date.now() - Number(md.divergenciaPersistenteEm) < 6 * 3_600_000) { mudarEstadoIndice({ fase: 'pronto' }); return true; }
-      // diferença pequena e o índice foi refeito há pouco (por qualquer usuário): espera, em vez de reler tudo de novo (cada refação lê o Histórico inteiro, dezenas de MB)
-      if (!precisaLegado && md.feitoEm && Date.now() - Number(md.feitoEm) < 30 * 60_000) { console.warn(`[Histórico] índice com diferença (${nHist} atos, ${nIdx} no índice); refeito há menos de 30 min, aguardando`); mudarEstadoIndice({ fase: 'pronto' }); return true; }
-      const ok = await reconciliarIndiceHistorico(precisaLegado, precisaLegado ? 'primeira montagem (inclui caminhos antigos)' : `contagem diferente: ${nHist} atos e ${nIdx} no índice`);
-      if (ok) {      // conferiu de novo: se ainda diverge, anota para não repetir a leitura completa a cada 30 minutos
+      const feitoHa = md.feitoEm ? Date.now() - Number(md.feitoEm) : Infinity;
+      // a refação anterior não conseguiu igualar as contagens (por exemplo, o mesmo ato em dois caminhos antigos): não insiste, só tenta de novo em 6 horas
+      if (!precisaLegado && md.divergenciaPersistenteEm && Date.now() - Number(md.divergenciaPersistenteEm) < SEIS_HORAS) { mudarEstadoIndice({ fase: 'pronto' }); return true; }
+      let ok = true;
+      if (!precisaLegado && nHist > nIdx) {
+        const r = await reconciliarRapido(caminhos, nHist - nIdx);
+        if (r.igual) { try { await setDoc(metaIndiceRef(), { feitoEm: Date.now(), ultimoMotivo: `refação rápida: ${r.escritos} resumo(s) criado(s)`, divergenciaPersistenteEm: 0, divergencia: null }, { merge: true }); } catch { /* sem registro */ } mudarEstadoIndice({ fase: 'pronto' }); return true; }
+      } else if (!precisaLegado && feitoHa < SEIS_HORAS) {
+        // sobram resumos (ato apagado fora do sistema atual): não vale reler tudo; o resumo órfão some sozinho quando alguém tenta abri-lo
+        mudarEstadoIndice({ fase: 'pronto' }); return true;
+      }
+      if (!precisaLegado && feitoHa < SEIS_HORAS) {      // a rápida não resolveu e a leitura completa já foi feita há pouco: anota e espera
+        try { await setDoc(metaIndiceRef(), { divergenciaPersistenteEm: Date.now(), divergencia: { atos: nHist, noIndice: nIdx } }, { merge: true }); } catch { /* sem registro */ }
+        mudarEstadoIndice({ fase: 'pronto' }); return true;
+      }
+      ok = await reconciliarIndiceHistorico(primario, precisaLegado ? 'primeira montagem (inclui caminhos antigos)' : `contagem diferente: ${nHist} atos e ${nIdx} no índice`);
+      if (ok) {      // conferiu de novo (as duas contagens depois da refação): se ainda diverge, anota para não repetir a leitura completa
         try {
-          const nIdx2 = (await getCountFromServer(query(collection(db, indiceHistoricoPath()), where('fonte', '==', getTenantPath('history'))))).data().count;
-          await setDoc(metaIndiceRef(), nIdx2 === nHist ? { divergenciaPersistenteEm: 0, divergencia: null } : { divergenciaPersistenteEm: Date.now(), divergencia: { atos: nHist, noIndice: nIdx2 } }, { merge: true });
+          const c2 = await contarHistoricoEIndice(caminhos);
+          await setDoc(metaIndiceRef(), c2.nHist === c2.nIdx ? { divergenciaPersistenteEm: 0, divergencia: null } : { divergenciaPersistenteEm: Date.now(), divergencia: { atos: c2.nHist, noIndice: c2.nIdx } }, { merge: true });
         } catch { /* sem conferência extra */ }
       }
       mudarEstadoIndice(ok ? { fase: 'pronto' } : { fase: 'falhou', erro: _erroReconciliacao || 'não consegui montar a lista leve' });
@@ -536,10 +593,12 @@ export const carregarAtoCompleto = async (leve: any): Promise<SavedAnalysis | nu
   if (!leve?.id) return null;
   if (!ehLeve(leve)) return leve as SavedAnalysis;
   const caminhos = Array.from(new Set([leve.fonte, ...getHistoryCollectionPaths()].filter(Boolean))) as string[];
+  let houveErro = false;
   for (const c of caminhos) {
     try { const ex = await getDoc(doc(db, c, leve.id)); if (ex.exists()) { medirLeitura('ato_completo', [ex]); return { ...(ex.data() as any), id: ex.id } as SavedAnalysis; } }
-    catch (e) { console.warn('[Histórico] não consegui abrir o ato em', c, e); }
+    catch (e) { houveErro = true; console.warn('[Histórico] não consegui abrir o ato em', c, e); }
   }
+  if (!houveErro) { try { await apagarIndiceHistorico(leve.id); } catch { /* sem índice para limpar */ } }      // o ato não existe mais em nenhum caminho: o resumo órfão sai da lista
   return null;
 };
 
