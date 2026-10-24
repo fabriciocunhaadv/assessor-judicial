@@ -29,9 +29,6 @@ import {
   getIsGroundingEnabled,
   setIsGroundingEnabled,
   getCustomBindingPrecedents,
-  addCustomBindingPrecedents,
-  getLastPrecedentsSync,
-  setLastPrecedentsSync,
   getAllBindingPrecedents,
 } from "../utils/bindingPrecedents";
 import { extractTextFromPdf } from "../utils/pdfExtractor";
@@ -56,9 +53,7 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [isGroundingActive, setIsGroundingActive] = useState<boolean>(() => getIsGroundingEnabled());
   const [precedentsVersion, setPrecedentsVersion] = useState<number>(0);
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
-  const [lastSyncDate, setLastSyncDate] = useState<number>(() => getLastPrecedentsSync());
   const [isUploadingPdf, setIsUploadingPdf] = useState<boolean>(false);
   const [pdfUploadStatus, setPdfUploadStatus] = useState<string | null>(null);
   const [serverPrecedents, setServerPrecedents] = useState<BindingPrecedent[]>([]);
@@ -81,15 +76,6 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
       })
       .then((lista) => { setServerPrecedents(lista); setPrecedentsVersion((v) => v + 1); })
       .catch((err) => console.warn("Não foi possível carregar os precedentes do gabinete:", err));
-
-    // Rotina semanal: se passou mais de 7 dias da última sincronização, executa automaticamente
-    const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-    const lastSync = getLastPrecedentsSync();
-    const now = Date.now();
-
-    if (!lastSync || now - lastSync > ONE_WEEK_MS) {
-      handleTriggerSync(false);
-    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -101,39 +87,6 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
     const nextVal = !isGroundingActive;
     setIsGroundingActive(nextVal);
     setIsGroundingEnabled(nextVal);
-  };
-
-  const handleTriggerSync = async (isManual = false) => {
-    setIsSyncing(true);
-    try {
-      const res = await fetch("/api/sync-precedents-weekly", {
-        method: "POST",
-        headers: getApiHeaders(),
-      });
-      const data = await res.json();
-      if (data.success) {
-        const now = Date.now();
-        setLastPrecedentsSync(now);
-        setLastSyncDate(now);
-        if (Array.isArray(data.precedents) && data.precedents.length > 0) {
-          setServerPrecedents(data.precedents);
-          addCustomBindingPrecedents(data.precedents);
-          setPrecedentsVersion((v) => v + 1);
-        }
-        if (isManual) {
-          setSyncMessage(`✅ Sincronização concluída: ${data.addedCount || 0} novos informativos/súmulas indexados com sucesso!`);
-          setTimeout(() => setSyncMessage(null), 5000);
-        }
-      }
-    } catch (err: any) {
-      console.error("Erro na sincronização de precedentes:", err);
-      if (isManual) {
-        setSyncMessage(`❌ Erro ao sincronizar: ${err?.message || "Falha de rede"}`);
-        setTimeout(() => setSyncMessage(null), 5000);
-      }
-    } finally {
-      setIsSyncing(false);
-    }
   };
 
   const handleUploadPrecedentPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -387,32 +340,11 @@ export const BindingPrecedentsModal: React.FC<BindingPrecedentsModalProps> = ({
                 className="hidden"
               />
             </label>
-
-            {/* Botão Super Admin: Sincronizar Agora */}
-            {isSuperAdmin && (
-              <button
-                onClick={() => handleTriggerSync(true)}
-                disabled={isSyncing}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition shadow-2xs cursor-pointer ${
-                  isSyncing 
-                    ? "bg-indigo-50 text-indigo-400 border-indigo-200 cursor-not-allowed" 
-                    : "bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-600 active:scale-98"
-                }`}
-                title="Executar rotina de alimentação automática de Súmulas e Informativos do TJGO/STJ/STF a qualquer tempo"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-                <span>{isSyncing ? "Sincronizando..." : "⚡ Sincronizar Agora"}</span>
-                <span className="text-[9px] font-mono uppercase bg-indigo-700/80 px-1 py-0.2 rounded text-indigo-100">Super Admin</span>
-              </button>
-            )}
           </div>
 
-          {/* Indicador de Rotina Semanal */}
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
             <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span>
-              <strong>Alimentação semanal:</strong> {lastSyncDate ? `Última em ${new Date(lastSyncDate).toLocaleDateString('pt-BR')} às ${new Date(lastSyncDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : "Automática semanal"}
-            </span>
+            <span>Os julgados anexados em PDF ficam salvos no banco do gabinete e entram nas minutas quando se aplicam ao processo.</span>
           </div>
         </div>
 

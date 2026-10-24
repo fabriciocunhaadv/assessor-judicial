@@ -753,79 +753,6 @@ Estrutura de cada objeto:
     }
 });
 
-app.post("/api/sync-precedents-weekly", async (req, res) => {
-    try {
-        const curatedWeeklyPrecedents = [
-            {
-                id: "tjgo-inf-2026-01",
-                tribunal: "TJGO",
-                type: "informativo_tjgo",
-                number: "Informativo TJGO 2026 • Juizados Especiais Cíveis",
-                title: "Dano Moral por Interrupção de Fornecimento de Energia Sem Prévia Notificação",
-                statement: "A interrupção indevida do fornecimento de energia elétrica pela concessionária (Equatorial Goiás) sem notificação formal e específica com prazo razoável configura falha na prestação do serviço e gera dano moral in re ipsa, independente de prova do prejuízo material.",
-                sourceUrl: "https://transparencia.tjgo.jus.br/jurisprudencia",
-                tags: ["energia eletrica", "equatorial", "corte indevido", "dano moral", "consumidor", "aviso previo"],
-                area: "Direito do Consumidor",
-                updatedAt: new Date().toISOString()
-            },
-            {
-                id: "tjgo-inf-2026-02",
-                tribunal: "TJGO",
-                type: "informativo_tjgo",
-                number: "Informativo TJGO 2026 • Turmas Recursais",
-                title: "Empréstimo Não Contratado por Idoso e Fraude Digital (RMC / RCC)",
-                statement: "Nas ações em que o consumidor idoso ou hipervulnerável nega a contratação de empréstimo sob a modalidade de cartão de crédito consignado (RMC/RCC), incumbe à instituição financeira o ônus de comprovar a disponibilização regular e o consentimento esclarecido, sendo nula a contratação viciada com repetição do indébito e condenação por dano moral.",
-                sourceUrl: "https://transparencia.tjgo.jus.br/jurisprudencia",
-                tags: ["rmc", "rcc", "consignado", "banco", "idoso", "hipervulneravel", "fraude bancaria"],
-                area: "Direito Bancário",
-                updatedAt: new Date().toISOString()
-            },
-            {
-                id: "tjgo-sumula-32",
-                tribunal: "TJGO",
-                type: "sumula",
-                number: "Súmula 32 TJGO",
-                title: "Honorários Sucumbenciais nos Juizados Especiais Cíveis",
-                statement: "No rito da Lei nº 9.099/95, a condenação ao pagamento de custas e honorários advocatícios sucumbenciais tem cabimento unicamente em segundo grau de jurisdição e exclusivamente em desfavor do recorrente vencido.",
-                sourceUrl: "https://www.tjgo.jus.br/sumulas",
-                tags: ["honorarios", "juizado especial", "recorrente vencido", "lei 9099", "custas"],
-                area: "Direito Processual Civil",
-                updatedAt: new Date().toISOString()
-            },
-            {
-                id: "stj-tema-1061-atualizado",
-                tribunal: "STJ",
-                type: "tese_repetitivo",
-                number: "Tema Repetitivo 1061 STJ",
-                title: "Ônus Probatório da Autenticidade da Assinatura em Contrato Bancário Impugnado",
-                statement: "Na hipótese em que o consumidor/autor impugnar a autenticidade da assinatura constante de contrato bancário juntado ao processo pela instituição financeira, caberá a esta o ônus de provar a sua autenticidade (CPC, art. 429, II), inclusive arcando com a perícia grafotécnica.",
-                sourceUrl: "https://scon.stj.jus.br/SCON/jurisprudencia",
-                tags: ["assinatura impugnada", "banco", "onus da prova", "pericia grafotecnica", "art 429 cpc"],
-                area: "Direito Bancário",
-                updatedAt: new Date().toISOString()
-            }
-        ];
-
-        const current = loadServerCustomPrecedents();
-        const existingIds = new Set(current.map(c => c.id));
-        const newToAdd = curatedWeeklyPrecedents.filter(p => !existingIds.has(p.id));
-        const updated = [...newToAdd, ...current];
-        saveServerCustomPrecedents(updated);
-
-        res.json({
-            success: true,
-            syncDate: Date.now(),
-            count: updated.length,
-            addedCount: newToAdd.length,
-            precedents: updated,
-            message: `Alimentação automatizada concluída com sucesso! ${newToAdd.length} novo(s) precedente(s) e informativos do TJGO/STJ indexados.`
-        });
-    } catch (err: any) {
-        console.error("Erro no sync-precedents-weekly:", err);
-        res.status(500).json({ error: err.message || "Erro na sincronização de precedentes." });
-    }
-});
-
 app.post("/api/chat-agaia", async (req, res) => {
     try {
         const apiKey = extractApiKey(req);
@@ -1133,6 +1060,11 @@ app.post("/api/generate-minute-turbo", async (req, res) => {
         // decisões anteriores, certidões e provas para avaliar com precisão a marcha processual.
         if (accumulatedText.length > 1500000) accumulatedText = accumulatedText.substring(0, 750000) + "\n\n... [AUTOS ABREVIADOS: trecho do meio omitido por limite técnico] ...\n\n" + accumulatedText.substring(accumulatedText.length - 750000);
         const cobT = montarCobertura(req.body, false);
+        // súmulas, teses e informativos (nativos e anexados pelo gabinete) que se aplicam aos autos: até 5, para o Turbo continuar rápido
+        const precedentesTurbo = matchApplicableBindingPrecedents([accumulatedText, String(actType), specificInstructions, promptTitle, promptText].join("\n"), sanearPrecedentesRecebidos(req.body?.precedentesDoGabinete), 5);
+        const blocoPrecedentesTurbo = precedentesTurbo.length
+            ? `\n\n[SÚMULAS, TESES VINCULANTES E INFORMATIVOS APLICÁVEIS (STF • STJ • TNU • TJGO)]:\n` + precedentesTurbo.map((p, i) => `${i + 1}. [${p.tribunal} • ${p.number} - ${p.title}]: "${p.statement}" (Fonte: ${p.sourceFile ? `documento anexado pelo gabinete: ${p.sourceFile}` : p.sourceUrl})`).join("\n") + `\nDIRETRIZ: harmonize a fundamentação e o dispositivo com estas súmulas/teses quando se aplicarem aos fatos dos autos; não cite precedente que não conste desta lista nem dos autos.\n`
+            : "";
         let alertaInjecaoT: any = null, defesaInjecaoT = "";
         try { const r = detectarInjecao(accumulatedText); if (r.verificado) alertaInjecaoT = r; if (r.total > 0) { defesaInjecaoT = instrucaoDefesaInjecao(r); console.log(`[Prompt Injection][turbo] ${r.total} indício(s) nos autos.`); } } catch { /* ignora */ }
 
@@ -1275,7 +1207,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
                 { role: "user", parts: [{ text: userPrompt }, ...cobT.partes] }
             ],
             config: {
-                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: promptTitle, categoria: promptCategory, unidade: comarcaVara }) + cobT.regra + defesaInjecaoT,
+                systemInstruction: systemPrompt + REGRA_DISPOSITIVO_CARTORIO + REGRA_ABERTURA_RELATORIO + blocoPerfilMateria({ titulo: promptTitle, categoria: promptCategory, unidade: comarcaVara }) + cobT.regra + defesaInjecaoT + blocoPrecedentesTurbo,
                 temperature: 0.1,
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",

@@ -27,6 +27,13 @@ def main():
         assert any(x.get("anexo") for x in log if x.get("res") == 200), "o julgado anexado não chegou à IA"
         log = rodar({}); assert not any(x.get("anexo") for x in log), "sem anexo não pode aparecer"; print("sem anexo: nada injetado")
         log = rodar({"precedentesDoGabinete": [{"id": "x", "number": "Súmula Z", "statement": "texto sem relação alguma com os autos desta causa", "tags": ["astronomia"]}]}); assert not any(x.get("anexo") for x in log), "julgado sem relação com os autos não pode entrar"; print("julgado sem relação: não entra")
+        # Turbo: mesmo caminho (resposta em fluxo; só interessa o que a IA recebeu)
+        urllib.request.urlopen(f"http://127.0.0.1:{PM}/__reset")
+        rq = urllib.request.Request(f"http://127.0.0.1:{PS}/api/generate-minute-turbo", data=json.dumps({"processText": autos, "actType": "auto", "precedentesDoGabinete": [anexo]}).encode(), headers={"Content-Type": "application/json", "x-gemini-api-key": "AQ.Ab8-chave-um-aaaaaaaa"})
+        try: urllib.request.urlopen(rq, timeout=300).read()
+        except Exception as e: print("turbo respondeu:", str(e)[:80])
+        log = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PM}/__log").read().decode()); print("turbo com anexo:", [x.get("anexo") for x in log])
+        assert any(x.get("anexo") for x in log), "o julgado anexado não chegou à IA no Turbo"
         print("OK")
     finally:
         for pr in procs:

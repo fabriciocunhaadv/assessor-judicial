@@ -2,7 +2,7 @@
 // O servidor não lê o banco: o navegador separa os poucos aplicáveis (no máximo 12) e eles entram na minuta junto das súmulas nativas.
 import { selecionarPrecedentesAnexados } from "./bindingPrecedents";
 
-const ROTA = "/api/generate-minute";
+const ROTAS = ["/api/generate-minute", "/api/generate-minute-turbo"];
 const LIMITE_CORPO = 40_000_000;      // corpo gigante: não mexe (evita ler e reter dezenas de MB à toa)
 
 export function anexarPrecedentesAoCorpo(corpo: string): string {
@@ -25,7 +25,7 @@ export function instalarEnvioDePrecedentes(): void {
   window.fetch = ((input: any, init?: any) => {
     try {
       const url = typeof input === "string" ? input : input?.url || "";
-      if (init && typeof init.body === "string" && String(init.method || "GET").toUpperCase() === "POST" && url.split("?")[0].replace(/^https?:\/\/[^/]+/, "") === ROTA) {
+      if (init && typeof init.body === "string" && String(init.method || "GET").toUpperCase() === "POST" && url.split("?")[0].replace(/^https?:\/\/[^/]+/, "") && ROTAS.includes(url.split("?")[0].replace(/^https?:\/\/[^/]+/, ""))) {
         init = { ...init, body: anexarPrecedentesAoCorpo(init.body) };
       }
     } catch { /* qualquer falha: segue com a requisição original */ }

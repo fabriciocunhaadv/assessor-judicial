@@ -1631,7 +1631,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                         <li>Painel do Super Admin: os tokens das leituras em lotes e do OCR passam a ser contados; a chave gratuita dos assessores não custa nem baixa o saldo; contadores à prova de gravações simultâneas.</li>
                         <li>Extensão pela Chrome Web Store (o botão das Configurações foi retirado) e tarja de instalação quando ela não está no navegador.</li>
                         <li>Aviso destacado de unidade: se os autos parecem ser de outra comarca do usuário, o sistema mostra os nomes e deixa escolher “Usar a unidade dos autos” ou “Continuar com a atual”. Histórico mais leve: 40 resumos por vez, com “Ver mais”.</li>
-                        <li>Súmulas, teses e informativos anexados por PDF ficam salvos no banco do gabinete (não se perdem em nova implantação) e os que se aplicam ao processo entram na minuta (2ª etapa), ordenados por relevância.</li>
+                        <li>Súmulas, teses e informativos anexados por PDF ficam salvos no banco do gabinete (não se perdem em nova implantação) e os que se aplicam ao processo entram na minuta (2ª etapa e Turbo), ordenados por relevância. O botão “Sincronizar Agora” (que não consultava os tribunais) foi removido.</li>
                       </ul>
                     </div>
                   </div>
@@ -2753,7 +2753,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                         <time className="text-xs font-mono text-emerald-800 dark:text-emerald-400 font-medium">Setembro 2026</time>
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                        • <strong>Sincronização Semanal Automatizada (TJGO, STJ e STF):</strong> O catálogo de precedentes conta agora com rotina periódica semanal em segundo plano e gatilho sob demanda <em>"Sincronizar Agora"</em> exclusivo para o Super Admin, mantendo teses, súmulas e julgados do Tribunal de Justiça de Goiás permanentemente atualizados.
+                        • <strong>Sincronização Semanal Automatizada (retirada em outubro de 2026):</strong> a rotina e o botão <em>"Sincronizar Agora"</em> foram removidos porque não consultavam os tribunais; o repositório passa a ser alimentado somente pelos PDFs oficiais que o gabinete anexa.
                         <br />• <strong>Anexo e Indexação Inteligente de PDFs de Informativos:</strong> Novo recurso para carregar PDFs oficiais de novos informativos de jurisprudência ou súmulas diretamente no repositório. O motor de IA lê e estrutura os enunciados automaticamente em temas, ramos do direito e ementas com armazenamento duradouro.
                         <br />• <strong>Blindagem de Custos no Grounding ao Vivo:</strong> A ativação de buscas externas em tempo real na web (Grounding) foi restrita com exclusividade ao perfil <strong>Super Admin</strong>, protegendo a cota do gabinete contra chamadas externas desnecessárias por outros membros da equipe.
                         <br />• <strong>Nomenclatura Clara de Minutas:</strong> Atualização dos modos de geração entre <em>Resolução Simples (Célere - 1 Etapa)</em> para despachos e decisões céleres e <em>Análise Aprofundada (Sentenças - 2 Etapas)</em> para sentenças de mérito com auditoria completa dos 6 pilares forenses.
