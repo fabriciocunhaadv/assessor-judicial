@@ -6,7 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { petitionRouter } from './server/petitionAdvogadoRoutes';
 import { matchApplicableBindingPrecedents, sanearPrecedentesRecebidos } from './src/utils/bindingPrecedents';
-import { consultarLegislacao, diagnosticoLegislacao } from './src/utils/legislacaoPlanalto';
+import { consultarLegislacao, diagnosticoLegislacao, testarLegislacao } from './src/utils/legislacaoPlanalto';
 import { lerFicha } from './src/utils/fichaTolerante';
 import { getApplicableTaxonomySummary } from './src/data/legalTaxonomy';
 import { filterInnocuousCertificates, cleanJudicialPdfText } from './src/utils/judicialTextCleaner';
@@ -760,6 +760,11 @@ Estrutura de cada objeto:
 });
 
 // Diagnóstico (só informa quais leis o servidor consegue consultar agora no Planalto; não devolve conteúdo)
+// Teste manual: /api/legislacao-teste?q=art. 6º da Lei 8.987/1995  → mostra se a lei foi reconhecida e localizada no Planalto
+app.get("/api/legislacao-teste", async (req, res) => {
+    try { res.json(await testarLegislacao(String(req.query.q || "").slice(0, 600))); }
+    catch (e: any) { res.status(500).json({ error: e?.message || "falha no teste" }); }
+});
 app.get("/api/legislacao-status", async (_req, res) => {
     try { const r = await diagnosticoLegislacao(); res.json({ ok: r.filter((x) => x.ok).length, total: r.length, diplomas: r }); }
     catch (e: any) { res.status(500).json({ error: e?.message || "falha no diagnóstico" }); }

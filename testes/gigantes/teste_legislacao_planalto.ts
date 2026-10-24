@@ -1,5 +1,5 @@
 // Consulta à legislação oficial: acha os artigos citados, localiza o texto na página do Planalto (simulada) e monta o bloco do prompt. Rodar: npx tsx testes/gigantes/teste_legislacao_planalto.ts
-import { extrairCitacoes, htmlParaLinhas, trechoDoArtigo, consultarLegislacao } from '../../src/utils/legislacaoPlanalto';
+import { extrairCitacoes, extrairTudo, candidatosDoAto, htmlParaLinhas, trechoDoArtigo, consultarLegislacao } from '../../src/utils/legislacaoPlanalto';
 let f = 0; const ok = (c: boolean, n: string) => { console.log(c ? 'ok' : 'FALHA', n); if (!c) f++; };
 const ids = (t: string) => extrairCitacoes(t).map((c) => `${c.diploma.id}:${c.artigo}`).sort().join(',');
 ok(ids('conforme o art. 489, § 1º, do CPC') === 'cpc:489', 'art. 489 do CPC');
@@ -31,4 +31,30 @@ await consultarLegislacao(['art. 490 do CPC']); ok(chamadas === 1, 'segunda cons
 (globalThis as any).fetch = async () => { throw new Error('rede fora do ar'); };
 const r2 = await consultarLegislacao(['art. 5º da CF/88']); ok(r2.bloco === '' && r2.falhas.length === 1, 'site fora do ar: sem bloco, sem erro');
 ok((await consultarLegislacao(['sem artigos'])).bloco === '', 'sem citação: nada a consultar');
+// ---- qualquer lei federal, leis locais e artigos alterados ----
+ok(ids('art. 6º da Lei 8.987/95') === 'lei8987-1995:6', 'lei fora da lista conhecida (ano de 2 dígitos): ' + ids('art. 6º da Lei 8.987/95'));
+ok(ids('Lei nº 8.987, de 13 de fevereiro de 1995, art. 6º') === 'lei8987-1995:6', 'lei antes do artigo, data por extenso: ' + ids('Lei nº 8.987, de 13 de fevereiro de 1995, art. 6º'));
+ok(ids('art. 10 da Lei Complementar 101/2000') === 'lcp101-2000:10', 'lei complementar: ' + ids('art. 10 da Lei Complementar 101/2000'));
+ok(ids('art. 2º do Decreto-Lei nº 3.365/41') === 'del3365-1941:2', 'decreto-lei: ' + ids('art. 2º do Decreto-Lei nº 3.365/41'));
+ok(ids('art. 1º do Decreto nº 20.910/32') === 'dec20910-1932:1', 'decreto: ' + ids('art. 1º do Decreto nº 20.910/32'));
+ok(ids('art. 3º da Lei 9.099/95') === 'l9099:3', 'lei conhecida continua usando a lista: ' + ids('art. 3º da Lei 9.099/95'));
+const loc = extrairTudo('Aplica-se o art. 12 da Lei Municipal nº 1.234/2019 e o art. 3º da Lei nº 456/2018 do Município de Montes Claros de Goiás, além do art. 5º da Lei Estadual 15.000/2005.');
+ok(loc.citacoes.length === 0 && loc.locais.length === 3, 'leis municipais/estaduais não viram consulta ao Planalto, só aviso: ' + JSON.stringify(loc.locais));
+const c1 = candidatosDoAto({ tipo: 'lei', numero: '8987', ano: 1995 });
+ok(c1[0].endsWith('/leis/l8987compilado.htm') && c1.some((u) => u.endsWith('/leis/l8987cons.htm')), 'candidatos de lei de 1995');
+const c2 = candidatosDoAto({ tipo: 'lei', numero: '13709', ano: 2018 });
+ok(c2.some((u) => u.includes('_ato2015-2018/2018/lei/l13709.htm')), 'candidatos de lei de 2018');
+ok(candidatosDoAto({ tipo: 'del', numero: '3365' }).some((u) => u.endsWith('decreto-lei/del3365.htm')), 'candidatos de decreto-lei');
+// resolução de uma lei fora da lista: só a página cujo cabeçalho é a lei pedida vale
+const pag = (cab: string, extra = '') => ({ ok: true, status: 200, headers: { get: () => 'text/html; charset=windows-1252' }, arrayBuffer: async () => { const b = Buffer.from(`<html><body>${Array.from({ length: 25 }, (_, i) => `<p>Apresentação ${i}</p>`).join('')}<p>${cab}</p><p>Art. 6º Toda concessão ou permissão pressupõe a prestação de serviço adequado.</p><p>Art. 7º (Revogado pela Lei nº 9.999/2000)</p>${extra}</body></html>`, 'latin1'); return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength); } });
+const vistos: string[] = [];
+(globalThis as any).fetch = async (url: string) => { vistos.push(url); if (url.endsWith('/leis/l8987cons.htm')) return pag('LEI Nº 8.987, DE 13 DE FEVEREIRO DE 1995.'); if (url.endsWith('/leis/l8987compilado.htm')) return pag('LEI Nº 1.111, DE 1 DE JANEIRO DE 1990.'); return { ok: false, status: 404, headers: { get: () => '' }, arrayBuffer: async () => new ArrayBuffer(0) }; };
+const rd = await consultarLegislacao(['A concessionária descumpriu o art. 6º da Lei 8.987/95 e o art. 7º da mesma Lei 8.987/95.']);
+ok(rd.consultados >= 1 && rd.bloco.includes('serviço adequado'), 'lei fora da lista localizada pelo número e ano: ' + rd.bloco.slice(0, 80));
+ok(vistos.some((u) => u.endsWith('l8987compilado.htm')) && vistos.some((u) => u.endsWith('l8987cons.htm')), 'tentou o compilado primeiro e seguiu para o próximo endereço');
+ok(!rd.bloco.includes('Lei 1.111'), 'página de outra lei (cabeçalho diferente) é descartada');
+const rd2 = await consultarLegislacao(['art. 7º da Lei 8.987/95']); ok(rd2.bloco.includes('ARTIGO REVOGADO'), 'artigo revogado marcado');
+const rd3 = await consultarLegislacao(['art. 12 da Lei Municipal nº 1.234/2019']); ok(rd3.bloco.includes('NÃO CONSULTADO') && rd3.consultados === 0, 'lei municipal: aviso de que não foi consultada');
+(globalThis as any).fetch = async () => ({ ok: false, status: 404, headers: { get: () => '' }, arrayBuffer: async () => new ArrayBuffer(0) });
+const rd4 = await consultarLegislacao(['art. 1º da Lei 12.345/2011']); ok(rd4.bloco === '' && rd4.falhas.length === 1, 'lei que não existe no Planalto: sem bloco e sem erro');
 process.exit(f ? 1 : 0);
