@@ -61,6 +61,7 @@ import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
 import { registrarOperacao } from "./utils/monitorOperacao";
 import { iniciarMedidor } from "./utils/medidorEnvio";
+import { AvisoNovaVersao } from "./components/AvisoNovaVersao";
 import { unirFontes } from "./utils/fontesConsultadas";
 import { instalarEnvioDePrecedentes } from "./utils/precedentesNaAnalise";
 import { sincronizarPrecedentes } from "./utils/precedentesDb";
@@ -1966,6 +1967,7 @@ export default function App() {
     <div className="flex h-screen overflow-hidden bg-[#f3f4f6] text-slate-900 font-sans selection:bg-slate-200">
       <AvisoExtensao />
       <Toaster position="bottom-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ duration: 4000, style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' } }} />
+      <AvisoNovaVersao />
       <SystemTour 
         runAppTour={!generationResult && !isHistoryModalOpen && !isPromptManagerOpen && !isTesesModalOpen && !isManualModalOpen} 
         runResultTour={!!generationResult && !isHistoryModalOpen && !isPromptManagerOpen && !isTesesModalOpen && !isManualModalOpen} 
