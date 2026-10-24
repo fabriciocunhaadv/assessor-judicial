@@ -3,6 +3,7 @@ import { AvisoAutosReduzidos } from "./AvisoAutosReduzidos";
 import { AvisoCoberturaLeitura } from "./AvisoCoberturaLeitura";
 import { AvisoGigante } from "./AvisoGigante";
 import { AvisoPromptInjection } from "./AvisoPromptInjection";
+import { AvisoFontesConsultadas } from "./AvisoFontesConsultadas";
 import ReactMarkdown from "react-markdown";
 import {
   Copy,
@@ -1608,6 +1609,7 @@ export const MinuteViewer: React.FC<MinuteViewerProps> = ({
         {activeTab === "formatted" && (
           <div className="space-y-4">
             {result?.alertaInjecao && <AvisoPromptInjection info={result.alertaInjecao} />}
+            {result?.fontesConsultadas && <AvisoFontesConsultadas info={result.fontesConsultadas} />}
             {result?.gigante && <AvisoGigante info={result.gigante} />}
             {result?.autosReduzidos && <AvisoAutosReduzidos info={result.autosReduzidos} />}
             {result?.coberturaLeitura && <AvisoCoberturaLeitura info={result.coberturaLeitura} />}

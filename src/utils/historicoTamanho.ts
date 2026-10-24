@@ -48,8 +48,8 @@ export function semListasAninhadas<T>(valor: T): T {
 // Versão mínima do ato (só o que o Histórico precisa para abrir a minuta), usada como segunda tentativa se a completa for recusada.
 export function versaoMinimaDoAto(ato: SavedAnalysis): SavedAnalysis {
   const r: any = ato.result || {};
-  const { minute, originalMinute, indicacaoTpuCnj, usage, modelUsed, analysisId, gigante, alertaInjecao } = r;
-  const o: any = { ...ato, result: { minute, originalMinute, indicacaoTpuCnj, usage, modelUsed, analysisId, gigante, alertaInjecao }, chatMessages: [], processTextContext: typeof ato.processTextContext === "string" ? ato.processTextContext.slice(0, 2000) : "" };
+  const { minute, originalMinute, indicacaoTpuCnj, usage, modelUsed, analysisId, gigante, alertaInjecao, fontesConsultadas } = r;
+  const o: any = { ...ato, result: { minute, originalMinute, indicacaoTpuCnj, usage, modelUsed, analysisId, gigante, alertaInjecao, fontesConsultadas }, chatMessages: [], processTextContext: typeof ato.processTextContext === "string" ? ato.processTextContext.slice(0, 2000) : "" };
   delete o.holisticSynopsis;
   return o as SavedAnalysis;
 }

@@ -201,6 +201,7 @@ export interface GenerationResult {
     thesesSnippet?: string;
     fullText?: string;
   };
+  fontesConsultadas?: FontesConsultadas;
   alertaInjecao?: {
     verificado?: boolean;
     caracteres?: number;
@@ -678,6 +679,9 @@ export interface DocumentInspectionResult {
   expertReportsAndContracts?: string;
   divergencesFound?: string;
 }
+
+/** O que o sistema realmente consultou ao elaborar a minuta (para o usuário ver). */
+export interface FontesConsultadas { legislacao: string[]; naoLocalizados: string[]; indisponiveis: string[]; locais: string[]; precedentes: string[] }
 
 export interface AssessorDraftAuditResult {
   coberturaLeitura?: GenerationResult["coberturaLeitura"];

@@ -28,6 +28,7 @@ def main():
         autos = "Ação de cobrança contra instituição financeira. Aplica-se o art. 489 do CPC à fundamentação. " * 30
         urllib.request.urlopen(f"http://127.0.0.1:{PM}/__reset")
         r = post({"customPromptText": "Prompt de teste", "actType": "auto", "processText": autos}); assert r.get("minute")
+        fc = r.get("fontesConsultadas") or {}; print("fontes na resposta:", fc.get("legislacao")); assert any("art. 489" in x for x in fc.get("legislacao", [])), "a resposta deve informar a legislação conferida"
         log = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PM}/__log").read().decode()); print("normal:", [(x.get("leg"), x.get("legtxt")) for x in log if x.get("res") == 200])
         oks = [x for x in log if x.get("res") == 200]
         assert oks[-1].get("leg") and oks[-1].get("legtxt"), "o texto oficial do art. 489 deve chegar à etapa 2"
