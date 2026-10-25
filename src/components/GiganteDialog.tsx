@@ -7,7 +7,7 @@ export type EscolhaGigante = "lotes" | "partes" | "limpar" | "normal" | "cancela
 const n = (v: number) => v.toLocaleString("pt-BR");
 
 // Pergunta, antes da análise normal, o que fazer com autos que passam do limite dessa análise.
-export function GiganteDialog({ paginas, tokens, corte, onEscolha }: { paginas: number; tokens: number; corte?: CorteInfo | null; onEscolha: (e: EscolhaGigante) => void }) {
+export function GiganteDialog({ paginas, tokens, corte, lento, onEscolha }: { paginas: number; tokens: number; corte?: CorteInfo | null; lento?: boolean; onEscolha: (e: EscolhaGigante) => void }) {
   const acima = paginas > LIMITE_PAGINAS_GIGANTE;
   const k = quantasPartes(paginas, LIMITE_PAGINAS_GIGANTE);
   const porParte = Math.ceil(paginas / k);
@@ -22,10 +22,16 @@ export function GiganteDialog({ paginas, tokens, corte, onEscolha }: { paginas: 
   return (
     <div className="fixed inset-0 z-[100000] flex items-start sm:items-center justify-center p-3 bg-black/60 overflow-y-auto" data-testid="dialogo-gigante">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 space-y-3 text-slate-800 my-2">
-        <h2 className="text-base font-black text-sky-800">📚 {acima ? "Processo muito grande" : "Processo gigante"}: {paginas ? `${n(paginas)} páginas` : "autos muito extensos"}</h2>
-        <p className="text-xs leading-relaxed">
-          Os autos têm cerca de <strong>{n(Math.round(tokens / 1000))} mil tokens</strong>, mais do que a análise normal consegue ler de uma vez. Escolha como quer prosseguir:
-        </p>
+        <h2 className="text-base font-black text-sky-800">📚 {lento ? "Processo grande para o Turbo" : acima ? "Processo muito grande" : "Processo gigante"}: {paginas ? `${n(paginas)} páginas` : "autos muito extensos"}</h2>
+        {lento ? (
+          <p className="text-xs leading-relaxed" data-testid="gigante-lento">
+            O Turbo é feito para decisões rápidas (a faixa ideal é de 80 a 100 páginas). Estes autos têm cerca de <strong>{n(Math.round(tokens / 1000))} mil tokens</strong>: o Turbo pode levar <strong>vários minutos</strong> (a chave gratuita do Gemini obriga a esperar a janela de cota) e ocupa a tela. A leitura em lotes lê tudo em segundo plano, sem travar você, e a minuta vai para o Histórico. Escolha como quer prosseguir:
+          </p>
+        ) : (
+          <p className="text-xs leading-relaxed">
+            Os autos têm cerca de <strong>{n(Math.round(tokens / 1000))} mil tokens</strong>, mais do que a análise normal consegue ler de uma vez. Escolha como quer prosseguir:
+          </p>
+        )}
 
         {acima && (
           <p className="text-xs font-bold text-red-800 bg-red-50 border border-red-200 rounded-lg p-2" data-testid="gigante-acima-limite">
@@ -55,11 +61,12 @@ export function GiganteDialog({ paginas, tokens, corte, onEscolha }: { paginas: 
           )}
 
           <button onClick={() => onEscolha("normal")} className="w-full text-left p-3 rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 cursor-pointer" data-testid="gigante-normal">
-            <div className="text-xs font-black text-amber-900">➡️ Tentar a análise normal mesmo assim (parte dos autos NÃO será lida)</div>
+            <div className="text-xs font-black text-amber-900">{lento ? "➡️ Rodar no Turbo mesmo assim (pode demorar vários minutos)" : "➡️ Tentar a análise normal mesmo assim (parte dos autos NÃO será lida)"}</div>
             <div className="text-[11px] text-slate-700 space-y-1 mt-0.5">
+              {lento ? <p>O Turbo lê os autos de uma vez, dividindo o pedido se passar do limite da chave. Fique com a tela aberta até terminar (a espera máxima é de 13 minutos).</p> : (<>
               <p>Mais rápida, mas o sistema só lê até o limite e <strong>corta o restante</strong>. Se você continuar:</p>
               {cortado}
-              <p>Ao terminar, a minuta traz um aviso vermelho com <strong>exatamente quais páginas ficaram de fora</strong>, e a IA é instruída a não afirmar “não há prova” por causa delas.</p>
+              <p>Ao terminar, a minuta traz um aviso vermelho com <strong>exatamente quais páginas ficaram de fora</strong>, e a IA é instruída a não afirmar “não há prova” por causa delas.</p></>)}
             </div>
           </button>
           <button onClick={() => onEscolha("cancelar")} className="w-full text-center text-[11px] text-slate-500 underline cursor-pointer pt-1">Cancelar</button>

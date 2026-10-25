@@ -30,6 +30,8 @@ import { descreverCorte, juntarComoServidor, CorteInfo } from "../utils/corteAut
 
 // acima disso o Turbo cortaria o final dos autos: oferece a leitura em lotes (a minuta vai para o Histórico)
 const LIMITE_CHARS_TURBO = 1_400_000;
+const LIMITE_CHARS_TURBO_LENTO = 400_000;      // acima disto (cerca de 150 a 190 páginas) o Turbo não cabe numa chamada só e pode levar vários minutos: sugere a leitura em lotes
+const LIMITE_PAGINAS_TURBO_LENTO = 200;
 import { AvisoCoberturaLeitura } from "./AvisoCoberturaLeitura";
 import type { GenerationResult, UploadedPdf } from "../types";
 import { CustomPrompt, SavedAnalysis } from "../types";
@@ -99,7 +101,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
   const [inputMode, setInputMode] = useState<"pdf" | "text">("pdf");
   const [pdfFile, setPdfFile] = useState<{ file: File; name: string; size: number; text?: string; pageCount?: number; paginasSemTexto?: number[]; paginasNaoLidas?: number[]; paginasOcr?: number[] } | null>(null);
   const { resolver: resolverCoberturaLeitura, dialog: dialogCobertura } = useCoberturaLeitura();
-  const [dlgGigante, setDlgGigante] = useState<{ paginas: number; tokens: number; corte: CorteInfo | null; resolver: (e: EscolhaGigante) => void } | null>(null);
+  const [dlgGigante, setDlgGigante] = useState<{ paginas: number; tokens: number; lento?: boolean; corte: CorteInfo | null; resolver: (e: EscolhaGigante) => void } | null>(null);
   const [resultCobertura, setResultCobertura] = useState<GenerationResult["coberturaLeitura"] | null>(null);
   const [isExtractingPdf, setIsExtractingPdf] = useState(false);
   const [pastedText, setPastedText] = useState("");
@@ -261,10 +263,13 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
     }
 
     // Processo gigante: acima do limite do Turbo o final dos autos seria cortado; oferece a leitura em lotes (a minuta vai para o Histórico)
-    if (effectiveText.length > LIMITE_CHARS_TURBO) {
-      const paginas = inputMode === "pdf" && pdfFile ? (pdfFile.pageCount || 0) : 0;
+    const paginasAutos = inputMode === "pdf" && pdfFile ? (pdfFile.pageCount || 0) : (effectiveText.match(/\[P[áa]gina \d+ de (\d+)\]/)?.[1] ? Number(effectiveText.match(/\[P[áa]gina \d+ de (\d+)\]/)![1]) : 0);
+    const muitoGrandeParaTurbo = effectiveText.length > LIMITE_CHARS_TURBO;
+    const lentoParaTurbo = !muitoGrandeParaTurbo && (effectiveText.length > LIMITE_CHARS_TURBO_LENTO || paginasAutos > LIMITE_PAGINAS_TURBO_LENTO);
+    if (muitoGrandeParaTurbo || (lentoParaTurbo && document.documentElement.dataset.assessorAuto !== "1")) {
+      const paginas = paginasAutos;
       const automatico = document.documentElement.dataset.assessorAuto === "1";
-      const escolhaG = automatico ? "lotes" : await new Promise<EscolhaGigante>((resolver) => setDlgGigante({ paginas, tokens: Math.round(effectiveText.length / 3.2), corte: (() => { try { return descreverCorte(juntarComoServidor([{ nome: pdfFile?.name || "texto dos autos", texto: effectiveText, paginas }]), 1_500_000); } catch { return null; } })(), resolver }));
+      const escolhaG = automatico ? "lotes" : await new Promise<EscolhaGigante>((resolver) => setDlgGigante({ paginas, tokens: Math.round(effectiveText.length / 3.2), lento: lentoParaTurbo, corte: (() => { try { return descreverCorte(juntarComoServidor([{ nome: pdfFile?.name || "texto dos autos", texto: effectiveText, paginas }]), 1_500_000); } catch { return null; } })(), resolver }));
       setDlgGigante(null);
       if (escolhaG === "cancelar") return;
       if (escolhaG === "limpar") { setPdfFile(null); setPastedText(""); toast("Autos removidos. Envie uma versão reduzida (até 3.000 páginas).", { icon: "🗑️", duration: 7000 }); return; }
@@ -536,7 +541,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
   return (
     <div style={areaPrincipal ? { position: "relative" } : undefined} data-modulo-janela={areaPrincipal ? "turbo" : undefined} className={areaPrincipal ? "fixed flex items-stretch justify-center p-0 bg-slate-950 w-full h-[84vh] rounded-xl border border-slate-800 overflow-hidden" : "fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"}>
       {dialogCobertura}
-      {dlgGigante && <GiganteDialog paginas={dlgGigante.paginas} tokens={dlgGigante.tokens} corte={dlgGigante.corte} onEscolha={dlgGigante.resolver} />}
+      {dlgGigante && <GiganteDialog paginas={dlgGigante.paginas} tokens={dlgGigante.tokens} corte={dlgGigante.corte} lento={dlgGigante.lento} onEscolha={dlgGigante.resolver} />}
       <div className={areaPrincipal ? "bg-slate-900 border-0 w-full max-w-none h-full flex flex-col overflow-hidden text-slate-100" : "bg-slate-900 border border-amber-500/30 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden text-slate-100"}>
         
         {/* TOPO / HEADER DO MÓDULO TURBO */}
