@@ -28,7 +28,7 @@ export function AvisosDaMinuta({ result }: { result: Partial<GenerationResult> &
   if (f) {
     const atencao = (f.naoLocalizados?.length || 0) + (f.indisponiveis?.length || 0) + (f.locais?.length || 0);
     const partes = [`${f.legislacao?.length || 0} artigo(s) conferido(s)`, ...(atencao ? [`${atencao} com atenção`] : [])];
-    itens.push({ id: "fontes", tom: atencao ? "atencao" : "ok", rotulo: `📚 Fontes consultadas · ${partes.join(" · ")}`, conteudo: <AvisoFontesConsultadas info={f} /> });
+    itens.push({ id: "fontes", tom: atencao ? "atencao" : (f.legislacao?.length || f.precedentes?.length ? "ok" : "info"), rotulo: (f.legislacao?.length || 0) + atencao + (f.precedentes?.length || 0) === 0 ? "📚 Fontes consultadas · nenhum artigo de lei citado nos autos" : `📚 Fontes consultadas · ${partes.join(" · ")}`, conteudo: <AvisoFontesConsultadas info={f} /> });
   }
 
   if (result?.gigante) itens.push({ id: "gigante", tom: "info", rotulo: "📚 Processo gigante", conteudo: <AvisoGigante info={result.gigante} /> });

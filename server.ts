@@ -1434,7 +1434,7 @@ ATENÇÃO MÁXIMA AO HISTÓRICO, PROVAS E CITAÇÃO DE FONTES: O processo não p
 
         if (alertaInjecaoT) (payload as any).alertaInjecao = alertaInjecaoT;
         { const f: any = { legislacao: legTurbo.conferidos, naoLocalizados: legTurbo.naoAchados, indisponiveis: legTurbo.falhas, locais: legTurbo.locais, precedentes: precedentesTurbo.map((p) => `${p.tribunal} • ${p.number}`) };
-          if (f.legislacao.length || f.naoLocalizados.length || f.indisponiveis.length || f.locais.length || f.precedentes.length) (payload as any).fontesConsultadas = f; }
+          (payload as any).fontesConsultadas = { ...f, consultado: true }; }
         if (cobT.cobertura) (payload as any).coberturaLeitura = cobT.cobertura;
         if (keepAliveInterval) { clearInterval(keepAliveInterval); keepAliveInterval = null; }      // o pulso para antes de a resposta final ser escrita
         if (!res.headersSent) {
@@ -4397,7 +4397,7 @@ const matchedPrecedents = matchApplicableBindingPrecedents(combinedContextForPre
 // o que foi realmente consultado nesta análise: volta junto da minuta para a tela mostrar ao usuário
 const fontesConsultadas: { legislacao: string[]; naoLocalizados: string[]; indisponiveis: string[]; locais: string[]; precedentes: string[] } = { legislacao: [], naoLocalizados: [], indisponiveis: [], locais: [], precedentes: [...new Set(matchedPrecedents.map((p) => `${p.tribunal} • ${p.number}`))] };
 const somarFontes = (l: { conferidos?: string[]; naoAchados?: string[]; falhas?: string[]; locais?: string[] }, alvo: any = fontesConsultadas) => { for (const [k, v] of [["legislacao", l.conferidos], ["naoLocalizados", l.naoAchados], ["indisponiveis", l.falhas], ["locais", l.locais]] as const) for (const x of v || []) if (!alvo[k].includes(x)) alvo[k].push(x); };
-const fontesParaTela = (f: any = fontesConsultadas) => (f.legislacao.length || f.naoLocalizados.length || f.indisponiveis.length || f.locais.length || f.precedentes.length) ? f : undefined;
+const fontesParaTela = (f: any = fontesConsultadas) => ({ ...f, consultado: true });      // sempre devolve: a tela mostra "nenhum artigo citado" em vez de parecer que a consulta não rodou
 if (precedentesDoGabinete.length) console.log(`[Precedentes] ${precedentesDoGabinete.length} julgado(s) anexado(s) pelo gabinete aplicável(is); ${matchedPrecedents.filter((p) => !!p.sourceFile).length} entram na minuta.`);
 const taxonomySummary = getApplicableTaxonomySummary(combinedContextForPrecedents);
 

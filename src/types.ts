@@ -681,7 +681,7 @@ export interface DocumentInspectionResult {
 }
 
 /** O que o sistema realmente consultou ao elaborar a minuta (para o usuário ver). */
-export interface FontesConsultadas { legislacao: string[]; naoLocalizados: string[]; indisponiveis: string[]; locais: string[]; precedentes: string[] }
+export interface FontesConsultadas { legislacao: string[]; naoLocalizados: string[]; indisponiveis: string[]; locais: string[]; precedentes: string[]; consultado?: boolean }
 
 export interface AssessorDraftAuditResult {
   coberturaLeitura?: GenerationResult["coberturaLeitura"];
