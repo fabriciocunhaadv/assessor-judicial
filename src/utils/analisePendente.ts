@@ -31,3 +31,16 @@ export function lerCorpo(body: string): any {
   const t = String(body || "").trim(), i = t.indexOf("{"), j = t.lastIndexOf("}");
   return JSON.parse(i >= 0 && j >= i ? t.slice(i, j + 1) : t);
 }
+
+// ----- marcadores dos módulos (Turbo, Lupa): um por módulo -----
+export type ModuloPendente = "turbo" | "lupa";
+export interface PendenteModulo { progId: string; iniciadoEm: number; uid?: string; tenant?: string; unitName?: string; promptTitle?: string; processNumber?: string; assessorName?: string; draftText?: string; specificInstructions?: string; pdfFileNames?: string[]; contexto?: string }
+const chaveModulo = (m: ModuloPendente) => `assessor_pendente_${m}`;
+export function salvarPendenteModulo(m: ModuloPendente, d: PendenteModulo): void { try { localStorage.setItem(chaveModulo(m), JSON.stringify(d)); } catch { /* sem armazenamento: segue sem recuperação */ } }
+export function lerPendenteModulo(m: ModuloPendente): PendenteModulo | null {
+  try { const p = JSON.parse(localStorage.getItem(chaveModulo(m)) || "null"); if (!p?.progId || Date.now() - Number(p.iniciadoEm || 0) > VALIDADE_MS) { if (p) localStorage.removeItem(chaveModulo(m)); return null; } return p; } catch { return null; }
+}
+export function limparPendenteModulo(m: ModuloPendente, progId?: string): void { try { const p = JSON.parse(localStorage.getItem(chaveModulo(m)) || "null"); if (!progId || !p || p.progId === progId) localStorage.removeItem(chaveModulo(m)); } catch { /* ignora */ } }
+
+/** Pedidos de módulos que ESTA página ainda está esperando: a recuperação automática não mexe neles (a própria tela já vai receber o resultado). */
+export const ativosNestaPagina = new Set<string>();

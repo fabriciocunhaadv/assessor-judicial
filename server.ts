@@ -468,9 +468,10 @@ const guardarResultado = (id: string, status: number, body: string, dono: string
     while (caixaResultados.size >= 30) caixaResultados.delete(caixaResultados.keys().next().value as string);
     caixaResultados.set(id, { ate: agora + 60 * 60_000, status, body, dono });
 };
-app.use(["/api/generate-minute", "/api/generate-minute-turbo"], (req: any, res: any, next: any) => {
+app.use(["/api/generate-minute", "/api/generate-minute-turbo", "/api/audit-assessor-draft", "/api/hearing-copilot"], (req: any, res: any, next: any) => {
     const id = String(req.headers["x-progresso-id"] || "").slice(0, 80);
     if (req.method !== "POST" || !id) return next();
+    if (!progressos.has(id)) setProg(id, "Em processamento no servidor…", null);      // a página que voltar saberá que a análise existe, mesmo nos módulos que não informam andamento
     const dono = String(req.usuarioSessao?.uid || "");
     const partes: Buffer[] = []; let tam = 0;
     const juntar = (c: any) => { try { if (c && typeof c !== "function" && tam < 8_000_000) { const b = Buffer.isBuffer(c) ? c : Buffer.from(String(c)); partes.push(b); tam += b.length; } } catch { /* ignora */ } };

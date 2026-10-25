@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { globalTenantId } from "../lib/firestoreUtils";
+import { fetchRecuperavel } from "../utils/fetchRecuperavel";
+import { salvarPendenteModulo, limparPendenteModulo } from "../utils/analisePendente";
 import { AvisoPromptInjection } from "./AvisoPromptInjection";
 import ReactMarkdown from 'react-markdown';
 import {
@@ -836,7 +839,7 @@ ${specificInstructions}`
         pageCount: p.pageCount,
       }));
 
-      const response = await fetch("/api/audit-assessor-draft", {
+      const response = await fetchRecuperavel("/api/audit-assessor-draft", {
         method: "POST",
         headers: getApiHeaders({ "x-progresso-id": progressoId }),
         body: JSON.stringify({
@@ -850,7 +853,12 @@ ${specificInstructions}`
           customPromptText: selectedPrompt?.promptText || "",
           cabinetTesesText: (await getCabinetTeses().catch(() => null))?.text || "",
         }),
-      });
+      }, { aoSalvarMarcador: (id) => salvarPendenteModulo("lupa", {
+        progId: id, iniciadoEm: Date.now(), uid: user?.uid, tenant: globalTenantId || "sem_gabinete",
+        processNumber: processNumberInput.trim() || extractProcessNumberFromText(draftText, [processText, ...pdfFiles.map((p) => p.name + "\n" + (p.extractedText || ""))]) || "Processo TJGO",
+        assessorName: assessorNameInput.trim() || nomeDoUsuario || "Assessor(a) do Gabinete", draftText: draftText.slice(0, 120000), specificInstructions: String(specificInstructions || "").slice(0, 4000),
+        pdfFileNames: pdfFiles.map((p) => p.name), contexto: (fullProcessText || processText || "").slice(0, 4000),
+      }) });
 
       if (!response.ok) {
         let errStr = "Falha na requisição de auditoria.";
@@ -1023,6 +1031,7 @@ ${specificInstructions}`
       clearInterval(stepInterval);
       setIsAuditing(false);
       setAuditStep("");
+      limparPendenteModulo("lupa", progressoId);
     }
   };
 

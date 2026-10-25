@@ -25,6 +25,8 @@ import { getApiHeaders } from "../utils/apiKeyManager";
 import { extractTextFromPdf } from "../utils/pdfExtractor";
 import { useCoberturaLeitura } from "./useCoberturaLeitura";
 import { GiganteDialog, EscolhaGigante } from "./GiganteDialog";
+import { fetchRecuperavel } from "../utils/fetchRecuperavel";
+import { salvarPendenteModulo, limparPendenteModulo } from "../utils/analisePendente";
 import { gerenteGigantes, ConfigGigante } from "../utils/gigantes/gerente";
 import { descreverCorte, juntarComoServidor, CorteInfo } from "../utils/corteAutos";
 
@@ -312,6 +314,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
       setPdfFile({ ...pdfFile, text: up.extractedText, paginasSemTexto: up.paginasSemTexto, paginasNaoLidas: up.paginasNaoLidas, paginasOcr: up.paginasOcr });
     }
 
+    const progTurbo = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `t-${Date.now()}`);      // mesmo código em todas as tentativas: o resultado que ficou no servidor é encontrado
     let controller = new AbortController();
     let abortTimeout: any = null;
     const limiteMs = () => (globalThis as any).__turboTimeoutMs ?? 180000; // 3 minutos: passou disso, o processo vai para o segundo plano (leitura em lotes) em vez de deixar a tela presa
@@ -336,7 +339,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
         controller = new AbortController();
         abortTimeout = setTimeout(() => controller.abort(), limiteMs());
         try {
-          const response = await fetch("/api/generate-minute-turbo", { method: "POST", headers: getApiHeaders(), signal: controller.signal, body: corpoDaRequisicao });
+          const response = await fetchRecuperavel("/api/generate-minute-turbo", { method: "POST", headers: getApiHeaders({ "x-progresso-id": progTurbo }), signal: controller.signal, body: corpoDaRequisicao }, { aoSalvarMarcador: (id) => salvarPendenteModulo("turbo", { progId: id, iniciadoEm: Date.now(), uid: user?.uid, tenant: globalTenantId || "sem_gabinete", unitName: activeUnitName, promptTitle: selectedPrompt?.title || "" }) });
           // o servidor responde o cabeçalho logo e mantém a conexão viva enquanto a IA trabalha: o limite de tempo só pode cair DEPOIS de ler o corpo inteiro
           const rawText = await response.text();
           clearTimeout(abortTimeout);
@@ -480,6 +483,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
       }
     } finally {
       setIsLoading(false);
+      limparPendenteModulo("turbo", progTurbo);
     }
   };
 

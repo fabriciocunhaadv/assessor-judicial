@@ -1,3 +1,4 @@
+import { fetchRecuperavel } from "../utils/fetchRecuperavel";
 import { MutiraoPrevidenciarioView } from './MutiraoPrevidenciarioView';
 import { EtiquetaValidade } from "./EtiquetaValidade";
 import { referenciaAudiencia } from "../utils/retencaoRegras";
@@ -263,7 +264,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
     const access = checkUserAiAccess(userProfile, user?.email);
     if (!access.canExecute) { requestOpenApiKeyModal(access.message); throw new Error(access.message || 'Sem acesso à IA.'); }
     const blocks = numerarBlocos(currentHtml);
-    const response = await fetch('/api/hearing-copilot', {
+    const response = await fetchRecuperavel('/api/hearing-copilot', {
       method: 'POST',
       headers: getApiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ actionType: 'preliminary_minutes_edit', instruction, blocks, caseText: activeHearing.rawSourceText || caseInputText || '', processNumber: activeHearing.processNumber }),
@@ -320,7 +321,7 @@ export const HearingWorkbenchModal: React.FC<HearingWorkbenchModalProps> = ({
         } catch {}
       }
 
-      const response = await fetch('/api/hearing-copilot', {
+      const response = await fetchRecuperavel('/api/hearing-copilot', {
         method: 'POST',
         headers: getApiHeaders({
           'Content-Type': 'application/json',

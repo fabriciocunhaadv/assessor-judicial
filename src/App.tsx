@@ -61,7 +61,8 @@ import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
 import { registrarOperacao } from "./utils/monitorOperacao";
 import { iniciarMedidor } from "./utils/medidorEnvio";
-import { salvarPendente, lerPendente, limparPendente, consultarResultado, lerCorpo } from "./utils/analisePendente";
+import { salvarPendente, lerPendente, limparPendente, consultarResultado, lerCorpo, lerPendenteModulo, limparPendenteModulo, ativosNestaPagina, type ModuloPendente } from "./utils/analisePendente";
+import { saveAudit as salvarAuditoria } from "./utils/auditDb";
 import { AvisoNovaVersao } from "./components/AvisoNovaVersao";
 import { unirFontes } from "./utils/fontesConsultadas";
 import { instalarEnvioDePrecedentes } from "./utils/precedentesNaAnalise";
@@ -1581,9 +1582,55 @@ export default function App() {
       toast.error("A análise ainda não terminou no servidor. Abra o sistema de novo em alguns minutos.", { id: tid, duration: 9000 });
     } finally { recuperandoRef.current = false; }
   };
+  // Turbo e Lupa: se a página fechou no meio, busca o resultado no servidor e guarda onde cada módulo guarda o seu (histórico do Turbo; lista de auditorias da Lupa).
+  const modulosRecuperandoRef = useRef<Set<string>>(new Set());
+  const recuperarModulo = async (tipo: ModuloPendente) => {
+    const pend = lerPendenteModulo(tipo);
+    if (!pend || modulosRecuperandoRef.current.has(tipo) || ativosNestaPagina.has(pend.progId)) return;
+    if (pend.uid && user?.uid && pend.uid !== user.uid) return;
+    modulosRecuperandoRef.current.add(tipo);
+    const nome = tipo === "turbo" ? "o Turbo" : "a Lupa do Magistrado", tid = `retomada-${tipo}`, esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    try {
+      toast.loading(`Retomando ${nome}, que estava rodando no servidor…`, { id: tid });
+      const limite = Date.now() + 25 * 60_000;
+      while (Date.now() < limite) {
+        if (ativosNestaPagina.has(pend.progId)) { toast.dismiss(tid); return; }
+        let r: any = null; try { r = await consultarResultado(pend.progId); } catch { r = null; }
+        if (!r) { await esperar(5000); continue; }
+        if (r.desconhecido) { toast(`A execução anterior d${tipo === "turbo" ? "o Turbo" : "a Lupa"} não foi encontrada no servidor (ele pode ter sido reiniciado). Rode de novo.`, { id: tid, icon: "ℹ️", duration: 9000 }); limparPendenteModulo(tipo, pend.progId); return; }
+        if (r.pronto) {
+          limparPendenteModulo(tipo, pend.progId);
+          let raw: any; try { raw = lerCorpo(r.body || ""); } catch { raw = null; }
+          if (!raw || r.status !== 200 || raw.error) { toast.error(String(raw?.error || `${nome[0].toUpperCase() + nome.slice(1)} terminou com erro no servidor. Rode de novo.`), { id: tid, duration: 9000 }); return; }
+          if (tipo === "turbo") {
+            const m = raw.minute; if (!m) { toast.error("O Turbo não devolveu uma minuta válida. Rode de novo.", { id: tid }); return; }
+            const chave = `assessor_turbo_history::${pend.tenant || "sem_gabinete"}`;
+            let lista: any[] = []; try { lista = JSON.parse(localStorage.getItem(chave) || "[]"); } catch { lista = []; }
+            const item = { id: `turbo-rec-${Date.now()}`, date: new Date().toLocaleString("pt-BR"), processNumber: m.processNumber || "Processo s/ número", title: m.title || "Minuta Turbo", parties: `${m.parties?.author || m.author || "Parte Autora"} vs ${m.parties?.defendant || m.defendant || "Parte Ré"}`, elapsedSeconds: raw.stats?.elapsedSeconds || "—", tenant: pend.tenant || "sem_gabinete", userName: user?.displayName || user?.email?.split("@")[0] || "Assessor", minute: m };
+            try { localStorage.setItem(chave, JSON.stringify([item, ...lista].slice(0, 100))); } catch { /* sem espaço: avisa abaixo */ }
+            toast.success("Turbo recuperado: a minuta ficou pronta enquanto você estava fora. Abra o Módulo Turbo para ver (fica nas “Minutas Recentes”).", { id: tid, duration: 12000 });
+            return;
+          }
+          // Lupa
+          if (typeof raw.score !== "number" && !raw.verdict) { toast.error("A Lupa não devolveu uma auditoria válida. Rode de novo.", { id: tid }); return; }
+          await salvarAuditoria({
+            id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, processNumber: pend.processNumber || "Processo TJGO", assessorName: pend.assessorName || "Assessor(a) do Gabinete",
+            createdBy: user?.uid || "anonymous", creatorName: user?.displayName || user?.email?.split("@")[0] || "Assessor", creatorEmail: user?.email || "", date: Date.now(),
+            score: raw.score, verdict: raw.verdict, verdictColor: raw.verdictColor, processText: pend.contexto || "[texto dos autos não guardado na recuperação]", assessorDraft: pend.draftText || "",
+            specificDirectives: pend.specificInstructions || "", auditResult: raw, judgeNotes: "", status: raw.score >= 90 ? "aprovado" : "pendente_correcao", pdfFileNames: pend.pdfFileNames || [], version: 1, versionLabel: "Versão 1 (Original)",
+          } as any);
+          toast.success("Lupa recuperada: a auditoria ficou pronta enquanto você estava fora. Abra a Lupa do Magistrado para ver (lista de auditorias).", { id: tid, duration: 12000 });
+          return;
+        }
+        toast.loading(`Retomando ${nome} no servidor…${r.andamento?.decorridoSeg ? ` (${r.andamento.decorridoSeg}s)` : ""}`, { id: tid });
+        await esperar(4000);
+      }
+      toast.error(`${nome[0].toUpperCase() + nome.slice(1)} ainda não terminou no servidor. Abra o sistema de novo em alguns minutos.`, { id: tid, duration: 9000 });
+    } finally { modulosRecuperandoRef.current.delete(tipo); }
+  };
   useEffect(() => {
     if (!user?.uid) return;
-    const tentar = () => { if (!document.hidden) void recuperarPendente(); };
+    const tentar = () => { if (!document.hidden) { void recuperarPendente(); void recuperarModulo("turbo"); void recuperarModulo("lupa"); } };
     const t = setTimeout(tentar, 1500);
     document.addEventListener("visibilitychange", tentar); window.addEventListener("pageshow", tentar); window.addEventListener("online", tentar);
     return () => { clearTimeout(t); document.removeEventListener("visibilitychange", tentar); window.removeEventListener("pageshow", tentar); window.removeEventListener("online", tentar); };
