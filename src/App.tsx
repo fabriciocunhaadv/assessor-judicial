@@ -61,6 +61,7 @@ import { SavedKnowledgeDoc, getKnowledgeDocs } from "./utils/knowledgeDb";
 import { definirSuperAdminHistorico } from "./lib/firestoreUtils";
 import { registrarOperacao } from "./utils/monitorOperacao";
 import { iniciarMedidor } from "./utils/medidorEnvio";
+import { salvarPendente, lerPendente, limparPendente, consultarResultado, lerCorpo } from "./utils/analisePendente";
 import { AvisoNovaVersao } from "./components/AvisoNovaVersao";
 import { unirFontes } from "./utils/fontesConsultadas";
 import { instalarEnvioDePrecedentes } from "./utils/precedentesNaAnalise";
@@ -304,6 +305,8 @@ export default function App() {
     }
   });
   const [isProceedingToStage2, setIsProceedingToStage2] = useState<boolean>(false);
+  // recuperação da análise quando o navegador do celular fecha a página ou perde a conexão (a análise continua no servidor)
+  const pendenteAtualRef = useRef<string | null>(null), conexaoPerdidaRef = useRef(false), recuperandoRef = useRef(false), ocupadoRef = useRef(false);
   const [isTurboModalOpen, setIsTurboModalOpen] = useState<boolean>(false);
   // Lupa, Mesa e Turbo abrem no corpo principal e nunca ao mesmo tempo: abrir um fecha os outros
   const abrirModuloPrincipal = (qual: "lupa" | "mesa" | "turbo") => {
@@ -1158,6 +1161,8 @@ export default function App() {
 
       const novoProg = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `p-${Date.now()}`);
       setProgId(novoProg);
+      pendenteAtualRef.current = novoProg; conexaoPerdidaRef.current = false;
+      salvarPendente({ progId: novoProg, tipo: "analise", iniciadoEm: Date.now(), uid: user?.uid, promptTitle: activePrompt.title, promptId: activePrompt.id, promptCategory: activePrompt.category, promptScope: activePrompt.scope, unitId: activeUnit?.id, unitName: activeUnit?.name, processNumber, contexto: effectiveText ? "" : `[PDFs anexados: ${effectivePdfFiles.map((p) => p.name).join(", ")}]` });
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           response = await fetch("/api/generate-minute", {
@@ -1382,6 +1387,13 @@ export default function App() {
         err?.name === 'AbortError' ||
         err?.message?.includes('AbortError');
 
+      const conexaoPerdida = (err?.name !== 'AbortError') && (isNetworkDisconnection || /interrompida momentaneamente pela rede/.test(String(err?.message || "")));
+      if (conexaoPerdida && lerPendente()?.progId === pendenteAtualRef.current) {
+        // a análise segue no servidor: em vez de pedir para começar de novo, busca o resultado quando a conexão voltar
+        conexaoPerdidaRef.current = true;
+        toast("A conexão caiu, mas a análise continua no servidor. Vou buscar o resultado assim que a conexão voltar.", { icon: "🔄", duration: 8000 });
+        return;
+      }
       if (isNetworkDisconnection) {
         console.log("[Assessor Judicial] Interrupção momentânea de rede na execução:", err?.message || err);
       } else {
@@ -1436,6 +1448,8 @@ export default function App() {
     } finally {
       setIsLoading(false);
       setLoadingStep("");
+      if (conexaoPerdidaRef.current) { conexaoPerdidaRef.current = false; setTimeout(() => { void recuperarPendente(true); }, 1500); }
+      else if (pendenteAtualRef.current) limparPendente(pendenteAtualRef.current);
     }
   };
 
@@ -1516,6 +1530,64 @@ export default function App() {
       return updatedResult;
     });
   };
+
+  ocupadoRef.current = isLoading || isProceedingToStage2;
+  // Busca no servidor o resultado de uma análise que ficou pendente (página fechada pelo celular, conexão perdida...) e o mostra como se tivesse acabado de chegar.
+  const recuperarPendente = async (forcar = false) => {
+    const pend = lerPendente();
+    if (!pend || recuperandoRef.current || (!forcar && ocupadoRef.current)) return;
+    if (pend.uid && user?.uid && pend.uid !== user.uid) return;
+    recuperandoRef.current = true;
+    const tid = "retomada-analise", esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    try {
+      toast.loading("Retomando a análise que estava rodando no servidor…", { id: tid });
+      const limite = Date.now() + 25 * 60_000;
+      while (Date.now() < limite) {
+        let r: any = null; try { r = await consultarResultado(pend.progId); } catch { r = null; }
+        if (!r) { await esperar(5000); continue; }      // sem conexão ainda: tenta de novo
+        if (r.desconhecido) { toast("A análise anterior não foi encontrada no servidor (ele pode ter sido reiniciado). Inicie de novo.", { id: tid, icon: "ℹ️", duration: 9000 }); limparPendente(pend.progId); return; }
+        if (r.pronto) {
+          limparPendente(pend.progId);
+          let raw: any; try { raw = lerCorpo(r.body || ""); } catch { raw = null; }
+          if (!raw || r.status !== 200 || raw.error || raw.isError) { toast.error(String(raw?.error || "A análise terminou com erro no servidor. Inicie de novo."), { id: tid, duration: 9000 }); return; }
+          if (!raw.minute) { toast.error("O servidor não devolveu uma minuta válida. Inicie de novo.", { id: tid }); return; }
+          if (pend.tipo === "etapa2") {
+            setGenerationResult((prev) => ({ ...raw, autosReduzidos: raw.autosReduzidos || prev?.autosReduzidos, alertaInjecao: raw.alertaInjecao || prev?.alertaInjecao, fontesConsultadas: unirFontes(prev?.fontesConsultadas, raw.fontesConsultadas), coberturaLeitura: raw.coberturaLeitura || prev?.coberturaLeitura }));
+            toast.success("2ª Etapa recuperada: a minuta definitiva ficou pronta no servidor.", { id: tid, duration: 8000 });
+            return;
+          }
+          const primeira: MinuteData = JSON.parse(JSON.stringify(raw.minute));
+          const indicacaoTpuCnj = raw.indicacaoTpuCnj || raw.minute?.indicacaoTpuCnj || raw.auditAnalysis?.indicacaoTpuCnj;
+          if (indicacaoTpuCnj && !primeira.indicacaoTpuCnj) primeira.indicacaoTpuCnj = indicacaoTpuCnj;
+          const data: GenerationResult = { ...raw, indicacaoTpuCnj, originalMinute: raw.originalMinute || primeira };
+          setGenerationResult(data);
+          const num = (data.minute?.processNumber && !/extrair|não informado/i.test(data.minute.processNumber)) ? data.minute.processNumber : (pend.processNumber && !/extrair/i.test(pend.processNumber) ? pend.processNumber : (data.minute?.processNumber || "Sem Número"));
+          if (num && num !== "Sem Número") setProcessNumber(num);
+          const id = (data as any).analysisId || crypto.randomUUID();
+          setCurrentAnalysisId(id); setCurrentChatMessages([]);
+          const gravado = await saveToHistory({
+            id, unitId: pend.unitId || "montes_claros", promptTitle: pend.promptTitle || "Análise recuperada", promptId: pend.promptId, promptCategory: (pend.promptCategory as any) || "civel", promptScope: (pend.promptScope as any) || "judicial",
+            date: Date.now(), processNumber: num,
+            result: { ...data, minute: data.minute ? { ...data.minute, judicialUnit: pend.unitName || data.minute.judicialUnit } : data.minute },
+            originalMinute: data.originalMinute || primeira, processTextContext: pend.contexto || "", createdBy: user?.uid || "anonymous",
+            creatorName: user?.displayName || user?.email?.split("@")[0] || "Assessor", creatorEmail: user?.email || "", chatMessages: [],
+          } as SavedAnalysis);
+          toast.success(gravado.ok ? "Análise recuperada: a minuta ficou pronta enquanto você estava fora e já está no Histórico." : "Análise recuperada: a minuta está na tela, mas NÃO foi gravada no Histórico. Copie ou salve agora.", { id: tid, duration: 10000 });
+          return;
+        }
+        toast.loading(`Retomando a análise no servidor… ${r.andamento?.texto || ""}${r.andamento?.decorridoSeg ? ` (${r.andamento.decorridoSeg}s)` : ""}`, { id: tid });
+        await esperar(4000);
+      }
+      toast.error("A análise ainda não terminou no servidor. Abra o sistema de novo em alguns minutos.", { id: tid, duration: 9000 });
+    } finally { recuperandoRef.current = false; }
+  };
+  useEffect(() => {
+    if (!user?.uid) return;
+    const tentar = () => { if (!document.hidden) void recuperarPendente(); };
+    const t = setTimeout(tentar, 1500);
+    document.addEventListener("visibilitychange", tentar); window.addEventListener("pageshow", tentar); window.addEventListener("online", tentar);
+    return () => { clearTimeout(t); document.removeEventListener("visibilitychange", tentar); window.removeEventListener("pageshow", tentar); window.removeEventListener("online", tentar); };
+  }, [user?.uid]);
 
   if (authLoading) {
     return (
@@ -1887,6 +1959,8 @@ export default function App() {
     setIsProceedingToStage2(true);
     const progStage2 = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `p2-${Date.now()}`);
     setProgId(progStage2);
+    salvarPendente({ progId: progStage2, tipo: "etapa2", iniciadoEm: Date.now(), uid: user?.uid, processNumber });
+    let perdeuConexao2 = false;
     const toastId = toast.loading("Executando 2ª Etapa: Juiz Revisor e Matriz Forense...");
     try {
       const stage1Snapshot = generationResult.stage1Snapshot || {
@@ -1957,9 +2031,13 @@ export default function App() {
       toast.success("2ª Etapa concluída com sucesso! Minuta definitiva consolidada.", { id: toastId });
     } catch (err: any) {
       console.error("Erro na 2ª etapa:", err);
-      toast.error(err.message || "Erro na 2ª etapa da minuta.", { id: toastId });
+      if (err?.name === "TypeError" || /Failed to fetch|NetworkError|Load failed|network/i.test(String(err?.message || ""))) {
+        perdeuConexao2 = true;
+        toast("A conexão caiu, mas a 2ª etapa continua no servidor. Vou buscar o resultado assim que a conexão voltar.", { id: toastId, icon: "🔄", duration: 8000 });
+      } else toast.error(err.message || "Erro na 2ª etapa da minuta.", { id: toastId });
     } finally {
       setIsProceedingToStage2(false);
+      if (perdeuConexao2) setTimeout(() => { void recuperarPendente(true); }, 1500); else limparPendente(progStage2);
     }
   };
 

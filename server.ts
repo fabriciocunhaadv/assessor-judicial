@@ -459,6 +459,36 @@ function setProg(id: string, texto: string, pct?: number | null, teto?: number) 
     progressos.set(id, { texto, pct: novo, teto: Math.min(99, teto ?? a?.teto ?? 99), ini: a?.ini ?? Date.now(), t: Date.now() });
     if (progressos.size > 200) for (const [k, v] of progressos) if (Date.now() - v.t > 30 * 60000) progressos.delete(k);
 }
+// CAIXA DE RESULTADOS: a análise continua no servidor mesmo que o navegador (principalmente no celular) feche a página ou perca a conexão. O resultado fica guardado por 1 hora, pelo
+// código da análise (x-progresso-id), e a página, ao voltar, busca em /api/resultado/:id em vez de obrigar o usuário a começar de novo.
+const caixaResultados = new Map<string, { ate: number; status: number; body: string; dono: string }>();
+const guardarResultado = (id: string, status: number, body: string, dono: string) => {
+    const agora = Date.now();
+    for (const [k, v] of caixaResultados) if (v.ate < agora) caixaResultados.delete(k);
+    while (caixaResultados.size >= 30) caixaResultados.delete(caixaResultados.keys().next().value as string);
+    caixaResultados.set(id, { ate: agora + 60 * 60_000, status, body, dono });
+};
+app.use(["/api/generate-minute", "/api/generate-minute-turbo"], (req: any, res: any, next: any) => {
+    const id = String(req.headers["x-progresso-id"] || "").slice(0, 80);
+    if (req.method !== "POST" || !id) return next();
+    const dono = String(req.usuarioSessao?.uid || "");
+    const partes: Buffer[] = []; let tam = 0;
+    const juntar = (c: any) => { try { if (c && typeof c !== "function" && tam < 8_000_000) { const b = Buffer.isBuffer(c) ? c : Buffer.from(String(c)); partes.push(b); tam += b.length; } } catch { /* ignora */ } };
+    const escrever = res.write.bind(res), terminar = res.end.bind(res);
+    res.write = (c: any, ...a: any[]) => { juntar(c); return escrever(c, ...a); };
+    res.end = (c?: any, ...a: any[]) => { juntar(c); const r = terminar(c, ...a); try { guardarResultado(id, res.statusCode || 200, Buffer.concat(partes).toString("utf8"), dono); } catch { /* sem guardar */ } return r; };
+    next();
+});
+app.get("/api/resultado/:id", (req: any, res) => {
+    const id = String(req.params.id || "").slice(0, 80), r = caixaResultados.get(id);
+    const uid = String(req.usuarioSessao?.uid || "");
+    if (r && r.dono && uid && r.dono !== uid) return res.status(404).json({ pronto: false, desconhecido: true });
+    if (r && r.ate > Date.now()) return res.json({ pronto: true, status: r.status, body: r.body });
+    const p = progressos.get(id);
+    if (p && Date.now() - p.t < 20 * 60_000) return res.json({ pronto: false, andamento: { texto: p.texto, pct: p.pct, decorridoSeg: Math.round((Date.now() - p.ini) / 1000) } });
+    res.json({ pronto: false, desconhecido: true });
+});
+
 app.get("/api/progresso/:id", (req, res) => {
     const p = progressos.get(String(req.params.id || ""));
     res.json(p ? { texto: p.texto, pct: p.pct, teto: p.teto, decorridoSeg: Math.round((Date.now() - p.ini) / 1000), idadeSeg: Math.round((Date.now() - p.t) / 1000) } : {});
