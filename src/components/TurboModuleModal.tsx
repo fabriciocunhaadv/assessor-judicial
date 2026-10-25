@@ -314,7 +314,7 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
 
     let controller = new AbortController();
     let abortTimeout: any = null;
-    const limiteMs = () => (globalThis as any).__turboTimeoutMs ?? 780000; // 13 minutos: processos grandes passam por várias partes e esperam a janela de 1 minuto da IA
+    const limiteMs = () => (globalThis as any).__turboTimeoutMs ?? 180000; // 3 minutos: passou disso, o processo vai para o segundo plano (leitura em lotes) em vez de deixar a tela presa
     const corpoDaRequisicao = JSON.stringify({
           // Não duplica o texto no body: envia apenas em processText ou no array de pdfFiles
           processText: inputMode === "text" ? effectiveText : "",
@@ -467,14 +467,14 @@ export const TurboModuleModal: React.FC<TurboModuleModalProps> = ({
           await gerenteGigantes.iniciarComTextos([{ nome: pdfFile?.name || "Texto dos autos (colado)", texto: textoDosAutos, pageCount: paginasBg, semTexto: pdfFile?.paginasSemTexto, naoLidas: pdfFile?.paginasNaoLidas, arquivo: async () => pdfFile?.file || null }], config);
           window.dispatchEvent(new CustomEvent("gigantes:abrir"));
           void registrarOperacao({ ...dadosOp(), processo: (textoDosAutos.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/) || [""])[0], resultado: "segundo_plano", erro: String(error?.message || error) });
-          toast("Turbo indisponível agora: este processo foi para o segundo plano e será refeito pela análise normal. A minuta irá para o Histórico.", { icon: "🔁", duration: 12000 });
+          toast(error?.name === "AbortError" ? "O Turbo passou de 3 minutos: este processo foi para o segundo plano e será lido em lotes pela análise normal. A minuta irá para o Histórico (acompanhe pelo selo “Gigantes”)." : "Turbo indisponível agora: este processo foi para o segundo plano e será refeito pela análise normal. A minuta irá para o Histórico.", { icon: "🔁", duration: 12000 });
           setIsLoading(false);
           return;
         } catch (bgErr) { console.warn("Segundo plano do Turbo:", bgErr); }
       }
       void registrarOperacao({ ...dadosOp(), processo: (textoDosAutos.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/) || [""])[0], resultado: "erro", erro: String(error?.message || error) });
       if (error.name === "AbortError") {
-        toast.error("O processamento turbo demorou além do limite (timeout). Tente novamente.");
+        toast.error("O processamento turbo demorou além do limite de 3 minutos. Tente novamente.");
       } else {
         toast.error(error.message || "Erro ao processar minuta turbo.");
       }

@@ -63,7 +63,7 @@ export function GiganteDialog({ paginas, tokens, corte, lento, onEscolha }: { pa
           <button onClick={() => onEscolha("normal")} className="w-full text-left p-3 rounded-xl border border-amber-400 bg-amber-50 hover:bg-amber-100 cursor-pointer" data-testid="gigante-normal">
             <div className="text-xs font-black text-amber-900">{lento ? "➡️ Rodar no Turbo mesmo assim (pode demorar vários minutos)" : "➡️ Tentar a análise normal mesmo assim (parte dos autos NÃO será lida)"}</div>
             <div className="text-[11px] text-slate-700 space-y-1 mt-0.5">
-              {lento ? <p>O Turbo lê os autos de uma vez, dividindo o pedido se passar do limite da chave. Fique com a tela aberta até terminar (a espera máxima é de 13 minutos).</p> : (<>
+              {lento ? <p>O Turbo lê os autos de uma vez, dividindo o pedido se passar do limite da chave. Fique com a tela aberta até terminar (se passar de 3 minutos, o processo segue sozinho para a leitura em lotes, em segundo plano).</p> : (<>
               <p>Mais rápida, mas o sistema só lê até o limite e <strong>corta o restante</strong>. Se você continuar:</p>
               {cortado}
               <p>Ao terminar, a minuta traz um aviso vermelho com <strong>exatamente quais páginas ficaram de fora</strong>, e a IA é instruída a não afirmar “não há prova” por causa delas.</p></>)}
