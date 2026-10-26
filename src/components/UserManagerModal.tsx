@@ -940,12 +940,12 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({ isOpen, onCl
                                   if (!lista.length) return <div className="px-3 py-2 text-[11px] text-slate-500">Nenhuma chave visível para o administrador.</div>;
                                   return lista.map((k, i) => (
                                     <div key={k.id} className="flex items-center justify-between gap-3 px-3 py-1.5 text-[11px]">
-                                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{k.label}{(u.activeKeyId ? k.id === u.activeKeyId : i === 0) ? " · ativa" : ""}</span>
-                                      <code className="font-mono text-slate-500 dark:text-slate-400">{getMaskedApiKey(k.key)}</code>
+                                      <span className="font-semibold text-slate-700 dark:text-slate-200 shrink-0">{k.label}{(u.activeKeyId ? k.id === u.activeKeyId : i === 0) ? " · ativa" : ""}</span>
+                                      <code className="font-mono text-slate-600 dark:text-slate-300 break-all select-all text-right">{k.key}</code>
                                     </div>
                                   ));
                                 })()}
-                                <div className="px-3 py-1 text-[10px] text-slate-400">A chave completa fica oculta por segurança; só o início e o fim aparecem.</div>
+                                <div className="px-3 py-1 text-[10px] text-slate-400">Chave completa: clique duas vezes para selecionar e copiar. Não compartilhe.</div>
                               </div>
                             )}
                           </div>
