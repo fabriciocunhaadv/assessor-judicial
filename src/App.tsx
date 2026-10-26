@@ -2891,6 +2891,16 @@ export default function App() {
         isOpen={isLegislativeModalOpen}
         onClose={() => setIsLegislativeModalOpen(false)}
         processContext={processText}
+        onInsertText={(texto, rotulo) => {
+          if (generationResult && generationResult.minute) {
+            const atual = generationResult.minute.fundamentacao || "";
+            handleUpdateMinute({ ...generationResult.minute, fundamentacao: atual ? `${atual}\n\n${texto}` : texto });
+            toast.success(`Inserido na fundamentação da minuta: ${rotulo}.`);
+          } else {
+            navigator.clipboard.writeText(texto);
+            toast.success("Sem minuta aberta: o texto foi copiado para a área de transferência.");
+          }
+        }}
         onInsertClause={(clauseText) => {
           if (generationResult && generationResult.minute) {
             const currentDisp = generationResult.minute.dispositivo || "";

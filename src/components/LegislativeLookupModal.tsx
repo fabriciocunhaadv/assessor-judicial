@@ -42,6 +42,7 @@ interface LegislativeLookupModalProps {
   initialQuery?: string;
   processContext?: string;
   onInsertClause?: (clauseText: string) => void;
+  onInsertText?: (texto: string, rotulo: string) => void;      // insere dispositivos legais na fundamentação da minuta
 }
 
 export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
@@ -50,6 +51,7 @@ export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
   initialQuery = "",
   processContext = "",
   onInsertClause,
+  onInsertText,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>(initialQuery);
   const [selectedFrameworkId, setSelectedFrameworkId] = useState<string>("civil_geral");
@@ -457,17 +459,45 @@ export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
                   {/* Artigos Relevantes */}
                   {apiResult.artigosRelevantes && apiResult.artigosRelevantes.length > 0 && (
                     <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                       <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5 text-indigo-600" />
                         Dispositivos Legais Relevantes
                       </h5>
+                      {onInsertText && (
+                        <button
+                          onClick={() => {
+                            const vigentes = apiResult.artigosRelevantes.filter((a) => !/REVOGADO/.test(a.artigo));
+                            if (!vigentes.length) return;
+                            onInsertText(vigentes.map((a) => `${a.artigo}: "${a.texto}"`).join("\n\n"), `${vigentes.length} dispositivo(s)`);
+                          }}
+                          className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition flex items-center gap-1"
+                          title="Insere todos os dispositivos vigentes na fundamentação da minuta (os revogados ficam de fora)"
+                        >
+                          Inserir tudo na fundamentação
+                        </button>
+                      )}
+                      </div>
                       <div className="space-y-2">
                         {apiResult.artigosRelevantes.map((art, i) => (
                           <div
                             key={i}
                             className="bg-white p-3 rounded-lg border border-slate-200 text-xs space-y-1"
                           >
-                            <span className="font-bold text-indigo-900 block">{art.artigo}</span>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-bold text-indigo-900 block">{art.artigo}</span>
+                              {onInsertText && (
+                                <button
+                                  onClick={() => {
+                                    if (/REVOGADO/.test(art.artigo) && !window.confirm("Este artigo está REVOGADO. Inserir mesmo assim na minuta?")) return;
+                                    onInsertText(`${art.artigo}: "${art.texto}"`, art.artigo);
+                                  }}
+                                  className="shrink-0 px-2 py-0.5 rounded border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-[10px] font-bold transition"
+                                >
+                                  Inserir na fundamentação
+                                </button>
+                              )}
+                            </div>
                             <p className="text-slate-700 italic font-mono text-[11px] bg-slate-50 p-2 rounded border border-slate-100">
                               "{art.texto}"
                             </p>
