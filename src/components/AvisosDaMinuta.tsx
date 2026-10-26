@@ -46,6 +46,16 @@ export function AvisosDaMinuta({ result }: { result: Partial<GenerationResult> &
     conteudo: <div data-testid="aviso-localizacao" className="max-w-4xl mx-auto rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"><strong>Conferir localização:</strong> a minuta cita {loc.movsInexistentes.map((n: number) => `Mov. ${n}`).join(", ")}, que não aparece(m) nos carimbos dos autos enviados. Confira antes de usar.</div>,
   });
 
+  const caixa = (cor: string, testid: string, children: React.ReactNode) => <div data-testid={testid} className={`max-w-4xl mx-auto rounded-lg border px-3 py-2 text-xs ${cor}`}>{children}</div>;
+  const comp = result?.avisoCompetencia;
+  if (comp) itens.push({ id: "competencia", tom: "perigo", rotulo: "⚖️ Conferir competência do juízo", conteudo: caixa("border-red-400 bg-red-50 text-red-900", "aviso-competencia", <><strong>Conferir competência:</strong> o juízo da capa ({comp.juizo}) parece incompatível com o objeto: {comp.motivo}. Revise o ato antes de usar.</>) });
+  const ped = result?.avisoPedidoSemPeca;
+  if (ped?.length) itens.push({ id: "pedido-sem-peca", tom: "atencao", rotulo: `🧾 Pedido de parte sem peça (${ped.length})`, conteudo: caixa("border-amber-300 bg-amber-50 text-amber-900", "aviso-pedido-sem-peca", <><strong>Pedido ou manifestação sem localização:</strong> confirme nos autos se existe a peça.<ul className="list-disc pl-5 mt-1">{ped.map((t: string, i: number) => <li key={i}>“{t}”</li>)}</ul></>) });
+  const vaz = result?.avisoVazamento;
+  if (vaz?.length) itens.push({ id: "vazamento", tom: "atencao", rotulo: "🧹 Título interno na minuta", conteudo: caixa("border-amber-300 bg-amber-50 text-amber-900", "aviso-vazamento", <><strong>Título de etapa interna no texto:</strong> {vaz.join(", ")}. Remova antes de usar.</>) });
+  const cit = result?.avisoCitacao;
+  if (cit?.length) itens.push({ id: "citacao", tom: "atencao", rotulo: `📍 Arquivo/página inexistente (${cit.length})`, conteudo: caixa("border-amber-300 bg-amber-50 text-amber-900", "aviso-citacao", <><strong>Conferir citação:</strong> {cit.join("; ")} — o arquivo ou a página não existe nos carimbos dos autos enviados.</>) });
+
   if (itens.length === 0) return null;
   return (
     <div className="max-w-4xl mx-auto space-y-2" data-testid="avisos-da-minuta">
