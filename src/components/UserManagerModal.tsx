@@ -114,7 +114,7 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({ isOpen, onCl
   const totalBackupPages = Math.ceil(backups.length / backupsPerPage) || 1;
   const paginatedBackups = backups.slice((backupPage - 1) * backupsPerPage, backupPage * backupsPerPage);
 
-  const { userProfile, allowedUnits } = useAuth();
+  const { userProfile, allowedUnits, isSuperAdmin } = useAuth();
 
   const getInviteMessageText = (email: string) => {
     const currentUrl = linkDeAcesso();
@@ -941,11 +941,11 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({ isOpen, onCl
                                   return lista.map((k, i) => (
                                     <div key={k.id} className="flex items-center justify-between gap-3 px-3 py-1.5 text-[11px]">
                                       <span className="font-semibold text-slate-700 dark:text-slate-200 shrink-0">{k.label}{(u.activeKeyId ? k.id === u.activeKeyId : i === 0) ? " · ativa" : ""}</span>
-                                      <code className="font-mono text-slate-600 dark:text-slate-300 break-all select-all text-right">{k.key}</code>
+                                      <code className="font-mono text-slate-600 dark:text-slate-300 break-all select-all text-right">{isSuperAdmin ? k.key : getMaskedApiKey(k.key)}</code>
                                     </div>
                                   ));
                                 })()}
-                                <div className="px-3 py-1 text-[10px] text-slate-400">Chave completa: clique duas vezes para selecionar e copiar. Não compartilhe.</div>
+                                <div className="px-3 py-1 text-[10px] text-slate-400">{isSuperAdmin ? "Chave completa visível só para o Super Admin. Não compartilhe." : "A chave completa só é exibida ao Super Admin."}</div>
                               </div>
                             )}
                           </div>
