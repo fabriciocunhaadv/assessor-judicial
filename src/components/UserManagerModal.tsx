@@ -72,6 +72,7 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({ isOpen, onCl
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [pendingInvites, setPendingInvites] = useState<{email: string, tenantId: string, invitedAt: number}[]>([]);
   const [loading, setLoading] = useState(true);
+  const [keysOpenUid, setKeysOpenUid] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteFeedback, setInviteFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
@@ -915,11 +916,38 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({ isOpen, onCl
                         </div>
 
                         {(u.customApiKey && u.customApiKey.trim().length > 10) || (u.customApiKeys && u.customApiKeys.length > 0) ? (
-                          <div className="w-full mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex justify-end">
-                            <div className="flex items-center gap-1 text-[11px] text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded-md border border-indigo-200 dark:border-indigo-800">
+                          <div className="w-full mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex flex-col items-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setKeysOpenUid(keysOpenUid === u.uid ? null : u.uid)}
+                              aria-expanded={keysOpenUid === u.uid}
+                              className="flex items-center gap-1 text-[11px] text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded-md border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 transition"
+                              title="Clique para ver as chaves cadastradas"
+                            >
                               <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
                               <span>Chave Própria Configurada (Privada do Usuário)</span>
-                            </div>
+                              <span className="text-[10px]">{keysOpenUid === u.uid ? "▲" : "▼"}</span>
+                            </button>
+                            {keysOpenUid === u.uid && (
+                              <div className="w-full rounded-md border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
+                                {(() => {
+                                  const lista: { id: string; label: string; key: string }[] = (u.customApiKeys || [])
+                                    .filter((k: any) => k && k.key)
+                                    .map((k: any, i: number) => ({ id: k.id || `k${i}`, label: k.label || `Chave ${i + 1}`, key: k.key }));
+                                  if (u.customApiKey && u.customApiKey.trim().length > 10 && !lista.some((k) => k.key === u.customApiKey)) {
+                                    lista.unshift({ id: "key_primary", label: "Chave Principal", key: u.customApiKey });
+                                  }
+                                  if (!lista.length) return <div className="px-3 py-2 text-[11px] text-slate-500">Nenhuma chave visível para o administrador.</div>;
+                                  return lista.map((k, i) => (
+                                    <div key={k.id} className="flex items-center justify-between gap-3 px-3 py-1.5 text-[11px]">
+                                      <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{k.label}{(u.activeKeyId ? k.id === u.activeKeyId : i === 0) ? " · ativa" : ""}</span>
+                                      <code className="font-mono text-slate-500 dark:text-slate-400">{getMaskedApiKey(k.key)}</code>
+                                    </div>
+                                  ));
+                                })()}
+                                <div className="px-3 py-1 text-[10px] text-slate-400">A chave completa fica oculta por segurança; só o início e o fim aparecem.</div>
+                              </div>
+                            )}
                           </div>
                         ) : null}
 
