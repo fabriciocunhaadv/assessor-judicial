@@ -1,3 +1,4 @@
+import { detectApplicableLegalFrameworks, LegalFramework } from "../data/legalTaxonomy";
 // CONSULTA À LEGISLAÇÃO OFICIAL (planalto.gov.br): os artigos citados nos autos e na minuta são buscados no texto oficial e entram no prompt, para a IA conferir número e redação
 // em vez de citar de memória. Roda no servidor. Qualquer falha (site fora do ar, artigo não achado) é silenciosa: a minuta segue como antes, sem o bloco.
 export type TipoAto = "lei" | "lcp" | "del" | "dec" | "emc";
@@ -285,4 +286,46 @@ export async function diagnosticoLegislacao(): Promise<Array<{ id: string; ok: b
     const artigos = l ? l.filter((x) => /^Art\.?\s*\d/i.test(x)).length : 0;
     return { id: d.id, ok: !!l && artigos >= 2, linhas: l ? l.length : 0, artigos, ...(l ? (artigos < 2 ? { motivo: "abriu, mas a leitura não reconheceu os artigos" } : {}) : { motivo: motivoFalha.get(d.url) || "sem resposta" }) };
   }));
+}
+
+// ---------- Pesquisa Legislativa (tela "Legislação & Juros"): consulta automática, sem o usuário digitar número de lei ----------
+export interface ItemPesquisaLegal { diploma: string; artigo: string; texto: string; revogado: boolean; origem: "digitado" | "autos" | "regime"; url?: string }
+export interface ResultadoPesquisaLegal { itens: ItemPesquisaLegal[]; naoAchados: string[]; falhas: string[]; locais: string[]; regimes: LegalFramework[] }
+/** Texto sintético "arts. X do <diploma>" a partir do quadro de regimes, para a mesma leitura de citações valer para o catálogo. */
+const citacaoDoRegime = (l: LegalFramework["principaisLeis"][number]) => {
+  const arts = l.artigosChave.replace(/^altera\s+/i, "").trim();
+  if (!/\d/.test(arts)) return "";
+  return /\b(?:do|da|de)\s+\S/i.test(arts) ? arts : `${arts} do ${l.diploma}`;
+};
+/** Descobre o que consultar: citações digitadas, citações dos autos e os diplomas do regime identificado (juros, consumo, Fazenda etc.). Nunca lança erro. */
+export async function pesquisarLegislacao(consulta: string, contexto: string, opts: { maxArtigos?: number; timeoutMs?: number } = {}): Promise<ResultadoPesquisaLegal> {
+  const out: ResultadoPesquisaLegal = { itens: [], naoAchados: [], falhas: [], locais: [], regimes: [] };
+  try {
+    const max = opts.maxArtigos ?? 14;
+    const base = `${consulta}\n${contexto}`;
+    out.regimes = detectApplicableLegalFrameworks(base).slice(0, 2);
+    const fontes: Array<{ origem: ItemPesquisaLegal["origem"]; citacoes: Citacao[] }> = [];
+    const digit = extrairTudo(consulta, max); fontes.push({ origem: "digitado", citacoes: digit.citacoes });
+    const autos = extrairTudo(contexto, max); fontes.push({ origem: "autos", citacoes: autos.citacoes });
+    const reg: Citacao[] = [];
+    for (const fw of out.regimes) for (const l of fw.principaisLeis) { const t = citacaoDoRegime(l); if (t) for (const c of extrairTudo(t, 12).citacoes) reg.push(c); }
+    fontes.push({ origem: "regime", citacoes: reg });
+    out.locais = [...new Set([...digit.locais, ...autos.locais])].slice(0, 6);
+    const vistos = new Set<string>(), lista: Array<{ c: Citacao; origem: ItemPesquisaLegal["origem"] }> = [], novas = new Set<string>();
+    for (const f of fontes) for (const c of f.citacoes) {
+      const k = c.diploma.id + ":" + c.artigo; if (vistos.has(k)) continue;
+      if (c.diploma.ref && !novas.has(c.diploma.id)) { if (novas.size >= 4) continue; novas.add(c.diploma.id); }      // no máximo 4 leis fora da lista conhecida
+      if (lista.length >= max) break; vistos.add(k); lista.push({ c, origem: f.origem });
+    }
+    const baixados = new Map<string, string[] | null>();
+    await Promise.all([...new Set(lista.map((x) => x.c.diploma))].map(async (d) => baixados.set(d.id, await linhasDoDiploma(d, opts.timeoutMs ?? 8000))));
+    for (const { c, origem } of lista) {
+      const l = baixados.get(c.diploma.id);
+      if (!l) { const m = `${c.diploma.nome}`; if (!out.falhas.includes(m)) out.falhas.push(m); continue; }
+      const tr = trechoDoArtigo(l, c.artigo, 1600);
+      if (!tr) { out.naoAchados.push(`${c.diploma.nome}, art. ${c.artigo}`); continue; }
+      out.itens.push({ diploma: c.diploma.nome, artigo: c.artigo, texto: tr.texto, revogado: tr.revogado, origem, url: cache.get(c.diploma.id)?.url });
+    }
+  } catch (e) { console.warn("[Legislação] pesquisa ignorada:", (e as any)?.message || e); }
+  return out;
 }

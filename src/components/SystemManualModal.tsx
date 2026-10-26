@@ -440,7 +440,7 @@ export const SystemManualModal: React.FC<SystemManualModalProps> = ({
                   <ol className="list-decimal list-inside space-y-2 text-xs text-slate-600 dark:text-slate-400 ml-2">
                     <li>Clique no botão <strong>Legislação & Juros</strong> na barra superior ou acesse pelos cards do Checklist de Auditoria.</li>
                     <li>Navegue pelos 10 microssistemas cadastrados ou digite qualquer artigo, lei ou controvérsia na barra de pesquisa.</li>
-                    <li>Utilize o botão <strong>Pesquisar IA</strong> para obter ementas, artigos pertinentes e precedentes vinculantes em tempo real.</li>
+                    <li>Use o botão <strong>Consultar leis (automático)</strong>: com um processo aberto, o sistema lê os autos, identifica as leis e os artigos necessários (os citados no processo e os do regime jurídico identificado, como juros e correção) e mostra o texto oficial do Planalto, com aviso de artigo revogado ou não localizado. Não é preciso digitar o número da lei; se quiser, digite um tema, lei ou artigo para acrescentar à consulta.</li>
                     <li>Copie a cláusula pronta do dispositivo com um clique ou insira diretamente na minuta em elaboração.</li>
                   </ol>
                 </div>

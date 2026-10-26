@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   BookOpen,
   Search,
@@ -19,6 +19,22 @@ import {
 } from "lucide-react";
 import { LEGAL_FRAMEWORKS, LegalFramework } from "../data/legalTaxonomy";
 import { LegislationLookupResult } from "../types";
+
+const ORIGEM: Record<string, string> = { digitado: "citado na sua consulta", autos: "citado nos autos", regime: "dispositivo do regime jurídico identificado no processo" };
+/** Resposta de /api/lookup-legislation (consulta automática ao Planalto) no formato que a tela já mostra. */
+const montarResultado = (raw: any, consulta: string): LegislationLookupResult => {
+  const itens: any[] = raw?.itens || [], regime: LegalFramework | undefined = raw?.regimes?.[0];
+  const faltas: string[] = [...(raw?.naoAchados || []).map((x: string) => `${x}: não localizado no texto oficial`), ...(raw?.falhas || []).map((x: string) => `${x}: o Planalto não respondeu`)];
+  return {
+    query: consulta,
+    diplomaOficial: itens.length ? "Consulta automática ao Planalto (texto oficial)" : "Nenhum dispositivo conferido",
+    ementa: `${itens.length} dispositivo(s) lido(s) no texto oficial${raw?.regimes?.length ? `; regime identificado: ${raw.regimes.map((r: LegalFramework) => r.name).join(" e ")}` : ""}.${faltas.length ? " Atenção: " + faltas.join("; ") + "." : ""}${raw?.locais?.length ? " Leis municipais/estaduais citadas não são consultadas: " + raw.locais.join("; ") + "." : ""}`,
+    artigosRelevantes: itens.map((i) => ({ artigo: `${i.diploma}, art. ${i.artigo}${i.revogado ? " — REVOGADO" : ""}`, texto: String(i.texto || "").replace(/\s+/g, " ").trim(), comentarioAplicacao: `Origem: ${ORIGEM[i.origem] || i.origem}.${i.url ? " Fonte: " + i.url : ""}` })),
+    regimeConsectarios: regime ? { indiceCorrecao: regime.regimeCorrecao.indiceCorrecao, termoInicialCorrecao: regime.regimeCorrecao.termoInicialCorrecao, indiceJuros: regime.regimeCorrecao.indiceJuros, termoInicialJuros: regime.regimeCorrecao.termoInicialJuros, fundamentacao: regime.regimeCorrecao.baseLegalCompleta } : (undefined as any),
+    sumulasEPrecedentes: regime?.sumulasEPrecedentes || [],
+    dispositivoSugerido: regime?.clausulaDispositivoPadrao || "",
+  };
+};
 
 interface LegislativeLookupModalProps {
   isOpen: boolean;
@@ -67,7 +83,7 @@ export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
   }, [searchQuery]);
 
   const handleSearchApi = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim() && !processContext.trim()) return;
     setIsLoadingApi(true);
     setApiError(null);
     setActiveTab("pesquisa_ia");
@@ -92,14 +108,14 @@ export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
         throw new Error(errStr);
       }
 
-      let data: LegislationLookupResult;
+      let data: any;
       try {
         const responseText = await res.text();
         data = JSON.parse(responseText);
       } catch (e) {
         throw new Error("A conexão com o servidor foi interrompida ou a IA retornou um formato inválido.");
       }
-      setApiResult(data);
+      setApiResult(montarResultado(data, searchQuery.trim()));
     } catch (err: any) {
       console.error("Erro na pesquisa legislativa:", err);
       const errorMsg = err?.message || "Falha na conexão com o serviço normativo.";
@@ -111,6 +127,16 @@ export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
       setIsLoadingApi(false);
     }
   };
+
+  // ao abrir com um processo na tela, já consulta sozinho o que o processo pede (uma vez por abertura)
+  const consultouAuto = useRef(false);
+  useEffect(() => {
+    if (!isOpen) { consultouAuto.current = false; return; }
+    if (consultouAuto.current || !processContext.trim()) return;
+    consultouAuto.current = true;
+    void handleSearchApi();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, processContext]);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -161,13 +187,13 @@ export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearchApi()}
-                placeholder="Ex: Lei 14.905/2024, Fazenda Pública, Cheque prescrito, Dano moral atraso voo, Art. 406 CC..."
+                placeholder="Opcional: tema, lei ou artigo (ex.: juros de mora, art. 406 CC). Em branco, o sistema lê o processo."
                 className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-900 placeholder:text-slate-400"
               />
             </div>
             <button
               onClick={handleSearchApi}
-              disabled={isLoadingApi || !searchQuery.trim()}
+              disabled={isLoadingApi || (!searchQuery.trim() && !processContext.trim())}
               className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
             >
               {isLoadingApi ? (
@@ -175,7 +201,7 @@ export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
               ) : (
                 <Sparkles className="w-4 h-4 text-amber-300" />
               )}
-              Pesquisar IA
+              Consultar leis (automático)
             </button>
           </div>
 
@@ -412,7 +438,7 @@ export const LegislativeLookupModal: React.FC<LegislativeLookupModalProps> = ({
               {!isLoadingApi && !apiError && !apiResult && (
                 <div className="py-12 text-center text-slate-400 text-xs space-y-2">
                   <Search className="w-8 h-8 text-slate-300 mx-auto" />
-                  <p>Digite uma consulta na barra superior e clique em "Pesquisar IA".</p>
+                  <p>Clique em "Consultar leis (automático)": o sistema lê o processo, identifica as leis e artigos necessários e traz o texto oficial do Planalto. Sem processo aberto, digite um tema, lei ou artigo.</p>
                 </div>
               )}
 

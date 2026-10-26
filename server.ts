@@ -6,7 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { petitionRouter } from './server/petitionAdvogadoRoutes';
 import { matchApplicableBindingPrecedents, sanearPrecedentesRecebidos } from './src/utils/bindingPrecedents';
-import { consultarLegislacao, diagnosticoLegislacao, testarLegislacao } from './src/utils/legislacaoPlanalto';
+import { consultarLegislacao, diagnosticoLegislacao, testarLegislacao, pesquisarLegislacao } from './src/utils/legislacaoPlanalto';
 import { lerFicha } from './src/utils/fichaTolerante';
 import { getApplicableTaxonomySummary } from './src/data/legalTaxonomy';
 import { filterInnocuousCertificates, cleanJudicialPdfText } from './src/utils/judicialTextCleaner';
@@ -280,7 +280,17 @@ app.post("/api/test-api-key", async (req, res) => {
         });
     }
 });
-app.post("/api/lookup-legislation", (req, res) => res.json({ result: "Not implemented" }));
+// Pesquisa Legislativa: lê a consulta (opcional) e o processo, identifica as leis e artigos necessários (citados, ou do regime jurídico identificado) e traz o texto oficial do Planalto.
+// Só lê lei pública e não devolve dado do gabinete; como dispara acessos ao Planalto, tem limite de uso por endereço (20 por minuto).
+const usoPesquisaLegal = new Map<string, number[]>();
+app.post("/api/lookup-legislation", async (req, res) => {
+    const ip = String(req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim(), agora = Date.now();
+    const lista = (usoPesquisaLegal.get(ip) || []).filter((t) => agora - t < 60_000);
+    if (lista.length >= 20) return res.status(429).json({ error: "Muitas consultas; aguarde um minuto." });
+    lista.push(agora); usoPesquisaLegal.set(ip, lista); if (usoPesquisaLegal.size > 500) usoPesquisaLegal.clear();
+    try { res.json(await pesquisarLegislacao(String(req.body?.query || "").slice(0, 600), String(req.body?.context || "").slice(0, 120000))); }
+    catch (e: any) { res.status(500).json({ error: e?.message || "falha na pesquisa legislativa" }); }
+});
 app.post("/api/map-decision-documents", (req, res) => res.json({ result: "Not implemented" }));
 app.post("/api/scan-cabinet-theses", (req, res) => res.json({ matches: [] }));
 app.post("/api/extract-pdf-text", async (req, res) => {
